@@ -1,0 +1,17 @@
+{
+  "name": "kosmik-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "test": "node --test test/*.test.ts",
+    "seed:local": "wrangler d1 execute kosmik --local --file seed/library.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261107.1",
+    "@types/node": "^22.20.5",
+    "typescript": "~6.0.3",
+    "wrangler": "4.158.0"
+  }
+}

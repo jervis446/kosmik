@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Kosmik",
+    "slug": "kosmik",
+    "scheme": "kosmik",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "web": {
+      "output": "single",
+      "bundler": "metro"
+    },
+    "ios": {
+      "bundleIdentifier": "in.co.asanoha.kosmik",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "in.co.asanoha.kosmik"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

@@ -1,0 +1,275 @@
+/**
+ * Answers a question in four layers, using AI only when nothing cheaper can:
+ *   1. direct    — recognised questions answered from the libraries (no AI)
+ *   2. exact     — the same question asked before (normalised text, hashed)
+ *   3. semantic  — a question with the same meaning asked before (embeddings)
+ *   4. ai        — RAG: retrieve verses and meanings, Llama writes the answer, then it is cached
+ * Answers about one person's own life are never stored in the shared cache.
+ */
+import type { AiClient } from './ai.ts';
+import { matchIntent, type Intent } from './lib/intents.ts';
+import { planFor, type Plan } from './lib/limits.ts';
+import { contentProblems, HELPLINE, isCrisis } from './lib/safety.ts';
+import { detectLang, type Lang, LANGS, normalizeQuestion, sha256 } from './lib/text.ts';
+import { TAROT } from './lib/catalog.ts';
+import type { AnswerCache, History, Library, Usage, VectorSearch } from './store.ts';
+import type { AskResult, Block, Layer, Verse } from './types.ts';
+
+export const MAX_QUESTION = 500;
+/** Cosine similarity above which two questions count as the same question. */
+export const SAME_MEANING = 0.9;
+const VERSE_MIN = 0.45;
+const MEANING_MIN = 0.5;
+
+export type Identity = { kind: 'user'; id: string; premium: boolean } | { kind: 'guest'; subject: string };
+
+export type Deps = {
+  library: Library;
+  cache: AnswerCache;
+  vectors: VectorSearch;
+  usage: Usage;
+  history: History;
+  ai: AiClient;
+  now?: () => number;
+  random?: (n: number) => number;
+};
+
+export class BadQuestion extends Error {}
+
+const T = {
+  verseIntro: { en: 'Here is the verse:', hi: 'यह रहा श्लोक:', hinglish: 'Yeh raha shlok:' },
+  verseOfDay: { en: 'Your verse for today:', hi: 'आज का श्लोक:', hinglish: 'Aaj ka shlok:' },
+  verseMissing: {
+    en: 'The Bhagavad Gita has 18 chapters, and that verse number isn’t in our library. Try a reference like Gita 2.47.',
+    hi: 'भगवद गीता में 18 अध्याय हैं, और यह श्लोक संख्या हमारी लाइब्रेरी में नहीं है। जैसे गीता 2.47 लिखकर देखें।',
+    hinglish: 'Bhagavad Gita mein 18 adhyay hain, aur yeh shlok number humari library mein nahi hai. Gita 2.47 jaisa likh kar dekhiye.',
+  },
+  tarot: { en: 'Here are your cards. Read them as reflection, not a fixed fate.', hi: 'ये रहे आपके कार्ड। इन्हें मार्गदर्शन की तरह पढ़ें, तय भविष्य की तरह नहीं।', hinglish: 'Yeh rahe aapke cards. Inhe guidance ki tarah padhiye, fixed future ki tarah nahi.' },
+  meaning: { en: 'In Vedic tradition:', hi: 'वैदिक परंपरा में:', hinglish: 'Vedic parampara mein:' },
+  tarotMeaning: { en: 'In tarot:', hi: 'टैरो में:', hinglish: 'Tarot mein:' },
+  needsChart: {
+    en: 'That depends on your own birth chart. Personal kundli readings are coming soon: you’ll add your date, time and place of birth, and Kosmik will read your chart for you.',
+    hi: 'यह आपकी अपनी जन्म कुंडली पर निर्भर करता है। व्यक्तिगत कुंडली जल्द आ रही है: आप जन्म की तारीख, समय और स्थान जोड़ेंगे और Kosmik आपकी कुंडली पढ़ेगा।',
+    hinglish: 'Yeh aapki apni janam kundli par depend karta hai. Personal kundli jaldi aa rahi hai: aap janam ki date, time aur jagah add karenge aur Kosmik aapki kundli padhega.',
+  },
+  horoscope: {
+    en: 'Daily rashifal is coming soon, written fresh for each rashi every morning. Meanwhile, ask about your rashi or a planet placement.',
+    hi: 'दैनिक राशिफल जल्द आ रहा है, हर सुबह हर राशि के लिए नया। तब तक अपनी राशि या किसी ग्रह की स्थिति के बारे में पूछें।',
+    hinglish: 'Daily rashifal jaldi aa raha hai, har subah har rashi ke liye naya. Tab tak apni rashi ya kisi graha placement ke baare mein poochiye.',
+  },
+  crisis: {
+    en: 'I’m really sorry you’re feeling this way. You deserve support from a person right now. Please call Tele-MANAS, free and 24×7 in India, or reach someone you trust.',
+    hi: 'मुझे बहुत दुख है कि आप ऐसा महसूस कर रहे हैं। अभी किसी इंसान से बात करना ज़रूरी है। कृपया Tele-MANAS को कॉल करें, जो भारत में मुफ़्त और 24×7 है, या किसी भरोसेमंद व्यक्ति से बात करें।',
+    hinglish: 'Mujhe bahut dukh hai ki aap aisa feel kar rahe hain. Abhi kisi insaan se baat karna zaroori hai. Please Tele-MANAS ko call kariye, India mein free aur 24×7, ya kisi bharose ke insaan se baat kariye.',
+  },
+  limitStarter: {
+    en: 'You’ve used your 11 free questions this week. They refill on Monday, or go Premium for unlimited questions.',
+    hi: 'आपने इस हफ़्ते के 11 मुफ़्त सवाल पूरे कर लिए हैं। सोमवार को फिर मिलेंगे, या असीमित सवालों के लिए Premium लें।',
+    hinglish: 'Aapne is hafte ke 11 free sawaal use kar liye hain. Monday ko refill honge, ya unlimited ke liye Premium lijiye.',
+  },
+  limitGuest: {
+    en: 'You’ve used today’s 3 guest questions. Sign in with your Asanoha account for 11 free questions every week.',
+    hi: 'आपने आज के 3 मेहमान सवाल पूरे कर लिए हैं। हर हफ़्ते 11 मुफ़्त सवालों के लिए अपने Asanoha अकाउंट से साइन इन करें।',
+    hinglish: 'Aapne aaj ke 3 guest sawaal use kar liye hain. Har hafte 11 free sawaalon ke liye Asanoha account se sign in kijiye.',
+  },
+  busy: {
+    en: 'Kosmik is very busy right now and couldn’t write a new answer. This question wasn’t counted. Please try again in a little while, or ask about a verse, rashi, nakshatra or tarot card.',
+    hi: 'Kosmik अभी बहुत व्यस्त है और नया जवाब नहीं लिख पाया। यह सवाल गिना नहीं गया। थोड़ी देर बाद फिर कोशिश करें, या किसी श्लोक, राशि, नक्षत्र या टैरो कार्ड के बारे में पूछें।',
+    hinglish: 'Kosmik abhi bahut busy hai aur naya jawaab nahi likh paaya. Yeh sawaal count nahi hua. Thodi der baad phir try kijiye, ya kisi shlok, rashi, nakshatra ya tarot card ke baare mein poochhiye.',
+  },
+  unsure: {
+    en: 'I couldn’t put together a reliable answer to that one. Try asking it a little differently.',
+    hi: 'मैं इसका भरोसेमंद जवाब नहीं बना पाया। थोड़ा अलग तरह से पूछकर देखें।',
+    hinglish: 'Main iska reliable jawaab nahi bana paaya. Thoda alag tarah se poochh kar dekhiye.',
+  },
+} satisfies Record<string, Record<Lang, string>>;
+
+/** About the asker's own chart or life: answered, but never stored in the shared cache. */
+const PERSONAL_CONTEXT =
+  /\b(my|mera|meri|mere|mujhe|mujhko|hamara|hamari)\b.{0,40}\b(kundli|kundali|chart|horoscope|lagna|ascendant|dasha|mahadasha|nakshatra|rashi|marriage|shaadi|shadi|husband|wife|partner|boyfriend|girlfriend|ex|career|job|naukri|exam|result|health|baby|child|family|future)\b|(मेरा|मेरी|मेरे|मुझे).{0,40}(कुंडली|राशि|शादी|विवाह|नौकरी|करियर|भविष्य|परिवार)/i;
+/** Anything that looks like birth details or contact information. */
+const PRIVATE_DATA = /\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b|\b\d{1,2}:\d{2}\b|\b(19|20)\d{2}\b|@|\b\d{10}\b|\+91/;
+
+export function cacheable(question: string, personal: boolean): boolean {
+  return !personal && !PERSONAL_CONTEXT.test(question) && !PRIVATE_DATA.test(question);
+}
+
+const verseBlock = (v: Verse): Block => ({ type: 'verse', ref: v.ref, sanskrit: v.sanskrit, iast: v.iast, translation: v.translation, translator: v.translator });
+
+export async function ask(
+  deps: Deps,
+  input: { question: string; lang?: string; identity: Identity; conversationId?: string | null },
+): Promise<AskResult> {
+  const now = deps.now?.() ?? Date.now();
+  const question = input.question.replace(/\s+/g, ' ').trim();
+  if (question.length < 2) throw new BadQuestion('Ask a question to get started.');
+  if (question.length > MAX_QUESTION) throw new BadQuestion(`Questions can be up to ${MAX_QUESTION} characters.`);
+  const lang: Lang = LANGS.includes(input.lang as Lang) ? (input.lang as Lang) : detectLang(question);
+  const identity = input.identity;
+  const plan = planFor(identity.kind === 'guest' ? 'guest' : identity.premium ? 'premium' : 'starter', now);
+  const subject = identity.kind === 'guest' ? identity.subject : `user:${identity.id}`;
+
+  const finish = async (layer: Layer, blocks: Block[], opts: { count: boolean; cacheId?: number | null; used: number }): Promise<AskResult> => {
+    if (opts.count) await deps.usage.increment(subject, plan.period);
+    const used = opts.used + (opts.count ? 1 : 0);
+    let ids = { conversationId: null as string | null, messageId: null as string | null };
+    if (identity.kind === 'user' && layer !== 'limit') {
+      ids = await deps.history.record({ userId: identity.id, conversationId: input.conversationId, question, blocks, layer, cacheId: opts.cacheId ?? null, now });
+    }
+    return { ...ids, layer, lang, blocks, remaining: plan.limit === null ? null : Math.max(0, plan.limit - used) };
+  };
+
+  // Someone in distress gets a person to talk to, before anything else and free of charge.
+  if (isCrisis(question)) {
+    return finish('safety', [
+      { type: 'text', text: T.crisis[lang] },
+      { type: 'notice', kind: 'helpline', text: `${HELPLINE.name}: ${HELPLINE.number}` },
+    ], { count: false, used: plan.limit === null ? 0 : await deps.usage.count(subject, plan.period) });
+  }
+
+  const used = plan.limit === null ? 0 : await deps.usage.count(subject, plan.period);
+  if (plan.limit !== null && used >= plan.limit) {
+    const text = plan.kind === 'guest' ? T.limitGuest[lang] : T.limitStarter[lang];
+    return finish('limit', [{ type: 'notice', kind: plan.kind === 'guest' ? 'sign-in' : 'limit', text }], { count: false, used });
+  }
+
+  // 1. Direct answers from the libraries.
+  const intent = matchIntent(question);
+  if (intent) {
+    const direct = await answerDirect(deps, intent, lang, now);
+    if (direct) return finish('direct', direct.blocks, { count: direct.counts, used });
+  }
+
+  // 2. The same question, word for word (after normalising).
+  const normalized = normalizeQuestion(question);
+  const hash = await sha256(normalized);
+  const exact = await deps.cache.exact(lang, hash);
+  if (exact) {
+    await deps.cache.hit(exact.id);
+    return finish('exact', exact.blocks, { count: true, cacheId: exact.id, used });
+  }
+
+  // 3 and 4 need Workers AI. If it is down or out of quota, say so politely and don't count it;
+  // layers 1 and 2 above keep working.
+  // Only the AI calls are guarded, so a database error still surfaces as an error.
+  let outcome: Outcome;
+  try {
+    outcome = await semanticOrGenerated();
+  } catch (err) {
+    console.error('ai layer failed', err instanceof Error ? err.message : err);
+    outcome = { layer: 'ai', blocks: [{ type: 'notice', kind: 'busy', text: T.busy[lang] }], count: false, cacheId: null };
+  }
+  if (outcome.cache) {
+    const { blocks, embedding } = outcome.cache;
+    outcome.cacheId = await deps.cache.put({ lang, question: normalized, hash, blocks, sources: outcome.cache.sources, model: deps.ai.model, embedding });
+    await deps.vectors.add(`cache:${lang}`, String(outcome.cacheId), embedding);
+  }
+  if (outcome.layer === 'semantic' && outcome.cacheId !== null) await deps.cache.hit(outcome.cacheId);
+  return finish(outcome.layer, outcome.blocks, { count: outcome.count, cacheId: outcome.cacheId, used });
+
+  async function semanticOrGenerated(): Promise<Outcome> {
+    // 3. A question with the same meaning.
+    const embedding = await deps.ai.embed(question);
+    const [similar] = await deps.vectors.search(`cache:${lang}`, embedding, 1, SAME_MEANING);
+    if (similar) {
+      const entry = await deps.cache.byId(Number(similar.id));
+      if (entry) return { layer: 'semantic', blocks: entry.blocks, count: true, cacheId: entry.id };
+    }
+
+    // 4. Retrieve sources and ask the model.
+    const [verseHits, meaningHits] = await Promise.all([
+      deps.vectors.search('verses', embedding, 5, VERSE_MIN),
+      deps.vectors.search('meanings', embedding, 4, MEANING_MIN),
+    ]);
+    const [verses, meanings] = await Promise.all([deps.library.verses(verseHits.map((h) => h.id)), deps.library.meanings(meaningHits.map((h) => h.id))]);
+
+    let grounded = await deps.ai.answer(question, lang, { verses, meanings });
+    if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses, meanings }, true);
+    if (contentProblems(grounded.answer).length) {
+      return { layer: 'ai', blocks: [{ type: 'text', text: T.unsure[lang] }], count: false, cacheId: null };
+    }
+
+    // Keep only citations the model was actually given.
+    const verseRefs = new Set(verses.map((v) => v.ref));
+    const meaningIds = new Set(meanings.map((m) => `${m.kind}/${m.key}`));
+    const citedVerses = verses.filter((v) => grounded.cited.includes(v.ref)).slice(0, 3);
+    const citedMeanings = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 2);
+    const sources = grounded.cited.filter((c) => verseRefs.has(c) || meaningIds.has(c));
+
+    const blocks: Block[] = [
+      { type: 'text', text: grounded.answer },
+      ...citedVerses.map(verseBlock),
+      ...citedMeanings.map((m): Block => ({ type: 'meaning', ...m })),
+    ];
+    if (grounded.personal) blocks.push({ type: 'notice', kind: 'needs-chart', text: T.needsChart[lang] });
+
+    return { layer: 'ai', blocks, count: true, cacheId: null, cache: cacheable(question, grounded.personal) ? { blocks, sources, embedding } : undefined };
+  }
+}
+
+type Outcome = {
+  layer: Layer;
+  blocks: Block[];
+  count: boolean;
+  cacheId: number | null;
+  /** Set when a fresh answer should be stored in the shared cache. */
+  cache?: { blocks: Block[]; sources: string[]; embedding: number[] };
+};
+
+async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number): Promise<{ blocks: Block[]; counts: boolean } | null> {
+  switch (intent.type) {
+    case 'verse': {
+      const v = await deps.library.verse(intent.chapter, intent.verse);
+      return v
+        ? { blocks: [{ type: 'text', text: T.verseIntro[lang] }, verseBlock(v)], counts: true }
+        : { blocks: [{ type: 'text', text: T.verseMissing[lang] }], counts: false };
+    }
+    case 'verse-of-the-day': {
+      const v = await verseOfTheDay(deps.library, now);
+      return v ? { blocks: [{ type: 'text', text: T.verseOfDay[lang] }, verseBlock(v)], counts: true } : null;
+    }
+    case 'tarot-draw': {
+      const blocks = await drawTarot(deps, intent.count);
+      return { blocks: [{ type: 'text', text: T.tarot[lang] }, blocks], counts: true };
+    }
+    case 'meaning': {
+      const m = await deps.library.meaning(intent.kind, intent.key);
+      if (!m) return null;
+      const intro = intent.kind.startsWith('tarot') ? T.tarotMeaning[lang] : T.meaning[lang];
+      return { blocks: [{ type: 'text', text: intro }, { type: 'meaning', ...m }], counts: true };
+    }
+    case 'needs-chart':
+      return { blocks: [{ type: 'notice', kind: 'needs-chart', text: T.needsChart[lang] }], counts: false };
+    case 'daily-horoscope':
+      return { blocks: [{ type: 'notice', kind: 'coming-soon', text: T.horoscope[lang] }], counts: false };
+  }
+}
+
+/** The same verse for everyone on a given India-time day. */
+export async function verseOfTheDay(library: Library, now: number): Promise<Verse | null> {
+  const day = new Date(now + 330 * 60 * 1000).toISOString().slice(0, 10);
+  const count = await library.verseCount();
+  if (!count) return null;
+  const index = parseInt((await sha256(`verse-of-the-day:${day}`)).slice(0, 8), 16) % count;
+  return library.verseAt(index);
+}
+
+const secureRandom = (n: number) => {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return buf[0] % n;
+};
+
+async function drawTarot(deps: Deps, count: 1 | 3): Promise<Block> {
+  const random = deps.random ?? secureRandom;
+  const deck = [...TAROT];
+  const positions = count === 1 ? ['Your card'] : ['Past', 'Present', 'Future'];
+  const cards = [];
+  for (const position of positions) {
+    const card = deck.splice(random(deck.length), 1)[0];
+    const reversed = random(3) === 0;
+    const meaning = await deps.library.meaning(reversed ? 'tarot-reversed' : 'tarot-upright', card.key);
+    cards.push({ key: card.key, name: card.name, reversed, position, meaning: meaning?.body ?? '' });
+  }
+  return { type: 'tarot', cards };
+}

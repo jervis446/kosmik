@@ -1,0 +1,22 @@
+node_modules/
+.expo/
+dist/
+web-build/
+.wrangler/
+*.log
+.DS_Store
+
+# secrets and local config
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+
+# test output
+test-results/
+playwright-report/
+
+# generated from data/ by data/scripts/make-seed.ts
+api/seed/
+data/raw/
