@@ -139,7 +139,7 @@ footer { color: var(--muted); font-size: 13px; padding-block: 0 40px; }
     <div class="toast" id="toast" role="status"></div>
   </section>
 </main>
-<footer class="wrap">Kosmik by Asanoha. Operated by Shri Krishna Enterprises. Test plan for build f4af8bb, 13 November 2026.</footer>
+<footer class="wrap">Kosmik by Asanoha. Operated by Shri Krishna Enterprises. Test plan for build 7211586, 13 November 2026.</footer>
 
 <script>
 const SITE = "https://kosmik.asanoha.co.in";
@@ -152,7 +152,7 @@ const AREAS = [
     ["L4", "Light and dark, phone fit", ["Tap ☾/☀ at the top. Scroll and drag sideways."], "The theme switches; nothing is cut off; the page never scrolls sideways."],
   ]},
   { name: "Chat and history", intro: "Signed in, on the chat page.", tests: [
-    ["C1", "Empty chat", ["Look at the new-chat screen."], "“Namaste. What’s on your mind?” and four short hints (Bhagavad Gita, Tarot, Your kundli, Palm reading). No topic buttons."],
+    ["C1", "Empty chat", ["Look at the new-chat screen."], "“Namaste. What’s on your mind?” and five short hints (Bhagavad Gita, Tarot, Your kundli, Palm reading, Ayurveda). No topic buttons."],
     ["C2", "Menu = chat history", ["Tap ☰."], "New chat, your chats (Today / Previous 7 days / Older), and your email at the bottom. No Explore section."],
     ["C3", "Reopen and delete", ["Tap a chat; then tap ✕ next to one and Delete."], "The chat opens as you left it; a deleted chat disappears and stays gone after reload."],
   ]},
@@ -178,11 +178,20 @@ const AREAS = [
     ["R4", "Unclear photos", ["Replace a photo with something that isn’t a palm, then ask «read my palm»."], "A note that the lines couldn’t be seen, not counted, and the photo popup opens to replace them."],
     ["R5", "Nothing scary", ["Read the palm answers."], "No lifespan, health, marriage timing, children or money claims; no remedies."],
   ]},
+  { name: "Ayurveda", intro: "Herbs from the Amidha Ayurveda Herb Database (CC BY 4.0) and your prakriti from a 12-question quiz.", tests: [
+    ["Y1", "Herb card", ["Ask «What is Ashwagandha?», then «haldi»."], "A ❀ card with the botanical name, a short traditional-use description, rasa, guna, virya, vipaka, which doshas it balances, a “talk to a doctor or vaidya” line and the Amidha source link. Labelled “From the library”."],
+    ["Y2", "Herb list", ["Ask «Which herbs balance Pitta?», then «cooling herbs». Tap a herb in the list."], "A list of 12 herbs with “12 of N herbs”, no AI. Tapping one asks about it and shows its card."],
+    ["Y3", "Dosha quiz popup", ["Ask «What is my dosha?» (first time)."], "A note that the quiz is needed (not counted) and a popup “Your dosha quiz” with 12 questions."],
+    ["Y4", "Your prakriti", ["Answer all 12 and tap Save my prakriti."], "The popup closes and the question is asked again: “Your prakriti: …” with Vata, Pitta and Kapha bars and a daily-care card for your leading dosha."],
+    ["Y5", "Advice for your prakriti", ["Ask «What should I eat for my prakriti?» and «daily routine for my dosha»."], "Answers written for your prakriti, with your prakriti card and sources. No doses, no cures, no “stop your medicine”."],
+    ["Y6", "Health questions stay safe", ["Ask «which herb cures diabetes?», then «Can tulsi help with cold and cough?»."], "A note that Kosmik can’t say whether a herb helps a health problem or how much to take, pointing you to a doctor or vaidya. For tulsi, its herb card too. Not counted."],
+    ["Y7", "Does the result feel right?", ["Compare your prakriti with what you know about yourself, or a vaidya’s reading if you’ve had one."], "Note in the box whether it matches and which questions felt confusing."],
+  ]},
   { name: "Account", intro: "Menu → your email.", tests: [
     ["A1", "Plan", ["Look at the plan card."], "Starter with “N of 11 used this week”, Get Premium, and ₹51/₹101 one-time UPI."],
-    ["A2", "My details", ["Scroll to My details."], "Your birth date, time and place with Edit, and both palm photos with Replace / Camera / Delete."],
+    ["A2", "My details", ["Scroll to My details."], "Your birth date, time and place with Edit, both palm photos with Replace / Camera / Delete, and your prakriti with bars and Retake."],
     ["A3", "Edit", ["Tap Edit, change the time, Save."], "The new time shows. Chart questions use it."],
-    ["A4", "Delete all", ["Tap “Delete all my details”, then “Yes, delete”."], "Birth details and both photos are gone; the next chart or palm question asks again."],
+    ["A4", "Delete all", ["Tap “Delete all my details”, then “Yes, delete”."], "Birth details, both photos and your prakriti are gone; the next chart, palm or dosha question asks again."],
     ["A5", "Sign out", ["Tap Sign out."], "You land on the landing page; Open Kosmik asks you to sign in again."],
   ]},
   { name: "Premium", intro: "₹51 for 7 days or ₹101 for 30 days, one-time UPI through Noha Pay.", flag: "Needs setup: Noha Pay keys", tests: [
@@ -191,7 +200,7 @@ const AREAS = [
   ]},
   { name: "Legal", intro: "Footer of the landing page, or Account → About.", tests: [
     ["T1", "Privacy", ["Open Privacy."], "Shri Krishna Enterprises, GSTIN, Etawah address, pankaj@asanoha.co.in, +91 94118 66742; saved birth details and palm photos with consent, deletable; OpenStreetMap for the place name; Gemini for AI answers."],
-    ["T2", "Terms", ["Open Terms."], "Premium as a one-time UPI pass, Tele-MANAS 14416, the same contact details."],
+    ["T2", "Terms", ["Open Terms."], "Premium as a one-time UPI pass, Tele-MANAS 14416, the same contact details, the Amidha herb database credit (CC BY 4.0) and “Ayurveda is traditional knowledge, not medical advice”."],
   ]},
 ];
 
