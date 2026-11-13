@@ -29,5 +29,9 @@
 
   // SUPABASE_URL, SUPABASE_ANON_KEY (Asanoha sign-in; public values), GUEST_SALT and GEMINI_API_KEY (secrets):
   // local development reads them from .dev.vars; production: npx wrangler secret put <NAME>.
-  "vars": { "CHAT_MODEL": "gemini-3.5-flash" }
+  "vars": {
+    "CHAT_MODEL": "gemini-3.5-flash",
+    // The web app is also served from GitHub Pages at this address and calls the API from there.
+    "ALLOWED_ORIGINS": "https://kosmik.asanoha.co.in"
+  }
 }

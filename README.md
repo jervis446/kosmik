@@ -174,7 +174,11 @@ The database exists and its id is in `api/wrangler.jsonc`. To update:
    cd api && node scripts/embed-web.ts && npx wrangler deploy -c wrangler.embedded.json
    ```
    The current production deploy was made this way.
-5. Domain: add `kosmik.asanoha.co.in` as a Custom Domain on the Worker (Workers & Pages → kosmik → Settings → Domains & Routes). asanoha.co.in's DNS must be on this Cloudflare account; it isn't yet.
+5. Domain: kosmik.asanoha.co.in is served like wearday.asanoha.co.in, from GitHub Pages (branch `gh-pages`), while the API stays on the Worker (its `ALLOWED_ORIGINS` var lets the site call it). To publish the site:
+   ```bash
+   cd app && set -a && . ./.env.production && set +a && EXPO_PUBLIC_API_URL=https://kosmik.prime-adarsh108.workers.dev npm run build:web && npm run build:pages
+   ```
+   then push the contents of `app/pages` to the `gh-pages` branch. DNS: a CNAME record `kosmik` → `jervis446.github.io` at the DNS provider for asanoha.co.in; GitHub → Settings → Pages: branch `gh-pages`, custom domain `kosmik.asanoha.co.in`, Enforce HTTPS.
 
 **Optional, for scale:** the semantic cache and library search run in memory inside each Worker isolate (fine up to a few thousand cached answers). For more, create a Vectorize index (`npx wrangler vectorize create kosmik --dimensions=768 --metric=cosine`), uncomment the `vectorize` block in `wrangler.jsonc`, and upload the library vectors. The code switches automatically when the `VECTORS` binding exists.
 

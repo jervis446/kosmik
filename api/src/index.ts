@@ -40,7 +40,7 @@ function corsHeaders(req: Request, env: Env): Record<string, string> {
   if (!origin || !allowed.includes(origin)) return {};
   return {
     'access-control-allow-origin': origin,
-    'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'access-control-allow-headers': 'authorization, content-type',
     'access-control-max-age': '600',
     vary: 'Origin',
@@ -237,7 +237,10 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
   if (path === '/api/pay' && req.method === 'POST') {
     const userId = await requireUser(req, env);
     const body = await readJson(req);
-    return json(req, env, await startPayment(env, env.DB, userId, body.plan, url.origin, now));
+    // Send people back to the site they paid from (the app may be served from another origin).
+    const origin = req.headers.get('origin');
+    const site = origin && Object.keys(corsHeaders(req, env)).length ? origin : url.origin;
+    return json(req, env, await startPayment(env, env.DB, userId, body.plan, site, now));
   }
 
   const payMatch = /^\/api\/pay\/(KM-[A-Z0-9]{12})$/.exec(path);
