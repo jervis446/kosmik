@@ -16,8 +16,12 @@ import type { AnswerCache, History, Library, Usage, VectorSearch } from './store
 import type { AskResult, Block, Layer, Verse } from './types.ts';
 
 export const MAX_QUESTION = 500;
-/** Cosine similarity above which two questions count as the same question. */
-export const SAME_MEANING = 0.9;
+/**
+ * Cosine similarity (gemini-embedding-2, 768 dims) above which two questions count as the same.
+ * Measured: paraphrases 0.92–0.98; different questions up to 0.91 ("karma" vs "dharma" in the
+ * Gita). Set above that, so a near miss costs one AI call rather than giving a wrong answer.
+ */
+export const SAME_MEANING = 0.93;
 const VERSE_MIN = 0.45;
 const MEANING_MIN = 0.5;
 
@@ -149,7 +153,7 @@ export async function ask(
     return finish('exact', exact.blocks, { count: true, cacheId: exact.id, used });
   }
 
-  // 3 and 4 need Workers AI. If it is down or out of quota, say so politely and don't count it;
+  // 3 and 4 need the AI model. If it is down or out of quota, say so politely and don't count it;
   // layers 1 and 2 above keep working.
   // Only the AI calls are guarded, so a database error still surfaces as an error.
   let outcome: Outcome;

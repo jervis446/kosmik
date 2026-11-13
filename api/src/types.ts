@@ -37,7 +37,6 @@ export type CacheEntry = { id: number; blocks: Block[] };
 
 export interface Env {
   DB: D1Database;
-  AI: Ai;
   ASSETS?: Fetcher;
   /** Vectorize index for production; without it vectors are searched in memory from D1. */
   VECTORS?: VectorizeIndex;
@@ -47,9 +46,14 @@ export interface Env {
   SUPABASE_ANON_KEY: string;
   /** Secret used to hash guest IP addresses for the daily guest allowance. */
   GUEST_SALT?: string;
+  /** Google Gemini API key (secret). */
+  GEMINI_API_KEY?: string;
+  /** Gemini chat model; defaults to DEFAULT_CHAT_MODEL in ai.ts. */
   CHAT_MODEL?: string;
-  /** Local development only: see workersAiRun in ai.ts. Never set in production. */
-  AI_RELAY_URL?: string;
+  /** Gemini reasoning effort for answers; defaults to 'none' (fastest). */
+  REASONING_EFFORT?: string;
+  /** Local development only: data/scripts/ai-relay.ts. Never set in production. */
+  GEMINI_BASE_URL?: string;
   /** Comma-separated origins allowed to call the API from another origin (local development). */
   ALLOWED_ORIGINS?: string;
 }

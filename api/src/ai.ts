@@ -1,9 +1,11 @@
-/** Workers AI: question embeddings and answers grounded in retrieved sources (RAG). */
+/** Gemini: question embeddings and answers grounded in retrieved sources (RAG). */
 import type { Lang } from './lib/text.ts';
 import type { Meaning, Verse } from './types.ts';
 
-export const EMBED_MODEL = '@cf/baai/bge-m3';
-export const DEFAULT_CHAT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+/** Multilingual, so Hindi and Hinglish questions find English passages. The library vectors must use the same model and size. */
+export const EMBED_MODEL = 'gemini-embedding-2';
+export const EMBED_DIMS = 768;
+export const DEFAULT_CHAT_MODEL = 'gemini-3.5-flash';
 
 export type Grounded = { answer: string; cited: string[]; personal: boolean; offTopic: boolean };
 
@@ -69,47 +71,73 @@ export function parseGrounded(output: unknown): Grounded | null {
   };
 }
 
-type Run = (model: string, input: unknown) => Promise<unknown>;
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
+const TIMEOUT_MS = 20_000;
 
-/**
- * Runs models through the Workers AI binding. For local development behind a network proxy
- * (where the local runtime can't reach Cloudflare), AI_RELAY_URL points at
- * data/scripts/ai-relay.ts, which forwards the same calls to the Workers AI REST API.
- */
-export function workersAiRun(ai: Ai, relayUrl?: string): Run {
-  if (!relayUrl) return (model, input) => ai.run(model as Parameters<Ai['run']>[0], input as never);
-  return async (model, input) => {
-    const res = await fetch(`${relayUrl.replace(/\/+$/, '')}/run/${model}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
-    if (!res.ok) throw new Error(`AI relay failed (${res.status})`);
-    return res.json();
-  };
-}
+export type GeminiOptions = {
+  apiKey?: string;
+  model?: string;
+  /** Local development only: see data/scripts/ai-relay.ts. */
+  baseUrl?: string;
+  /** Gemini "thinking". 'none' is fastest and enough for short grounded answers. */
+  reasoningEffort?: string;
+};
 
-export class WorkersAi implements AiClient {
+/** Google Gemini through its OpenAI-compatible endpoint. */
+export class GeminiAi implements AiClient {
   readonly model: string;
-  constructor(private run: Run, model?: string) {
-    this.model = model || DEFAULT_CHAT_MODEL;
+  private readonly apiKey?: string;
+  private readonly baseUrl: string;
+  private readonly reasoningEffort: string;
+
+  constructor(opts: GeminiOptions) {
+    this.model = opts.model || DEFAULT_CHAT_MODEL;
+    this.apiKey = opts.apiKey;
+    this.baseUrl = (opts.baseUrl || GEMINI_URL).replace(/\/+$/, '');
+    this.reasoningEffort = opts.reasoningEffort || 'none';
   }
+
+  private async post(path: string, body: unknown): Promise<unknown> {
+    if (!this.apiKey) throw new Error('GEMINI_API_KEY is not set');
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      // Gemini error bodies never echo the key, but keep the log short anyway.
+      const detail = (await res.text().catch(() => '')).slice(0, 200);
+      throw new Error(`Gemini ${path} failed (${res.status}): ${detail}`);
+    }
+    return res.json();
+  }
+
   async embed(text: string): Promise<number[]> {
-    const out = (await this.run(EMBED_MODEL, { text: [text] })) as { data?: number[][] };
-    const v = out.data?.[0];
-    if (!v?.length) throw new Error('Embedding failed');
+    const out = (await this.post('/embeddings', { model: EMBED_MODEL, input: [text], dimensions: EMBED_DIMS })) as {
+      data?: { embedding?: number[] }[];
+    };
+    const v = out.data?.[0]?.embedding;
+    if (v?.length !== EMBED_DIMS) throw new Error('Embedding failed');
     return v;
   }
+
   async answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter = false): Promise<Grounded> {
     const user = `${LANGUAGE[lang]}\n\nSOURCES:\n${buildSources(sources.verses, sources.meanings)}\n\nQUESTION: ${question}${
       stricter ? '\n\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''
     }`;
-    const out = await this.run(this.model, {
+    const out = (await this.post('/chat/completions', {
+      model: this.model,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: user },
       ],
-      response_format: { type: 'json_schema', json_schema: SCHEMA },
-      max_tokens: 600,
+      response_format: { type: 'json_schema', json_schema: { name: 'grounded_answer', schema: SCHEMA } },
+      reasoning_effort: this.reasoningEffort,
+      max_tokens: 800,
       temperature: 0.4,
-    });
-    const parsed = parseGrounded(out);
+    })) as { choices?: { message?: { content?: string } }[] };
+    const parsed = parseGrounded(out.choices?.[0]?.message?.content);
     if (!parsed) throw new Error('The model returned no usable answer');
     return parsed;
   }

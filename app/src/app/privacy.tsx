@@ -18,7 +18,7 @@ export default function Privacy() {
         {
           h: "How answers are made",
           p: [
-            "Many answers come straight from Kosmik’s library of Gita verses and written meanings. Others are written by an AI model running on Cloudflare, using only that library as its source.",
+            "Many answers come straight from Kosmik’s library of Gita verses and written meanings. Others are written by an AI model (Google Gemini), using only that library as its source. For those, your question is sent to Google to write the answer; Google doesn’t use it to train its models.",
             "General questions (not about you personally) and their answers may be kept and shown again to anyone who asks the same thing, without any link to you. Questions that include personal details, such as your birth date or your own chart, are never reused this way.",
           ],
         },
@@ -31,7 +31,7 @@ export default function Privacy() {
         {
           h: "Where data lives",
           p: [
-            "Kosmik runs on Cloudflare. Accounts are kept by Supabase. Both process data on our behalf under their own security and privacy terms.",
+            "Kosmik runs on Cloudflare. Accounts are kept by Supabase. AI answers are written by Google Gemini. Each processes data on our behalf under its own security and privacy terms.",
           ],
         },
         {

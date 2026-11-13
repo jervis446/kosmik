@@ -222,7 +222,7 @@ test('answers follow the question language, and caches are kept per language', a
   assert.equal(hinglish.layer, 'ai', 'a cached English answer is not served to a Hinglish question');
 });
 
-test('when Workers AI is down, library and cached answers still work and new questions are not counted', async () => {
+test('when the AI model is down, library and cached answers still work and new questions are not counted', async () => {
   const f = new Fakes();
   const q = 'What does the Gita say about worry over results of work?';
   await ask(f.deps(), { question: q, identity: user });

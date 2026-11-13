@@ -1,31 +1,34 @@
 /**
- * Local development only. Forwards Workers AI calls from `wrangler dev` to the Workers AI REST
- * API, for machines where the local runtime can't reach Cloudflare directly (for example
- * behind an HTTP proxy). Listens on 127.0.0.1 only.
+ * Local development only. Forwards Gemini calls from `wrangler dev` to the Gemini API, for
+ * machines where the local Worker runtime can't reach the internet directly (for example behind
+ * an HTTP proxy, which Node honours with NODE_USE_ENV_PROXY=1 and the runtime doesn't).
+ * Listens on 127.0.0.1 only and passes the Worker's Authorization header through.
  *
- * Usage: NODE_USE_ENV_PROXY=1 CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... node data/scripts/ai-relay.ts [port]
- * Then set AI_RELAY_URL=http://127.0.0.1:<port> in api/.dev.vars.
+ * Usage: NODE_USE_ENV_PROXY=1 node data/scripts/ai-relay.ts [port]
+ * Then set GEMINI_BASE_URL=http://127.0.0.1:<port> in api/.dev.vars.
  */
 import { createServer } from 'node:http';
 
+import { GEMINI_URL } from './gemini.ts';
+
 const port = Number(process.argv[2] ?? 8788);
-const account = process.env.CLOUDFLARE_ACCOUNT_ID;
-const token = process.env.CLOUDFLARE_API_TOKEN;
-if (!account || !token) throw new Error('Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN');
+const PATHS = new Set(['/chat/completions', '/embeddings']);
 
 createServer(async (req, res) => {
-  const model = /^\/run\/(@cf\/[\w.@/-]+)$/.exec(req.url ?? '')?.[1];
-  if (req.method !== 'POST' || !model) {
+  if (req.method !== 'POST' || !PATHS.has(req.url ?? '')) {
     res.writeHead(404).end();
     return;
   }
-  const chunks: Buffer[] = [];
-  for await (const c of req) chunks.push(c as Buffer);
-  const upstream = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${model}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-    body: Buffer.concat(chunks),
-  });
-  const body = (await upstream.json().catch(() => ({}))) as { success?: boolean; result?: unknown };
-  res.writeHead(upstream.ok && body.success ? 200 : 502, { 'content-type': 'application/json' }).end(JSON.stringify(body.result ?? body));
-}).listen(port, '127.0.0.1', () => console.log(`AI relay on http://127.0.0.1:${port}`));
+  try {
+    const chunks: Buffer[] = [];
+    for await (const c of req) chunks.push(c as Buffer);
+    const upstream = await fetch(`${GEMINI_URL}${req.url}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: req.headers.authorization ?? '' },
+      body: Buffer.concat(chunks),
+    });
+    res.writeHead(upstream.status, { 'content-type': 'application/json' }).end(await upstream.text());
+  } catch (e) {
+    res.writeHead(502, { 'content-type': 'application/json' }).end(JSON.stringify({ error: String(e) }));
+  }
+}).listen(port, '127.0.0.1', () => console.log(`Gemini relay on http://127.0.0.1:${port}`));

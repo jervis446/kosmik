@@ -9,7 +9,7 @@
  *   GET  /api/health
  * Everything else is the web app (static files, single-page fallback).
  */
-import { WorkersAi, workersAiRun } from './ai.ts';
+import { GeminiAi } from './ai.ts';
 import { guestSubject, isPremium, Unauthorized, userFromRequest } from './auth.ts';
 import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { D1AnswerCache, D1History, D1Library, D1Usage, MemoryVectorSearch, VectorizeSearch } from './store.ts';
@@ -84,7 +84,7 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
         vectors: env.VECTORS ? new VectorizeSearch(env.VECTORS) : new MemoryVectorSearch(env.DB),
         usage: new D1Usage(env.DB),
         history: new D1History(env.DB),
-        ai: new WorkersAi(workersAiRun(env.AI, env.AI_RELAY_URL), env.CHAT_MODEL),
+        ai: new GeminiAi({ apiKey: env.GEMINI_API_KEY, model: env.CHAT_MODEL, baseUrl: env.GEMINI_BASE_URL, reasoningEffort: env.REASONING_EFFORT }),
       },
       {
         question: body.question,

@@ -1,19 +1,21 @@
 /**
  * Drafts the meaning library (grahas, rashis, nakshatras, houses, placements, tarot) with
- * Llama 3.3 70B on Workers AI. Every entry is saved with reviewed: false: an astrologer must
- * check the text before launch. Resumable: entries already in data/meanings.json are kept.
+ * Gemini (the first 426 entries were written with Llama 3.3 70B on Workers AI). Every entry
+ * is saved with reviewed: false: an astrologer must check the text before launch. Resumable: entries already in data/meanings.json are kept.
  *
- * Needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN. Run with NODE_USE_ENV_PROXY=1 behind a proxy.
+ * Needs GEMINI_API_KEY. Run with NODE_USE_ENV_PROXY=1 behind a proxy.
  * Usage: node data/scripts/build-meanings.ts
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
+import { DEFAULT_CHAT_MODEL } from '../../api/src/ai.ts';
 import { libraryEntries } from '../../api/src/lib/catalog.ts';
 import { meaningProblems } from '../../api/src/lib/safety.ts';
+import { gemini } from './gemini.ts';
 
 export type Meaning = { kind: string; key: string; lang: 'en'; title: string; body: string; reviewed: boolean; flagged?: string[] };
 
-const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const MODEL = DEFAULT_CHAT_MODEL;
 const OUT = new URL('../meanings.json', import.meta.url);
 const BATCH = 3;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -36,30 +38,23 @@ const SCHEMA = {
 };
 
 async function generate(batch: { kind: string; key: string; title: string }[]): Promise<Record<string, string>> {
-  const account = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const token = process.env.CLOUDFLARE_API_TOKEN;
-  if (!account || !token) throw new Error('Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN');
   const list = batch.map((b) => `- key "${b.kind}/${b.key}": ${b.title}`).join('\n');
   for (let attempt = 1; ; attempt++) {
-    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${MODEL}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: STYLE },
-          { role: 'user', content: `Write one entry for each of these, using the key exactly as given:\n${list}\n\nReturn {"items":[{"key":"...","body":"..."}]}.` },
-        ],
-        response_format: { type: 'json_schema', json_schema: SCHEMA },
-        max_tokens: 2200,
-        temperature: 0.4,
-      }),
+    const out = await gemini<{ choices?: { message?: { content?: string } }[] }>('/chat/completions', {
+      model: MODEL,
+      messages: [
+        { role: 'system', content: STYLE },
+        { role: 'user', content: `Write one entry for each of these, using the key exactly as given:\n${list}\n\nReturn {"items":[{"key":"...","body":"..."}]}.` },
+      ],
+      response_format: { type: 'json_schema', json_schema: { name: 'entries', schema: SCHEMA } },
+      reasoning_effort: 'none',
+      max_tokens: 2200,
+      temperature: 0.4,
     });
-    const body = (await res.json().catch(() => ({}))) as { success?: boolean; result?: { response?: unknown } };
-    const raw = body.result?.response;
-    const parsed = typeof raw === 'string' ? safeJson(raw) : (raw as { items?: { key: string; body: string }[] } | undefined);
-    if (res.ok && parsed?.items?.length) return Object.fromEntries(parsed.items.map((i) => [i.key, i.body.trim()]));
-    if (attempt >= 4) throw new Error(`Generation failed (${res.status})`);
-    await sleep(2000 * 2 ** attempt);
+    const parsed = safeJson(out.choices?.[0]?.message?.content ?? '');
+    if (parsed?.items?.length) return Object.fromEntries(parsed.items.map((i) => [i.key, i.body.trim()]));
+    if (attempt >= 3) throw new Error('Generation returned no entries');
+    await sleep(2000 * attempt);
   }
 }
 

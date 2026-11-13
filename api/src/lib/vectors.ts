@@ -26,6 +26,8 @@ export function cosine(a: ArrayLike<number>, b: ArrayLike<number>): number {
 export function topK(query: ArrayLike<number>, items: { id: string; vector: ArrayLike<number> }[], k: number, minScore = -1): Hit[] {
   const hits: Hit[] = [];
   for (const it of items) {
+    // Vectors from a different embedding model (e.g. cached before a model change) can't be compared.
+    if (it.vector.length !== query.length) continue;
     const score = cosine(query, it.vector);
     if (score >= minScore) hits.push({ id: it.id, score });
   }

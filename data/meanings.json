@@ -3406,5 +3406,53 @@
   "title": "Page of Pentacles (reversed)",
   "body": "When the Page of Pentacles appears in a reading in the reversed position, it can indicate that you're feeling stuck or uninspired, and may be struggling to find meaning in your daily routine. In Vedic astrology and tarot interpretations, this card is traditionally linked with a sense of curiosity and a love of learning. You may be feeling restless or bored, which can be a sign that you need to shake things up and try something new. Be mindful of procrastination, and try to find ways to rekindle your sense of curiosity and excitement.",
   "reviewed": false
+ },
+ {
+  "kind": "tarot-upright",
+  "key": "knight-of-pentacles",
+  "lang": "en",
+  "title": "Knight of Pentacles (upright)",
+  "body": "In tarot traditions, the Knight of Pentacles upright is tied to steady effort, dependability, and practical progress over time. In your day-to-day routine, this card often shows up as dedicated focus, methodical planning, and sticking to your long-term goals. Your patient dedication helps you build real security. Just be mindful not to become so set in your routines that you miss out on helpful new ideas.",
+  "reviewed": false
+ },
+ {
+  "kind": "tarot-reversed",
+  "key": "knight-of-pentacles",
+  "lang": "en",
+  "title": "Knight of Pentacles (reversed)",
+  "body": "In traditional tarot, the Knight of Pentacles reversed often signals feeling stuck in a rut, procrastination, or feeling overburdened by routine. You might notice this in daily life as a lack of motivation, feeling uninspired by your work, or hyper-focusing on small details. It encourages you to refresh your momentum gently. Be mindful of letting perfectionism stall your everyday progress.",
+  "reviewed": false
+ },
+ {
+  "kind": "tarot-upright",
+  "key": "queen-of-pentacles",
+  "lang": "en",
+  "title": "Queen of Pentacles (upright)",
+  "body": "In traditional tarot readings, the Queen of Pentacles upright is associated with quiet abundance, practical care, and creating a warm, comfortable environment. In your everyday life, this energy shows up as grounded generosity, smart resource management, and nurturing yourself and others. Your presence helps bring tangible comfort to those around you. Just be mindful to hold space for your own needs while supporting others.",
+  "reviewed": false
+ },
+ {
+  "kind": "tarot-reversed",
+  "key": "queen-of-pentacles",
+  "lang": "en",
+  "title": "Queen of Pentacles (reversed)",
+  "body": "In traditional tarot interpretation, the reversed Queen of Pentacles is often associated with a shift in how you care for your home, resources, or personal well-being. In everyday life, this card might show up as feeling overwhelmed by practical duties or putting everyone else's needs before your own. It encourages you to restore balance by nurturing yourself as warmly as you support others. Be mindful of letting self-care slip when daily routines become demanding.",
+  "reviewed": false
+ },
+ {
+  "kind": "tarot-upright",
+  "key": "king-of-pentacles",
+  "lang": "en",
+  "title": "King of Pentacles (upright)",
+  "body": "In traditional tarot reading, the King of Pentacles is linked with grounded success, financial stability, and steady leadership. In your daily life, this energy often shows up as reliable decision-making, a focus on building long-term security, and taking pride in creating a comfortable environment. It highlights your capacity to bring practical ideas into tangible reality with patience. Be mindful of becoming overly attached to routine or material comforts at the expense of flexibility.",
+  "reviewed": false
+ },
+ {
+  "kind": "tarot-reversed",
+  "key": "king-of-pentacles",
+  "lang": "en",
+  "title": "King of Pentacles (reversed)",
+  "body": "In traditional tarot, the reversed King of Pentacles is thought to signal a need to rethink your relationship with security, wealth, or control. This energy can manifest as stubbornness about how things should be done or a temporary sense of instability in your practical goals. It invites you to focus on internal stability rather than strictly measuring your worth through external success. Be mindful of holding on too tightly to plans that may need adjusting.",
+  "reviewed": false
  }
 ]

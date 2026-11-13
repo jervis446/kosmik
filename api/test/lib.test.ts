@@ -95,3 +95,8 @@ test('the meaning library covers every placement and card', () => {
   assert.equal(entries.length, 432);
   assert.equal(new Set(entries.map((e) => `${e.kind}/${e.key}`)).size, 432);
 });
+
+test('vector search skips vectors of a different size (from an older embedding model)', () => {
+  const hits = topK([1, 0], [{ id: 'old', vector: [1, 0, 0] }, { id: 'new', vector: [1, 0] }], 5);
+  assert.deepEqual(hits.map((h) => h.id), ['new']);
+});
