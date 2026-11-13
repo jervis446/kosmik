@@ -1,0 +1,1 @@
+__d(function(g,r,i,a,m,e,d){"use strict";Object.defineProperty(e,'__esModule',{value:!0}),Object.defineProperty(e,"default",{enumerable:!0,get:function(){return l}});var t=r(d[0]),n=r(d[1]),u=r(d[2]),c=r(d[3]);function l(){const{chatKey:l}=(0,u.useShell)();return(0,c.jsx)(n.Shell,{children:(0,c.jsx)(t.Conversation,{},l)})}},764,[818,819,813,6]);
