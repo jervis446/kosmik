@@ -1,12 +1,16 @@
 /**
- * Kosmik Premium through Noha Pay, Asanoha's UPI gateway. The customer pays by UPI straight into
- * the merchant's account; nobody in between holds the money. The gateway confirms a payment
- * (after the merchant matches the UTR) by calling our webhook, signed with a shared secret, and
- * only then is Premium extended.
+ * Kosmik Premium through Noha Pay, Asanoha's UPI gateway (YouPI PG). The customer pays by UPI
+ * straight into the merchant's account; nobody in between holds the money. Matches the live
+ * integration in People Pitchers (supabase/functions/create-checkout and youpi-webhook).
  *
  *   POST /api/pay              { plan }  signed in → creates an order, returns the checkout URL
  *   GET  /api/pay/:id          signed in → the order's status and Premium end date
- *   POST /api/pay/webhook      gateway → verifies the signature and applies a confirmed payment
+ *   POST /api/pay/webhook      gateway → verifies the signature and applies the event
+ *
+ * Gateway events: OBSERVED_SUCCESS (the bank's credit alert matched), RECONCILED (a bank-statement
+ * line matched), MANUAL_REVIEW (the payer entered a UTR; not proof), SUCCESS (cash/counter; not
+ * accepted), FAILED, EXPIRED, CANCELLED. Premium starts on the first OBSERVED_SUCCESS or
+ * RECONCILED for the exact amount paid by UPI, and only once per order.
  *
  * Premium is a pass for a number of days, not a subscription: UPI payments don't renew on their own.
  */
@@ -20,9 +24,20 @@ export const PLANS: Record<PlanId, { name: string; amountPaise: number; days: nu
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** Deliveries older than this are refused, so a captured request can't be replayed later. */
-const MAX_AGE_MS = 15 * 60 * 1000;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** The gateway retries a delivery for days with its original timestamp; older ones are refused. */
+const MAX_AGE_MS = 7 * DAY_MS;
+const MAX_FUTURE_MS = 5 * 60 * 1000;
+/** Kosmik order ids: "KM-" and 12 letters/digits (People Pitchers uses "PP-"). */
+export const ORDER_ID = /^KM-[A-Z0-9]{12}$/;
+const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export function newOrderId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return 'KM-' + [...bytes].map((b) => ALPHABET[b % ALPHABET.length]).join('');
+}
+
+/** The merchant key authenticates checkout requests and signs webhooks, unless a separate webhook secret is set. */
+const webhookSecret = (env: Env) => env.NOHA_WEBHOOK_SECRET || env.NOHA_MERCHANT_KEY || '';
 
 export class PaymentError extends Error {
   readonly status: number;
@@ -32,7 +47,7 @@ export class PaymentError extends Error {
   }
 }
 
-export const paymentsEnabled = (env: Env) => !!(env.NOHA_GATEWAY_URL && env.NOHA_MERCHANT_ID && env.NOHA_WEBHOOK_SECRET);
+export const paymentsEnabled = (env: Env) => !!(env.NOHA_GATEWAY_URL && env.NOHA_MERCHANT_ID && env.NOHA_MERCHANT_KEY);
 
 export type Payment = { id: string; user_id: string; plan: PlanId; amount_paise: number; days: number; status: string; paid_at: number | null };
 
@@ -41,7 +56,7 @@ export async function startPayment(env: Env, db: D1Database, userId: string, pla
   if (!paymentsEnabled(env)) throw new PaymentError('Premium payments open soon.', 503);
   if (plan !== 'week' && plan !== 'month') throw new PaymentError('Choose a plan.', 400);
   const p = PLANS[plan];
-  const id = crypto.randomUUID();
+  const id = newOrderId();
   await db
     .prepare('INSERT INTO payments (id, user_id, plan, amount_paise, days, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(id, userId, plan, p.amountPaise, p.days, now)
@@ -49,13 +64,14 @@ export async function startPayment(env: Env, db: D1Database, userId: string, pla
 
   const res = await fetch(`${env.NOHA_GATEWAY_URL!.replace(/\/+$/, '')}/api/v1/payments`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-merchant-id': env.NOHA_MERCHANT_ID! },
+    headers: { 'content-type': 'application/json', 'x-merchant-id': env.NOHA_MERCHANT_ID!, 'x-merchant-key': env.NOHA_MERCHANT_KEY!, 'idempotency-key': id },
     body: JSON.stringify({
       orderId: id,
       amount: (p.amountPaise / 100).toFixed(2),
       currency: 'INR',
+      method: 'UPI',
       returnUrl: `${returnBase}/premium?order=${id}`,
-      metadata: { purpose: 'kosmik_premium', plan },
+      metadata: { source: 'kosmik', plan },
     }),
     signal: AbortSignal.timeout(15_000),
   }).catch(() => null);
@@ -80,10 +96,9 @@ export async function premiumUntil(db: D1Database, userId: string, now: number):
   return until !== null && until > now ? until : null;
 }
 
-async function hmacHex(secret: string, body: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return [...new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(body)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+async function hmacHex(secret: string, data: Uint8Array): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return [...new Uint8Array(await crypto.subtle.sign('HMAC', key, data))].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /** Constant-time comparison (of hashes, so the lengths always match). */
@@ -94,15 +109,29 @@ async function sameSecret(a: string, b: string): Promise<boolean> {
   return diff === 0;
 }
 
-type GatewayEvent = { event?: string; orderId?: string; amountPaise?: number; amount?: string; utr?: string; paymentId?: string };
+/** X-Gateway-Signature-V2 = HMAC(secret, "<timestamp>.<raw body>"); falls back to X-Gateway-Signature = HMAC(secret, raw body). */
+async function validSignature(secret: string, headers: Headers, raw: Uint8Array): Promise<boolean> {
+  const ts = headers.get('x-gateway-timestamp') ?? '';
+  const v2 = headers.get('x-gateway-signature-v2') ?? '';
+  const v1 = headers.get('x-gateway-signature') ?? '';
+  if (v2 && /^\d{10,16}$/.test(ts)) {
+    const signed = new Uint8Array([...new TextEncoder().encode(ts + '.'), ...raw]);
+    return sameSecret(v2, 'sha256=' + (await hmacHex(secret, signed)));
+  }
+  return !!v1 && sameSecret(v1, 'sha256=' + (await hmacHex(secret, raw)));
+}
+
+type GatewayEvent = { event?: string; orderId?: string; amountPaise?: number; utr?: string; method?: string; paymentId?: string };
+
+const cleanUtr = (u: unknown) => String(u ?? '').replace(/[^A-Za-z0-9]/g, '').slice(0, 40) || null;
 
 /** Applies a gateway notification. Safe to receive the same delivery more than once. */
 export async function handleWebhook(env: Env, db: D1Database, headers: Headers, rawBody: string, now: number): Promise<{ status: number; body: Record<string, unknown> }> {
-  if (!env.NOHA_WEBHOOK_SECRET) return { status: 503, body: { error: 'not configured' } };
-  const expected = 'sha256=' + (await hmacHex(env.NOHA_WEBHOOK_SECRET, rawBody));
-  if (!(await sameSecret(headers.get('x-gateway-signature') ?? '', expected))) return { status: 401, body: { error: 'invalid signature' } };
+  const secret = webhookSecret(env);
+  if (!secret) return { status: 503, body: { error: 'not configured' } };
+  if (!(await validSignature(secret, headers, new TextEncoder().encode(rawBody)))) return { status: 401, body: { error: 'invalid signature' } };
   const ts = Number(headers.get('x-gateway-timestamp'));
-  if (ts && Math.abs(now - ts) > MAX_AGE_MS) return { status: 400, body: { error: 'stale delivery' } };
+  if (!Number.isFinite(ts) || now - ts > MAX_AGE_MS || ts - now > MAX_FUTURE_MS) return { status: 401, body: { error: 'stale delivery' } };
 
   let ev: GatewayEvent;
   try {
@@ -110,24 +139,37 @@ export async function handleWebhook(env: Env, db: D1Database, headers: Headers, 
   } catch {
     return { status: 400, body: { error: 'invalid JSON' } };
   }
-  if (!ev.orderId || !UUID.test(ev.orderId)) return { status: 200, body: { ignored: 'not a Kosmik order' } };
-  const order = await db.prepare('SELECT * FROM payments WHERE id = ?').bind(ev.orderId).first<Payment>();
+  const event = String(ev.event ?? headers.get('x-gateway-event') ?? '').toUpperCase();
+  const orderId = String(ev.orderId ?? '');
+  if (!ORDER_ID.test(orderId)) return { status: 200, body: { ignored: 'not a Kosmik order' } };
+  const order = await db.prepare('SELECT * FROM payments WHERE id = ?').bind(orderId).first<Payment>();
   if (!order) return { status: 200, body: { ignored: 'unknown order' } };
+  const utr = cleanUtr(ev.utr);
+  const note = (text: string) => db.prepare('UPDATE payments SET note = ? WHERE id = ?').bind(text.slice(0, 500), order.id).run();
 
-  if (ev.event === 'SUCCESS') {
-    if (order.status === 'paid') return { status: 200, body: { ok: true, duplicate: true } };
-    const paid = typeof ev.amountPaise === 'number' ? ev.amountPaise : Math.round(Number(ev.amount) * 100);
-    if (paid !== order.amount_paise) {
+  if (event === 'OBSERVED_SUCCESS' || event === 'RECONCILED') {
+    if (String(ev.method ?? 'UPI').toUpperCase() !== 'UPI') {
+      await note(`Ignored ${event}: method ${String(ev.method).slice(0, 20)}`);
+      return { status: 200, body: { received: true } };
+    }
+    if (order.status === 'paid') {
+      if (event === 'RECONCILED') await note('Reconciled with the bank statement');
+      return { status: 200, body: { received: true, duplicate: true } };
+    }
+    if (ev.amountPaise !== order.amount_paise) {
       // Never apply a different amount automatically: check it against the bank statement.
       await db
-        .prepare("UPDATE payments SET status = 'failed', gateway_payment_id = ?, utr = ?, note = ? WHERE id = ? AND status != 'paid'")
-        .bind(ev.paymentId ?? null, ev.utr ?? null, `amount mismatch: expected ${order.amount_paise}, got ${paid}`, order.id)
+        .prepare("UPDATE payments SET status = 'failed', utr = ?, note = ? WHERE id = ? AND status != 'paid'")
+        .bind(utr, `Amount mismatch on ${event}: expected ${order.amount_paise} paise, got ${String(ev.amountPaise).slice(0, 20)}`, order.id)
         .run();
-      return { status: 200, body: { ignored: 'amount mismatch' } };
+      return { status: 200, body: { received: true, mismatch: true } };
     }
+    const how = event === 'RECONCILED' ? 'Reconciled with the bank statement' : 'Bank credit alert matched';
     // Mark paid and extend Premium together, and only if this delivery is the one that marked it.
     const [mark] = await db.batch([
-      db.prepare("UPDATE payments SET status = 'paid', gateway_payment_id = ?, utr = ?, paid_at = ?, note = NULL WHERE id = ? AND status != 'paid'").bind(ev.paymentId ?? null, ev.utr ?? null, now, order.id),
+      db
+        .prepare("UPDATE payments SET status = 'paid', gateway_payment_id = COALESCE(?, gateway_payment_id), utr = ?, paid_at = ?, note = ? WHERE id = ? AND status != 'paid'")
+        .bind(ev.paymentId ?? null, utr, now, how, order.id),
       db
         .prepare(
           `INSERT INTO premium (user_id, until) SELECT ?, ? + ? WHERE changes() = 1
@@ -135,9 +177,19 @@ export async function handleWebhook(env: Env, db: D1Database, headers: Headers, 
         )
         .bind(order.user_id, now, order.days * DAY_MS, now, order.days * DAY_MS),
     ]);
-    return { status: 200, body: mark.meta.changes ? { ok: true } : { ok: true, duplicate: true } };
+    return { status: 200, body: mark.meta.changes ? { received: true } : { received: true, duplicate: true } };
   }
-  const status = ev.event === 'FAILED' ? 'failed' : ev.event === 'EXPIRED' ? 'expired' : ev.event === 'CANCELLED' ? 'cancelled' : null;
+  if (event === 'SUCCESS') {
+    await note('Ignored SUCCESS: cash and counter payments are not accepted');
+    return { status: 200, body: { received: true } };
+  }
+  if (event === 'MANUAL_REVIEW' && utr && order.status === 'pending') {
+    // The payer typed a UTR, or the match was ambiguous: not proof of payment. Keep it pending.
+    await db.prepare("UPDATE payments SET utr = ?, note = ? WHERE id = ? AND status = 'pending'").bind(utr, `Payer reports paying with UTR ${utr}. Check the bank statement.`, order.id).run();
+    return { status: 200, body: { received: true } };
+  }
+  const status = event === 'FAILED' ? 'failed' : event === 'EXPIRED' ? 'expired' : event === 'CANCELLED' ? 'cancelled' : null;
   if (status) await db.prepare("UPDATE payments SET status = ? WHERE id = ? AND status = 'pending'").bind(status, order.id).run();
-  return { status: 200, body: { ok: true } };
+  else await note(`Gateway event: ${event.slice(0, 40)}`);
+  return { status: 200, body: { received: true } };
 }

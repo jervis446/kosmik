@@ -186,7 +186,7 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
     return json(req, env, await startPayment(env, env.DB, userId, body.plan, url.origin, now));
   }
 
-  const payMatch = /^\/api\/pay\/([0-9a-f-]{36})$/.exec(path);
+  const payMatch = /^\/api\/pay\/(KM-[A-Z0-9]{12})$/.exec(path);
   if (payMatch && req.method === 'GET') {
     const userId = await requireUser(req, env);
     const status = await paymentStatus(env.DB, userId, payMatch[1], now);

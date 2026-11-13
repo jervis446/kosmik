@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { afterEach, test } from 'node:test';
 
-import { handleWebhook, PaymentError, PLANS, startPayment } from '../src/payments.ts';
+import { handleWebhook, ORDER_ID, PaymentError, paymentStatus, PLANS, startPayment } from '../src/payments.ts';
 import type { Env } from '../src/types.ts';
 import { d1 } from './d1.ts';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse('2026-11-13T10:00:00Z');
-const env = { NOHA_GATEWAY_URL: 'https://pay.example.test/', NOHA_MERCHANT_ID: 'merchant-1', NOHA_WEBHOOK_SECRET: 'whsec-test' } as Env;
+const KEY = 'merchant-key-test';
+const env = { NOHA_GATEWAY_URL: 'https://pay.example.test/', NOHA_MERCHANT_ID: 'merchant-1', NOHA_MERCHANT_KEY: KEY } as Env;
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -25,10 +26,15 @@ function gateway(reply: { status?: number; json?: unknown } | 'down') {
   return calls;
 }
 
-function signed(body: object, opts: { secret?: string; at?: number } = {}) {
+/** A delivery as YouPI sends it: V2 signs "<timestamp>.<body>", V1 signs the body. */
+function signed(body: object, opts: { secret?: string; at?: number; v1?: boolean } = {}) {
   const raw = JSON.stringify(body);
-  const sig = 'sha256=' + createHmac('sha256', opts.secret ?? env.NOHA_WEBHOOK_SECRET!).update(raw).digest('hex');
-  return { raw, headers: new Headers({ 'x-gateway-signature': sig, 'x-gateway-timestamp': String(opts.at ?? NOW) }) };
+  const at = String(opts.at ?? NOW);
+  const mac = (data: string) => 'sha256=' + createHmac('sha256', opts.secret ?? KEY).update(data).digest('hex');
+  const headers = new Headers({ 'x-gateway-timestamp': at });
+  if (opts.v1) headers.set('x-gateway-signature', mac(raw));
+  else headers.set('x-gateway-signature-v2', mac(`${at}.${raw}`));
+  return { raw, headers };
 }
 
 async function order(db: D1Database, plan: 'week' | 'month' = 'week', user = 'user-1') {
@@ -38,22 +44,28 @@ async function order(db: D1Database, plan: 'week' | 'month' = 'week', user = 'us
   return orderId;
 }
 
-const premium = (raw: ReturnType<typeof d1>['raw'], user = 'user-1') => (raw.prepare('SELECT until FROM premium WHERE user_id = ?').get(user) as { until: number } | undefined)?.until;
-const status = (raw: ReturnType<typeof d1>['raw'], id: string) => ({ ...(raw.prepare('SELECT status, utr, note FROM payments WHERE id = ?').get(id) as { status: string; utr: string | null; note: string | null }) });
+type Raw = ReturnType<typeof d1>['raw'];
+const premium = (raw: Raw, user = 'user-1') => (raw.prepare('SELECT until FROM premium WHERE user_id = ?').get(user) as { until: number } | undefined)?.until;
+const row = (raw: Raw, id: string) => ({ ...(raw.prepare('SELECT status, utr, note FROM payments WHERE id = ?').get(id) as { status: string; utr: string | null; note: string | null }) });
+const paid = (orderId: string, paise: number, extra: object = {}) => ({ event: 'OBSERVED_SUCCESS', orderId, amountPaise: paise, method: 'UPI', utr: '4123-4567-8901', ...extra });
 
-test('start: creates a pending order and asks the gateway for a checkout with the exact amount', async () => {
+test('start: pending order, then a UPI checkout request exactly like People Pitchers sends', async () => {
   const { db, raw } = d1();
   const calls = gateway({ json: { checkoutUrl: 'https://pay.example.test/c/abc', paymentId: 'gw-9' } });
   const r = await startPayment(env, db, 'user-1', 'month', 'https://kosmik.test', NOW);
+  assert.match(r.orderId, ORDER_ID);
   assert.equal(r.checkoutUrl, 'https://pay.example.test/c/abc');
   assert.equal(calls[0].url, 'https://pay.example.test/api/v1/payments');
   assert.equal(calls[0].headers['x-merchant-id'], 'merchant-1');
+  assert.equal(calls[0].headers['x-merchant-key'], KEY);
+  assert.equal(calls[0].headers['idempotency-key'], r.orderId);
   assert.deepEqual(calls[0].body, {
     orderId: r.orderId,
     amount: '101.00',
     currency: 'INR',
+    method: 'UPI',
     returnUrl: `https://kosmik.test/premium?order=${r.orderId}`,
-    metadata: { purpose: 'kosmik_premium', plan: 'month' },
+    metadata: { source: 'kosmik', plan: 'month' },
   });
   assert.deepEqual({ ...raw.prepare('SELECT status, amount_paise, days, gateway_payment_id FROM payments').get() }, { status: 'pending', amount_paise: 10100, days: 30, gateway_payment_id: 'gw-9' });
 });
@@ -67,85 +79,119 @@ test('start: refuses when payments are off or the plan is unknown, and records a
   assert.equal((raw.prepare('SELECT status FROM payments').get() as { status: string }).status, 'failed');
 });
 
-test('webhook: a confirmed payment gives Premium once, however many times it is delivered', async () => {
+test('webhook: the bank alert gives Premium once; a later RECONCILED and retries add nothing', async () => {
   const { db, raw } = d1();
   const id = await order(db, 'week');
-  const ev = signed({ event: 'SUCCESS', orderId: id, amount: '51.00', utr: '412345678901', paymentId: 'gw-1' });
+  const ev = signed(paid(id, 5100));
 
-  assert.deepEqual((await handleWebhook(env, db, ev.headers, ev.raw, NOW)).body, { ok: true });
+  assert.deepEqual((await handleWebhook(env, db, ev.headers, ev.raw, NOW)).body, { received: true });
   assert.equal(premium(raw), NOW + PLANS.week.days * DAY);
-  assert.deepEqual(status(raw, id), { status: 'paid', utr: '412345678901', note: null });
+  assert.deepEqual(row(raw, id), { status: 'paid', utr: '412345678901', note: 'Bank credit alert matched' });
 
-  const again = await handleWebhook(env, db, ev.headers, ev.raw, NOW + 1000);
-  assert.equal(again.body.duplicate, true);
+  // YouPI retries with the original timestamp, days later.
+  assert.equal((await handleWebhook(env, db, ev.headers, ev.raw, NOW + 3 * DAY)).body.duplicate, true);
+  const rec = signed(paid(id, 5100, { event: 'RECONCILED' }), { at: NOW + DAY });
+  assert.equal((await handleWebhook(env, db, rec.headers, rec.raw, NOW + DAY)).body.duplicate, true);
   assert.equal(premium(raw), NOW + 7 * DAY, 'not extended twice');
+  assert.equal(row(raw, id).note, 'Reconciled with the bank statement');
 });
 
-test('webhook: a second purchase extends from the current end date, not from today', async () => {
+test('webhook: RECONCILED alone is enough, and V1 signatures are still accepted', async () => {
   const { db, raw } = d1();
-  const first = await order(db, 'week');
-  const a = signed({ event: 'SUCCESS', orderId: first, amountPaise: 5100 });
+  const id = await order(db, 'month');
+  const ev = signed(paid(id, 10100, { event: 'RECONCILED' }), { v1: true });
+  assert.deepEqual((await handleWebhook(env, db, ev.headers, ev.raw, NOW)).body, { received: true });
+  assert.equal(premium(raw), NOW + 30 * DAY);
+});
+
+test('webhook: a second purchase extends from the current end date; an expired pass restarts', async () => {
+  const { db, raw } = d1();
+  const a = signed(paid(await order(db, 'week'), 5100));
   await handleWebhook(env, db, a.headers, a.raw, NOW);
-  const second = await order(db, 'month');
-  const b = signed({ event: 'SUCCESS', orderId: second, amountPaise: 10100 }, { at: NOW + DAY });
+  const b = signed(paid(await order(db, 'month'), 10100), { at: NOW + DAY });
   await handleWebhook(env, db, b.headers, b.raw, NOW + DAY);
   assert.equal(premium(raw), NOW + 7 * DAY + 30 * DAY);
 
-  // An expired pass restarts from the payment date.
-  const third = await order(db, 'week');
   const later = NOW + 90 * DAY;
-  const c = signed({ event: 'SUCCESS', orderId: third, amountPaise: 5100 }, { at: later });
+  const c = signed(paid(await order(db, 'week'), 5100), { at: later });
   await handleWebhook(env, db, c.headers, c.raw, later);
   assert.equal(premium(raw), later + 7 * DAY);
 });
 
-test('webhook: wrong amount, bad signature, wrong secret and stale deliveries are refused', async () => {
+test('webhook: never paid for a wrong amount, cash, a non-UPI method or a payer-typed UTR', async () => {
   const { db, raw } = d1();
-  const id = await order(db, 'month');
+  const short = await order(db, 'month');
+  const s = signed(paid(short, 5100));
+  assert.equal((await handleWebhook(env, db, s.headers, s.raw, NOW)).body.mismatch, true);
+  assert.deepEqual(row(raw, short), { status: 'failed', utr: '412345678901', note: 'Amount mismatch on OBSERVED_SUCCESS: expected 10100 paise, got 5100' });
 
-  const short = signed({ event: 'SUCCESS', orderId: id, amount: '51.00', utr: '999' });
-  assert.equal((await handleWebhook(env, db, short.headers, short.raw, NOW)).body.ignored, 'amount mismatch');
-  assert.equal(premium(raw), undefined);
-  assert.deepEqual(status(raw, id), { status: 'failed', utr: '999', note: 'amount mismatch: expected 10100, got 5100' });
+  const cash = await order(db);
+  const c = signed({ event: 'SUCCESS', orderId: cash, amountPaise: 5100 });
+  await handleWebhook(env, db, c.headers, c.raw, NOW);
+  assert.equal(row(raw, cash).status, 'pending');
 
-  const id2 = await order(db, 'week');
-  const good = { event: 'SUCCESS', orderId: id2, amount: '51.00' };
-  const forged = signed(good, { secret: 'not-the-secret' });
-  assert.equal((await handleWebhook(env, db, forged.headers, forged.raw, NOW)).status, 401);
-  const tampered = signed(good);
-  assert.equal((await handleWebhook(env, db, tampered.headers, tampered.raw.replace('51.00', '0.01'), NOW)).status, 401);
-  const old = signed(good, { at: NOW - 20 * 60 * 1000 });
-  assert.equal((await handleWebhook(env, db, old.headers, old.raw, NOW)).status, 400);
-  assert.equal((await handleWebhook({} as Env, db, old.headers, old.raw, NOW)).status, 503);
+  const card = await order(db);
+  const k = signed(paid(card, 5100, { method: 'CARD' }));
+  await handleWebhook(env, db, k.headers, k.raw, NOW);
+  assert.equal(row(raw, card).status, 'pending');
+
+  const claimed = await order(db);
+  const m = signed({ event: 'MANUAL_REVIEW', orderId: claimed, utr: '999888777666' });
+  await handleWebhook(env, db, m.headers, m.raw, NOW);
+  assert.deepEqual(row(raw, claimed), { status: 'pending', utr: '999888777666', note: 'Payer reports paying with UTR 999888777666. Check the bank statement.' });
+
   assert.equal(premium(raw), undefined);
-  assert.equal(status(raw, id2).status, 'pending');
 });
 
-test('webhook: failures update pending orders only; unknown orders are ignored', async () => {
+test('webhook: forged, tampered, stale, future and unconfigured deliveries are refused', async () => {
+  const { db, raw } = d1();
+  const id = await order(db, 'week');
+  const body = paid(id, 5100);
+  const call = (e: ReturnType<typeof signed>, now = NOW, en = env, rawBody = e.raw) => handleWebhook(en, db, e.headers, rawBody, now);
+
+  assert.equal((await call(signed(body, { secret: 'not-the-key' }))).status, 401);
+  const t = signed(body);
+  assert.equal((await call(t, NOW, env, t.raw.replace('5100', '1'))).status, 401);
+  // Re-signing V2 with a new timestamp needs the secret: changing only the header fails.
+  const moved = signed(body);
+  moved.headers.set('x-gateway-timestamp', String(NOW + 1));
+  assert.equal((await call(moved)).status, 401);
+  assert.equal((await call(signed(body, { at: NOW - 8 * DAY }))).status, 401);
+  assert.equal((await call(signed(body, { at: NOW + 10 * 60 * 1000 }))).status, 401);
+  assert.equal((await call(signed(body), NOW, {} as Env)).status, 503);
+  assert.equal(premium(raw), undefined);
+  assert.equal(row(raw, id).status, 'pending');
+
+  // A separate webhook secret, when set, is the one that counts.
+  const split = { ...env, NOHA_WEBHOOK_SECRET: 'whsec-other' } as Env;
+  assert.equal((await call(signed(body), NOW, split)).status, 401);
+  assert.equal((await call(signed(body, { secret: 'whsec-other' }), NOW, split)).status, 200);
+});
+
+test('webhook: failures update pending orders only; other merchants’ and unknown orders are ignored', async () => {
   const { db, raw } = d1();
   const id = await order(db);
-  const failed = signed({ event: 'FAILED', orderId: id });
-  await handleWebhook(env, db, failed.headers, failed.raw, NOW);
-  assert.equal(status(raw, id).status, 'failed');
+  const f = signed({ event: 'FAILED', orderId: id });
+  await handleWebhook(env, db, f.headers, f.raw, NOW);
+  assert.equal(row(raw, id).status, 'failed');
 
-  const paid = await order(db);
-  const ok = signed({ event: 'SUCCESS', orderId: paid, amount: '51.00' });
+  const done = await order(db);
+  const ok = signed(paid(done, 5100));
   await handleWebhook(env, db, ok.headers, ok.raw, NOW);
-  const late = signed({ event: 'EXPIRED', orderId: paid });
+  const late = signed({ event: 'EXPIRED', orderId: done });
   await handleWebhook(env, db, late.headers, late.raw, NOW);
-  assert.equal(status(raw, paid).status, 'paid', 'a late EXPIRED never undoes a payment');
+  assert.equal(row(raw, done).status, 'paid', 'a late EXPIRED never undoes a payment');
 
-  const unknown = signed({ event: 'SUCCESS', orderId: crypto.randomUUID(), amount: '51.00' });
+  const unknown = signed(paid('KM-ABCDEFGHJKLM', 5100));
   assert.equal((await handleWebhook(env, db, unknown.headers, unknown.raw, NOW)).body.ignored, 'unknown order');
-  const notOurs = signed({ event: 'SUCCESS', orderId: 'PP-1042', amount: '51.00' });
-  assert.equal((await handleWebhook(env, db, notOurs.headers, notOurs.raw, NOW)).body.ignored, 'not a Kosmik order');
+  const pp = signed(paid('PP-ABCDEFGHJKLM', 5100));
+  assert.equal((await handleWebhook(env, db, pp.headers, pp.raw, NOW)).body.ignored, 'not a Kosmik order');
 });
 
 test('status: only the owner sees a payment, and an expired Premium reads as none', async () => {
-  const { paymentStatus } = await import('../src/payments.ts');
   const { db } = d1();
   const id = await order(db, 'week');
-  const ev = signed({ event: 'SUCCESS', orderId: id, amount: '51.00' });
+  const ev = signed(paid(id, 5100));
   await handleWebhook(env, db, ev.headers, ev.raw, NOW);
   assert.deepEqual(await paymentStatus(db, 'user-1', id, NOW), { status: 'paid', plan: 'week', premiumUntil: NOW + 7 * DAY });
   assert.equal(await paymentStatus(db, 'someone-else', id, NOW), null);

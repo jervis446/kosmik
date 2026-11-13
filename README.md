@@ -56,13 +56,23 @@ Helpline and "coming soon" notices don't count. Guests are identified by a daily
 
 ## Payments (Noha Pay)
 
-Premium is a one-time UPI payment through Noha Pay, Asanoha's UPI gateway (`api/src/payments.ts`). Nobody in between holds the money: the customer pays straight into the merchant's UPI account.
+Premium is a one-time UPI payment through Noha Pay, Asanoha's UPI gateway (YouPI PG), using the same contract as People Pitchers' live integration (`supabase/functions/create-checkout` and `youpi-webhook` in jervis446/peoplepitchers). Code: `api/src/payments.ts`. Nobody in between holds the money: the customer pays straight into the merchant's UPI account.
 
-1. `POST /api/pay {plan}` (signed in) stores a pending order in `payments` and asks the gateway for a checkout page (`POST {NOHA_GATEWAY_URL}/api/v1/payments`, header `x-merchant-id`).
-2. The customer pays by UPI, enters the UTR, and returns to `/premium?order=<id>`, which waits for confirmation.
-3. The merchant matches the amount and UTR against PhonePe or the bank statement and confirms in the gateway admin. The gateway calls `POST /api/pay/webhook`, signed with HMAC-SHA256 (`x-gateway-signature: sha256=<hex>`, `x-gateway-timestamp`). Kosmik checks the signature, refuses deliveries older than 15 minutes, applies only the exact amount, and extends `premium.until` once per order, from the current end date if Premium is still on.
+1. `POST /api/pay {plan}` (signed in) stores a pending order (`KM-` + 12 characters) and calls `POST {NOHA_GATEWAY_URL}/api/v1/payments` with `x-merchant-id`, `x-merchant-key`, `idempotency-key` and `method: UPI`.
+2. The customer pays on the checkout page and returns to `/premium?order=<id>`, which waits for confirmation.
+3. The gateway calls `POST /api/pay/webhook`. Kosmik checks the signature (`X-Gateway-Signature-V2` = HMAC-SHA256 of `<timestamp>.<body>`, or V1 = HMAC of the body), accepts deliveries up to 7 days old (the gateway retries with the original timestamp), then:
 
-Payments stay off ("Premium payments open soon") until all three secrets are set on the Worker:
+| Event | Kosmik |
+|---|---|
+| `OBSERVED_SUCCESS` (bank credit alert matched) or `RECONCILED` (bank-statement line matched), UPI, exact amount | Order paid; Premium extended once, from the current end date if still on |
+| Same, wrong amount | Order failed with a note; never applied. The customer is told to email with the UTR |
+| `MANUAL_REVIEW` (payer typed a UTR) | Stays pending; UTR saved with a note to check the bank statement |
+| `SUCCESS` (cash/counter), non-UPI methods | Ignored with a note |
+| `FAILED`, `EXPIRED`, `CANCELLED` | Pending order closed |
+
+People Pitchers waits for an admin to confirm an `OBSERVED_SUCCESS` because it holds escrow; Kosmik grants a ₹51/₹101 pass on it straight away. To require the bank statement instead, only accept `RECONCILED` in `handleWebhook`.
+
+Payments stay off ("Premium payments open soon") until these are set on the Worker:
 ```bash
 cd api && npx wrangler secret put NOHA_GATEWAY_URL
 ```
@@ -70,9 +80,9 @@ cd api && npx wrangler secret put NOHA_GATEWAY_URL
 cd api && npx wrangler secret put NOHA_MERCHANT_ID
 ```
 ```bash
-cd api && npx wrangler secret put NOHA_WEBHOOK_SECRET
+cd api && npx wrangler secret put NOHA_MERCHANT_KEY
 ```
-Create a Kosmik merchant on the gateway with the payee UPI ID and the webhook URL `https://<kosmik host>/api/pay/webhook`. The payee is currently the test UPI ID used by People Pitchers and Wearday; switch to a business UPI ID before real customers.
+`NOHA_GATEWAY_URL` is `https://pay.peoplepitchers.com`. The merchant key also signs webhooks; set `NOHA_WEBHOOK_SECRET` only if the gateway uses a different webhook secret. In the gateway's Merchant Admin, create a Kosmik merchant with the payee UPI ID and the webhook URL `https://<kosmik host>/api/pay/webhook`. The payee is currently the test UPI ID used by People Pitchers and Wearday; switch to a business UPI ID before real customers.
 
 On iOS and Android builds the Premium page doesn't take payment (app store billing rules); it points to the website.
 

@@ -19,7 +19,7 @@ export default function Terms() {
           h: "Plans",
           p: [
             "Guests can ask 3 questions a day. With a free Asanoha account (Starter) you get 11 questions a week, refilled each Monday (India time). Premium gives unlimited questions for 7 days (₹51) or 30 days (₹101), launch prices including GST.",
-            "Premium is paid once by UPI through Noha Pay, Asanoha’s payment page, and doesn’t renew on its own. It starts when the payment is confirmed against its UPI reference (UTR), usually within a few hours. Buying again adds days after your current end date. If a payment goes wrong, contact us below with the UTR; refunds for Premium days not yet started are given on request.",
+            "Premium is paid once by UPI through Noha Pay, Asanoha’s payment page, and doesn’t renew on its own. It starts as soon as the payment reaches our bank account, usually within a few minutes. Buying again adds days after your current end date. If a payment goes wrong, contact us below with the UTR; refunds for Premium days not yet started are given on request.",
             "Answers served from the library or from earlier answers are fast but still count toward your limit. Safety messages and “coming soon” notices don’t.",
           ],
         },

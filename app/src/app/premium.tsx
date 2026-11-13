@@ -140,9 +140,9 @@ export default function Premium() {
                   Waiting for your payment to be confirmed
                 </Text>
                 <Text style={muted}>
-                  We check each UPI payment against its reference number (UTR),
-                  usually within a few hours. Premium switches on by itself once
-                  it’s confirmed; you can close this page.
+                  Premium switches on by itself as soon as the payment reaches
+                  our bank account, usually within a few minutes. You can close
+                  this page.
                 </Text>
               </>
             ) : (
