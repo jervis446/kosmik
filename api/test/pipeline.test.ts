@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import type { AiClient, Grounded } from '../src/ai.ts';
-import { ask, BadQuestion, type Deps, type Identity } from '../src/pipeline.ts';
+import type { AiClient, Grounded, PalmReading } from '../src/ai.ts';
+import { ask, BadQuestion, type Deps, type Identity, readPalm } from '../src/pipeline.ts';
 import type { AnswerCache, History, Library, Namespace, Usage, VectorSearch } from '../src/store.ts';
 import { topK } from '../src/lib/vectors.ts';
 import type { Block, Meaning, Verse } from '../src/types.ts';
@@ -35,6 +35,8 @@ class Fakes {
   usageCounts = new Map<string, number>();
   history: { userId: string; question: string; layer: string }[] = [];
   reply: Partial<Grounded> & { answers?: string[] } = {};
+  palmReplies: PalmReading[] = [];
+  palmCalls = 0;
 
   deps(now = Date.parse('2026-11-12T10:00:00Z')): Deps {
     const library: Library = {
@@ -92,6 +94,12 @@ class Fakes {
           personal: this.reply.personal ?? false,
           offTopic: false,
         };
+      },
+      readPalm: async () => {
+        this.palmCalls++;
+        const next = this.palmReplies.shift();
+        if (!next) throw new Error('model down');
+        return next;
       },
     };
     return { library, cache, vectors, usage, history, ai, now: () => now, random: () => 0 };
@@ -283,4 +291,66 @@ test('a same-meaning match is not served when its sources changed, nor when it p
   const r = await ask(f.deps(), { question: 'Calm the anxiety in my mind, how?', lang: 'en', identity: user });
   assert.equal(r.layer, 'ai');
   assert.equal(f.cacheRows[0].disabled, true);
+});
+
+const PHOTO = 'A'.repeat(4000);
+const goodPalm: PalmReading = {
+  isPalm: true,
+  overview: 'A square palm with clear, steady lines.',
+  lines: [
+    { name: 'Heart line', reading: 'Long and curved: palmistry links this with warmth.' },
+    { name: 'Head line', reading: 'Straight and deep: a practical, focused thinker.' },
+  ],
+};
+
+test('palm: a clear photo is read, counted, and saved to history without the image', async () => {
+  const f = new Fakes();
+  f.palmReplies = [goodPalm];
+  const r = await readPalm(f.deps(), { image: PHOTO, mime: 'image/jpeg', identity: user });
+  assert.equal(r.layer, 'ai');
+  assert.deepEqual(r.blocks[1], { type: 'palm', lines: goodPalm.lines });
+  assert.match((r.blocks[0] as { text: string }).text, /square palm/);
+  assert.equal(r.remaining, 10);
+  assert.deepEqual(f.history.at(-1), { userId: 'u1', question: 'Palm reading (photo)', layer: 'ai' });
+});
+
+test('palm: not a palm, the model down, or unsafe twice: explained and not counted', async () => {
+  const f = new Fakes();
+  f.palmReplies = [{ isPalm: false, overview: 'This looks like the back of a hand. Show the inside of your palm in good light.', lines: [] }];
+  const notPalm = await readPalm(f.deps(), { image: PHOTO, mime: 'image/png', identity: user });
+  assert.equal(notPalm.blocks[0].type === 'notice' && notPalm.blocks[0].kind, 'retake');
+  assert.match((notPalm.blocks[0] as { text: string }).text, /inside of your palm/);
+  assert.equal(notPalm.remaining, 11);
+
+  const down = await readPalm(f.deps(), { image: PHOTO, mime: 'image/jpeg', identity: user });
+  assert.equal(down.blocks[0].type === 'notice' && down.blocks[0].kind, 'busy');
+  assert.equal(down.remaining, 11);
+
+  const scary = { ...goodPalm, lines: [{ name: 'Life line', reading: 'A short life line means you will die young.' }] };
+  f.palmReplies = [scary, scary];
+  const unsafe = await readPalm(f.deps(), { image: PHOTO, mime: 'image/jpeg', identity: user });
+  assert.equal(f.palmCalls, 4, 'retried once with stricter instructions');
+  assert.equal(unsafe.blocks[0].type, 'text');
+  assert.doesNotMatch(JSON.stringify(unsafe.blocks), /die young/);
+  assert.equal(unsafe.remaining, 11);
+});
+
+test('palm: the limit applies and bad uploads are refused before the model is called', async () => {
+  const f = new Fakes();
+  const guest: Identity = { kind: 'guest', subject: 'guest:x' };
+  f.palmReplies = [goodPalm, goodPalm, goodPalm];
+  for (let i = 0; i < 3; i++) await readPalm(f.deps(), { image: PHOTO, mime: 'image/jpeg', identity: guest });
+  const fourth = await readPalm(f.deps(), { image: PHOTO, mime: 'image/jpeg', identity: guest });
+  assert.equal(fourth.layer, 'limit');
+  assert.equal(f.palmCalls, 3);
+
+  for (const bad of [
+    { image: PHOTO, mime: 'image/gif' },
+    { image: 'tiny', mime: 'image/jpeg' },
+    { image: 'not base64!'.repeat(200), mime: 'image/jpeg' },
+    { image: 'A'.repeat(2_000_004), mime: 'image/jpeg' },
+  ]) {
+    await assert.rejects(readPalm(f.deps(), { ...bad, identity: user }), BadQuestion);
+  }
+  assert.equal(f.palmCalls, 3);
 });

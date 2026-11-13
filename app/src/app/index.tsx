@@ -1,13 +1,12 @@
-import { SafeAreaView } from "react-native-safe-area-context";
-
 import { Conversation } from "../components/Conversation";
-import { Header } from "../components/Header";
+import { Shell } from "../components/Shell";
+import { useShell } from "../lib/shell";
 
-export default function AskScreen() {
+export default function Home() {
+  const { chatKey, startMode } = useShell();
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
-      <Header />
-      <Conversation />
-    </SafeAreaView>
+    <Shell>
+      <Conversation key={chatKey} initialMode={startMode ?? undefined} />
+    </Shell>
   );
 }

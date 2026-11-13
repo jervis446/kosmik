@@ -9,10 +9,12 @@ export function Blocks({
   blocks,
   onSignIn,
   onPremium,
+  onRetake,
 }: {
   blocks: Block[];
   onSignIn?: () => void;
   onPremium?: () => void;
+  onRetake?: () => void;
 }) {
   const { colors } = useTheme();
   const s = styles(colors);
@@ -42,6 +44,20 @@ export function Blocks({
             );
           case "tarot":
             return <TarotSpread key={i} cards={b.cards} />;
+          case "palm":
+            return (
+              <View key={i} style={s.card} testID="palm-reading">
+                <Text style={s.title}>✋ Your lines</Text>
+                {b.lines.map((l) => (
+                  <View key={l.name} style={{ gap: 2 }}>
+                    <Text style={[s.ref, { fontSize: 14 }]}>{l.name}</Text>
+                    <Text style={s.body} selectable>
+                      {l.reading}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            );
           case "notice":
             return (
               <View
@@ -67,6 +83,15 @@ export function Blocks({
                     style={s.noticeBtn}
                   >
                     <Text style={s.noticeBtnText}>Sign in</Text>
+                  </Pressable>
+                ) : null}
+                {b.kind === "retake" && onRetake ? (
+                  <Pressable
+                    onPress={onRetake}
+                    accessibilityRole="button"
+                    style={s.noticeBtn}
+                  >
+                    <Text style={s.noticeBtnText}>Try another photo</Text>
                   </Pressable>
                 ) : null}
                 {b.kind === "limit" && onPremium ? (

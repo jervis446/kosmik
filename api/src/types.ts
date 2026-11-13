@@ -6,7 +6,8 @@ export type Block =
   | { type: 'verse'; ref: string; sanskrit: string; iast: string; translation: string; translator: string }
   | { type: 'meaning'; kind: string; key: string; title: string; body: string; reviewed: boolean }
   | { type: 'tarot'; cards: { key: string; name: string; reversed: boolean; position: string; meaning: string }[] }
-  | { type: 'notice'; kind: 'helpline' | 'needs-chart' | 'coming-soon' | 'limit' | 'sign-in' | 'busy'; text: string };
+  | { type: 'palm'; lines: { name: string; reading: string }[] }
+  | { type: 'notice'; kind: 'helpline' | 'needs-chart' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake'; text: string };
 
 /** Which layer answered: no AI, exact repeat, same meaning, or a new AI answer. */
 export type Layer = 'direct' | 'exact' | 'semantic' | 'ai' | 'safety' | 'limit';

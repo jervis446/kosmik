@@ -11,6 +11,7 @@ import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, View } from "react-native";
 
 import { AuthProvider } from "../lib/auth";
+import { ShellProvider } from "../lib/shell";
 import { ThemeProvider, useTheme } from "../lib/theme";
 
 function Shell() {
@@ -54,7 +55,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Shell />
+        <ShellProvider>
+          <Shell />
+        </ShellProvider>
       </AuthProvider>
     </ThemeProvider>
   );

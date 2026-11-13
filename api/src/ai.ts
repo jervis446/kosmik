@@ -9,10 +9,52 @@ export const DEFAULT_CHAT_MODEL = 'gemini-3.5-flash';
 
 export type Grounded = { answer: string; cited: string[]; personal: boolean; offTopic: boolean };
 
+export type PalmReading = { isPalm: boolean; overview: string; lines: { name: string; reading: string }[] };
+export type PalmImage = { data: string; mime: string };
+
 export interface AiClient {
   readonly model: string;
   embed(text: string): Promise<number[]>;
   answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter?: boolean): Promise<Grounded>;
+  readPalm(image: PalmImage, lang: Lang, stricter?: boolean): Promise<PalmReading>;
+}
+
+export const PALM_PROMPT = `You are Kosmik's palm reader, for young Indians. You read the photo of a hand in the tradition of Indian palmistry (hast rekha shastra).
+Rules, always:
+- First decide if the photo clearly shows the inside of an open human palm with the lines visible. If not (another object, the back of the hand, a fist, too dark or blurry), set "is_palm" to false, leave "lines" empty and say in "overview" what to change for a better photo.
+- Describe only what you can actually see in this photo: the heart line, head line, life line, and the fate line if visible. For each, say how it looks (long, curved, deep, faint, forked, broken) and what palmistry traditionally links that with, in one or two warm sentences in the second person.
+- Palmistry is reflection and entertainment, not certainty. Never mention lifespan, death, illness, accidents, the number or timing of marriages, divorce, children, or money predictions. A short life line says nothing about how long someone lives.
+- No remedies, gemstones, rituals or products, and no fear.
+- "overview" is 2-3 sentences on the hand's overall character (shape, mounts, how the lines work together).
+Reply with JSON only: {"is_palm": true, "overview": "...", "lines": [{"name": "Heart line", "reading": "..."}]}.`;
+
+const PALM_SCHEMA = {
+  type: 'object',
+  properties: {
+    is_palm: { type: 'boolean' },
+    overview: { type: 'string' },
+    lines: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, reading: { type: 'string' } }, required: ['name', 'reading'] } },
+  },
+  required: ['is_palm', 'overview', 'lines'],
+};
+
+export function parsePalm(output: unknown): PalmReading | null {
+  let obj: Record<string, unknown> | undefined;
+  if (typeof output === 'string') {
+    try {
+      obj = JSON.parse(output.slice(output.indexOf('{'), output.lastIndexOf('}') + 1));
+    } catch {
+      obj = undefined;
+    }
+  }
+  if (!obj || typeof obj.overview !== 'string' || !obj.overview.trim()) return null;
+  const lines = Array.isArray(obj.lines)
+    ? obj.lines
+        .filter((l): l is { name: string; reading: string } => !!l && typeof l.name === 'string' && typeof l.reading === 'string' && !!l.reading.trim())
+        .slice(0, 5)
+        .map((l) => ({ name: l.name.trim().slice(0, 40), reading: l.reading.trim() }))
+    : [];
+  return { isPalm: obj.is_palm === true && lines.length > 0, overview: obj.overview.trim(), lines };
 }
 
 const LANGUAGE: Record<Lang, string> = {
@@ -139,6 +181,29 @@ export class GeminiAi implements AiClient {
     })) as { choices?: { message?: { content?: string } }[] };
     const parsed = parseGrounded(out.choices?.[0]?.message?.content);
     if (!parsed) throw new Error('The model returned no usable answer');
+    return parsed;
+  }
+
+  async readPalm(image: PalmImage, lang: Lang, stricter = false): Promise<PalmReading> {
+    const out = (await this.post('/chat/completions', {
+      model: this.model,
+      messages: [
+        { role: 'system', content: PALM_PROMPT },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: `${LANGUAGE[lang]}${stricter ? ' Your previous reply broke the rules. Follow every rule strictly this time.' : ''}` },
+            { type: 'image_url', image_url: { url: `data:${image.mime};base64,${image.data}` } },
+          ],
+        },
+      ],
+      response_format: { type: 'json_schema', json_schema: { name: 'palm_reading', schema: PALM_SCHEMA } },
+      reasoning_effort: this.reasoningEffort,
+      max_tokens: 1200,
+      temperature: 0.5,
+    })) as { choices?: { message?: { content?: string } }[] };
+    const parsed = parsePalm(out.choices?.[0]?.message?.content);
+    if (!parsed) throw new Error('The model returned no usable palm reading');
     return parsed;
   }
 }

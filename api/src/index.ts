@@ -1,6 +1,7 @@
 /**
  * Kosmik API and web app host (Cloudflare Worker).
  *   POST /api/ask                 ask a question (signed in or guest)
+ *   POST /api/palm                read a palm photo (counts as a question; the photo isn't stored)
  *   GET  /api/conversations       your conversations
  *   GET  /api/conversations/:id   messages in one of your conversations
  *   DELETE /api/conversations/:id delete one of your conversations
@@ -15,8 +16,9 @@
  */
 import { GeminiAi } from './ai.ts';
 import { guestSubject, isPremium, Unauthorized, userFromRequest } from './auth.ts';
+import { planFor } from './lib/limits.ts';
 import { handleWebhook, PaymentError, paymentsEnabled, paymentStatus, PLANS, premiumUntil, startPayment } from './payments.ts';
-import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
+import { ask, BadQuestion, MAX_PALM_BASE64, readPalm, verseOfTheDay } from './pipeline.ts';
 import { purgeExpired } from './retention.ts';
 import { D1AnswerCache, D1History, D1Library, D1Usage, MemoryVectorSearch, VectorizeSearch } from './store.ts';
 import type { Env } from './types.ts';
@@ -47,9 +49,9 @@ const json = (req: Request, env: Env, data: unknown, status = 200) =>
 
 const error = (req: Request, env: Env, message: string, status: number) => json(req, env, { error: message }, status);
 
-async function readJson(req: Request): Promise<Record<string, unknown>> {
+async function readJson(req: Request, max = MAX_BODY): Promise<Record<string, unknown>> {
   const text = await req.text();
-  if (text.length > MAX_BODY) throw new BadQuestion('Request too large.');
+  if (text.length > max) throw new BadQuestion('Request too large.');
   try {
     const body = JSON.parse(text);
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error();
@@ -58,6 +60,8 @@ async function readJson(req: Request): Promise<Record<string, unknown>> {
     throw new BadQuestion('Request body must be JSON.');
   }
 }
+
+const gemini = (env: Env) => new GeminiAi({ apiKey: env.GEMINI_API_KEY, model: env.CHAT_MODEL, baseUrl: env.GEMINI_BASE_URL, reasoningEffort: env.REASONING_EFFORT });
 
 async function requireUser(req: Request, env: Env): Promise<string> {
   const id = await userFromRequest(req, env);
@@ -98,7 +102,7 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
         vectors: env.VECTORS ? new VectorizeSearch(env.VECTORS) : new MemoryVectorSearch(env.DB),
         usage: new D1Usage(env.DB),
         history: new D1History(env.DB),
-        ai: new GeminiAi({ apiKey: env.GEMINI_API_KEY, model: env.CHAT_MODEL, baseUrl: env.GEMINI_BASE_URL, reasoningEffort: env.REASONING_EFFORT }),
+        ai: gemini(env),
       },
       {
         question: body.question,
@@ -106,6 +110,19 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
         identity,
         conversationId: typeof body.conversationId === 'string' ? body.conversationId : null,
       },
+    );
+    return json(req, env, result);
+  }
+
+  if (path === '/api/palm' && req.method === 'POST') {
+    const body = await readJson(req, MAX_PALM_BASE64 + 1000);
+    const userId = await userFromRequest(req, env);
+    const identity = userId
+      ? { kind: 'user' as const, id: userId, premium: await isPremium(env.DB, userId, now) }
+      : { kind: 'guest' as const, subject: await guestSubject(req, env, now) };
+    const result = await readPalm(
+      { library: new D1Library(env.DB), cache: new D1AnswerCache(env.DB), vectors: new MemoryVectorSearch(env.DB), usage: new D1Usage(env.DB), history: new D1History(env.DB), ai: gemini(env) },
+      { image: body.image, mime: body.mime, lang: typeof body.lang === 'string' ? body.lang : undefined, identity, conversationId: typeof body.conversationId === 'string' ? body.conversationId : null },
     );
     return json(req, env, result);
   }
@@ -173,8 +190,12 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
 
   if (path === '/api/me' && req.method === 'GET') {
     const userId = await requireUser(req, env);
+    const until = await premiumUntil(env.DB, userId, now);
+    const plan = planFor(until ? 'premium' : 'starter', now);
+    const used = plan.limit === null ? 0 : await new D1Usage(env.DB).count(`user:${userId}`, plan.period);
     return json(req, env, {
-      premiumUntil: await premiumUntil(env.DB, userId, now),
+      premiumUntil: until,
+      usage: { used, limit: plan.limit },
       paymentsEnabled: paymentsEnabled(env),
       plans: Object.entries(PLANS).map(([id, p]) => ({ id, ...p })),
     });

@@ -81,6 +81,17 @@ const T = {
     hi: 'Kosmik अभी बहुत व्यस्त है और नया जवाब नहीं लिख पाया। यह सवाल गिना नहीं गया। थोड़ी देर बाद फिर कोशिश करें, या किसी श्लोक, राशि, नक्षत्र या टैरो कार्ड के बारे में पूछें।',
     hinglish: 'Kosmik abhi bahut busy hai aur naya jawaab nahi likh paaya. Yeh sawaal count nahi hua. Thodi der baad phir try kijiye, ya kisi shlok, rashi, nakshatra ya tarot card ke baare mein poochhiye.',
   },
+  palmIntro: { en: 'Your palm, as palmistry reads it:', hi: 'हस्तरेखा शास्त्र के अनुसार आपकी हथेली:', hinglish: 'Hast rekha ke hisaab se aapki hatheli:' },
+  palmRetake: {
+    en: 'I couldn’t see the lines clearly enough to read this photo. It wasn’t counted.',
+    hi: 'इस फ़ोटो में रेखाएँ साफ़ नहीं दिखीं, इसलिए पढ़ नहीं पाया। यह गिना नहीं गया।',
+    hinglish: 'Is photo mein lines saaf nahi dikhi, isliye padh nahi paaya. Yeh count nahi hua.',
+  },
+  palmNote: {
+    en: 'Palmistry is for reflection, not prediction. Your photo was read once and not stored.',
+    hi: 'हस्तरेखा आत्मचिंतन के लिए है, भविष्यवाणी के लिए नहीं। आपकी फ़ोटो एक बार पढ़ी गई और सहेजी नहीं गई।',
+    hinglish: 'Palmistry reflection ke liye hai, prediction ke liye nahi. Aapki photo ek baar padhi gayi aur save nahi hui.',
+  },
   unsure: {
     en: 'I couldn’t put together a reliable answer to that one. Try asking it a little differently.',
     hi: 'मैं इसका भरोसेमंद जवाब नहीं बना पाया। थोड़ा अलग तरह से पूछकर देखें।',
@@ -100,6 +111,73 @@ export function cacheable(question: string, personal: boolean): boolean {
 
 const verseBlock = (v: Verse): Block => ({ type: 'verse', ref: v.ref, sanskrit: v.sanskrit, iast: v.iast, translation: v.translation, translator: v.translator });
 
+type Turn = { plan: Plan; used: number; finish: (layer: Layer, blocks: Block[], opts: { count: boolean; cacheId?: number | null }) => Promise<AskResult> };
+
+/** Limits and history shared by every kind of question (text or palm photo). */
+async function startTurn(deps: Deps, identity: Identity, conversationId: string | null | undefined, question: string, lang: Lang, now: number): Promise<Turn> {
+  const plan = planFor(identity.kind === 'guest' ? 'guest' : identity.premium ? 'premium' : 'starter', now);
+  const subject = identity.kind === 'guest' ? identity.subject : `user:${identity.id}`;
+  const used = plan.limit === null ? 0 : await deps.usage.count(subject, plan.period);
+  const finish: Turn['finish'] = async (layer, blocks, opts) => {
+    if (opts.count) await deps.usage.increment(subject, plan.period);
+    const total = used + (opts.count ? 1 : 0);
+    let ids = { conversationId: null as string | null, messageId: null as string | null };
+    if (identity.kind === 'user' && layer !== 'limit') {
+      ids = await deps.history.record({ userId: identity.id, conversationId, question, blocks, layer, cacheId: opts.cacheId ?? null, now });
+    }
+    return { ...ids, layer, lang, blocks, remaining: plan.limit === null ? null : Math.max(0, plan.limit - total) };
+  };
+  return { plan, used, finish };
+}
+
+const limitReached = (turn: Turn) => turn.plan.limit !== null && turn.used >= turn.plan.limit;
+const limitBlock = (turn: Turn, lang: Lang): Block[] => [
+  { type: 'notice', kind: turn.plan.kind === 'guest' ? 'sign-in' : 'limit', text: turn.plan.kind === 'guest' ? T.limitGuest[lang] : T.limitStarter[lang] },
+];
+
+/** Largest palm photo accepted, after the app resizes it (about 1.5 MB of JPEG). */
+export const MAX_PALM_BASE64 = 2_000_000;
+const PALM_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+
+/** Reads a palm photo. The photo is sent to the model once and never stored. */
+export async function readPalm(
+  deps: Deps,
+  input: { image: unknown; mime: unknown; lang?: string; identity: Identity; conversationId?: string | null },
+): Promise<AskResult> {
+  const now = deps.now?.() ?? Date.now();
+  const mime = typeof input.mime === 'string' ? input.mime.toLowerCase() : '';
+  if (!PALM_MIME.includes(mime)) throw new BadQuestion('Send a JPEG, PNG or WebP photo of your palm.');
+  if (typeof input.image !== 'string' || input.image.length < 1000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(input.image)) throw new BadQuestion('That photo couldn’t be read. Please try another.');
+  if (input.image.length > MAX_PALM_BASE64) throw new BadQuestion('That photo is too large. Please try a smaller one.');
+  const lang: Lang = LANGS.includes(input.lang as Lang) ? (input.lang as Lang) : 'en';
+  const turn = await startTurn(deps, input.identity, input.conversationId, 'Palm reading (photo)', lang, now);
+  if (limitReached(turn)) return turn.finish('limit', limitBlock(turn, lang), { count: false });
+
+  const image = { data: input.image, mime };
+  const safe = (r: { overview: string; lines: { reading: string }[] }) => ![r.overview, ...r.lines.map((l) => l.reading)].some((t) => contentProblems(t).length);
+  let reading;
+  try {
+    reading = await deps.ai.readPalm(image, lang);
+    if (reading.isPalm && !safe(reading)) reading = await deps.ai.readPalm(image, lang, true);
+  } catch (err) {
+    console.error('palm reading failed', err instanceof Error ? err.message : err);
+    return turn.finish('ai', [{ type: 'notice', kind: 'busy', text: T.busy[lang] }], { count: false });
+  }
+  if (!reading.isPalm) {
+    return turn.finish('ai', [{ type: 'notice', kind: 'retake', text: `${T.palmRetake[lang]} ${reading.overview}` }], { count: false });
+  }
+  if (!safe(reading)) return turn.finish('ai', [{ type: 'text', text: T.unsure[lang] }], { count: false });
+  return turn.finish(
+    'ai',
+    [
+      { type: 'text', text: `${T.palmIntro[lang]} ${reading.overview}` },
+      { type: 'palm', lines: reading.lines },
+      { type: 'text', text: T.palmNote[lang] },
+    ],
+    { count: true },
+  );
+}
+
 export async function ask(
   deps: Deps,
   input: { question: string; lang?: string; identity: Identity; conversationId?: string | null },
@@ -109,39 +187,24 @@ export async function ask(
   if (question.length < 2) throw new BadQuestion('Ask a question to get started.');
   if (question.length > MAX_QUESTION) throw new BadQuestion(`Questions can be up to ${MAX_QUESTION} characters.`);
   const lang: Lang = LANGS.includes(input.lang as Lang) ? (input.lang as Lang) : detectLang(question);
-  const identity = input.identity;
-  const plan = planFor(identity.kind === 'guest' ? 'guest' : identity.premium ? 'premium' : 'starter', now);
-  const subject = identity.kind === 'guest' ? identity.subject : `user:${identity.id}`;
-
-  const finish = async (layer: Layer, blocks: Block[], opts: { count: boolean; cacheId?: number | null; used: number }): Promise<AskResult> => {
-    if (opts.count) await deps.usage.increment(subject, plan.period);
-    const used = opts.used + (opts.count ? 1 : 0);
-    let ids = { conversationId: null as string | null, messageId: null as string | null };
-    if (identity.kind === 'user' && layer !== 'limit') {
-      ids = await deps.history.record({ userId: identity.id, conversationId: input.conversationId, question, blocks, layer, cacheId: opts.cacheId ?? null, now });
-    }
-    return { ...ids, layer, lang, blocks, remaining: plan.limit === null ? null : Math.max(0, plan.limit - used) };
-  };
+  const turn = await startTurn(deps, input.identity, input.conversationId, question, lang, now);
+  const { finish } = turn;
 
   // Someone in distress gets a person to talk to, before anything else and free of charge.
   if (isCrisis(question)) {
     return finish('safety', [
       { type: 'text', text: T.crisis[lang] },
       { type: 'notice', kind: 'helpline', text: `${HELPLINE.name}: ${HELPLINE.number}` },
-    ], { count: false, used: plan.limit === null ? 0 : await deps.usage.count(subject, plan.period) });
+    ], { count: false });
   }
 
-  const used = plan.limit === null ? 0 : await deps.usage.count(subject, plan.period);
-  if (plan.limit !== null && used >= plan.limit) {
-    const text = plan.kind === 'guest' ? T.limitGuest[lang] : T.limitStarter[lang];
-    return finish('limit', [{ type: 'notice', kind: plan.kind === 'guest' ? 'sign-in' : 'limit', text }], { count: false, used });
-  }
+  if (limitReached(turn)) return finish('limit', limitBlock(turn, lang), { count: false });
 
   // 1. Direct answers from the libraries.
   const intent = matchIntent(question);
   if (intent) {
     const direct = await answerDirect(deps, intent, lang, now);
-    if (direct) return finish('direct', direct.blocks, { count: direct.counts, used });
+    if (direct) return finish('direct', direct.blocks, { count: direct.counts });
   }
 
   // 2. The same question, word for word (after normalising).
@@ -150,7 +213,7 @@ export async function ask(
   const exact = await deps.cache.exact(lang, hash);
   if (exact && (await stillCurrent(deps, exact))) {
     await deps.cache.hit(exact.id);
-    return finish('exact', exact.blocks, { count: true, cacheId: exact.id, used });
+    return finish('exact', exact.blocks, { count: true, cacheId: exact.id });
   }
 
   // 3 and 4 need the AI model. If it is down or out of quota, say so politely and don't count it;
@@ -169,7 +232,7 @@ export async function ask(
     await deps.vectors.add(`cache:${lang}`, String(outcome.cacheId), embedding);
   }
   if (outcome.layer === 'semantic' && outcome.cacheId !== null) await deps.cache.hit(outcome.cacheId);
-  return finish(outcome.layer, outcome.blocks, { count: outcome.count, cacheId: outcome.cacheId, used });
+  return finish(outcome.layer, outcome.blocks, { count: outcome.count, cacheId: outcome.cacheId });
 
   async function semanticOrGenerated(): Promise<Outcome> {
     // 3. A question with the same meaning.

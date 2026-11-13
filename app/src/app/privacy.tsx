@@ -13,6 +13,7 @@ export default function Privacy() {
             "Your Asanoha account email, if you sign in. Sign-in is shared across Asanoha apps.",
             "Your questions and Kosmik’s answers, saved to your history when you are signed in, so you can come back to them. You can delete any chat from History.",
             "Your 👍 / 👎 on answers, used to improve the library.",
+            "If you ask for a palm reading, your palm photo is sent to Google Gemini once to write the reading and is never stored by Kosmik. The written reading is saved to your history like any other answer.",
             "If you buy Premium: the plan, amount, date and the UPI reference (UTR) of your payment. You pay through Noha Pay, Asanoha’s UPI payment page; we never see your bank or UPI PIN details. Payment records are kept as long as tax law requires.",
             "If you use Kosmik without signing in, we keep a one-way code made from your network address and the date, only to apply the daily guest limit. It changes every day and cannot be turned back into your address.",
           ],

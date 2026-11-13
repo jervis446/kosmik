@@ -34,6 +34,7 @@ export type Block =
         meaning: string;
       }[];
     }
+  | { type: "palm"; lines: { name: string; reading: string }[] }
   | {
       type: "notice";
       kind:
@@ -42,7 +43,8 @@ export type Block =
         | "coming-soon"
         | "limit"
         | "sign-in"
-        | "busy";
+        | "busy"
+        | "retake";
       text: string;
     };
 
@@ -78,6 +80,7 @@ export type Plan = {
 };
 export type Me = {
   premiumUntil: number | null;
+  usage: { used: number; limit: number | null };
   paymentsEnabled: boolean;
   plans: Plan[];
 };
@@ -132,6 +135,16 @@ export const api = {
     call<AskResult>("/api/ask", {
       method: "POST",
       body: JSON.stringify({ question, lang, conversationId }),
+    }),
+  palm: (
+    image: string,
+    mime: string,
+    lang: Lang | undefined,
+    conversationId: string | null,
+  ) =>
+    call<AskResult>("/api/palm", {
+      method: "POST",
+      body: JSON.stringify({ image, mime, lang, conversationId }),
     }),
   conversations: () =>
     call<{ conversations: ConversationSummary[] }>("/api/conversations"),

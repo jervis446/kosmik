@@ -1,12 +1,12 @@
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Conversation, type Turn } from "../../components/Conversation";
-import { Header } from "../../components/Header";
+import { Shell } from "../../components/Shell";
 import { api, ApiError, type StoredMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { useShell } from "../../lib/shell";
 import { font, useTheme } from "../../lib/theme";
 
 const toTurns = (messages: StoredMessage[]): Turn[] =>
@@ -27,6 +27,7 @@ export default function SavedChat() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, ready } = useAuth();
   const { colors } = useTheme();
+  const { activeId, setActiveId } = useShell();
   const [data, setData] = useState<{
     title: string;
     messages: StoredMessage[];
@@ -53,9 +54,14 @@ export default function SavedChat() {
 
   const turns = useMemo(() => (data ? toTurns(data.messages) : []), [data]);
 
+  // Opened from a link or a reload: highlight this chat in the sidebar.
+  useEffect(() => {
+    if (id && activeId !== id) setActiveId(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
-      <Header title={data?.title ?? "Chat"} back />
+    <Shell title={data?.title ?? "Chat"}>
       {ready && !session ? (
         <Text
           style={{
@@ -87,6 +93,6 @@ export default function SavedChat() {
           initialConversationId={id}
         />
       )}
-    </SafeAreaView>
+    </Shell>
   );
 }
