@@ -48,6 +48,7 @@ export default function Privacy() {
           p: [
             `Delete chats any time from History. To delete your account and everything linked to it, email ${OPERATOR.email} and we will do it within 30 days.`,
             GRIEVANCE,
+            `${OPERATOR.name}, ${OPERATOR.address}.`,
           ],
         },
       ]}

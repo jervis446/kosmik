@@ -4,6 +4,7 @@ export const OPERATOR = {
   gstin: "09AQAPS4921Q1Z7",
   email: "pankaj@asanoha.co.in",
   phone: "+91 94118 66742",
+  address: "23 B Vaibhar Vihar Colony, Etawah, Uttar Pradesh 206001",
 } as const;
 
 export const GRIEVANCE = `Grievance Officer, ${OPERATOR.name}: ${OPERATOR.email}, ${OPERATOR.phone}.`;

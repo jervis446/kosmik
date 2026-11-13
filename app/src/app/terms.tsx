@@ -37,7 +37,7 @@ export default function Terms() {
         {
           h: "Contact",
           p: [
-            `Kosmik is a product of Asanoha, operated by ${OPERATOR.name} (GSTIN ${OPERATOR.gstin}).`,
+            `Kosmik is a product of Asanoha, operated by ${OPERATOR.name} (GSTIN ${OPERATOR.gstin}), ${OPERATOR.address}.`,
             GRIEVANCE,
           ],
         },
