@@ -15,7 +15,7 @@ CREATE TABLE verses (
   translation_alt TEXT,
   translator_alt TEXT,
   source TEXT NOT NULL,                 -- where the text came from and its licence
-  embedding BLOB NOT NULL,              -- float32[1024], @cf/baai/bge-m3
+  embedding BLOB NOT NULL,              -- float32[768], gemini-embedding-2 (see EMBED_MODEL in src/ai.ts)
   UNIQUE (chapter, verse)
 );
 
