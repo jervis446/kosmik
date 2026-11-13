@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kosmik Test Plan</title>
+<meta name="robots" content="noindex">
+<meta name="description" content="Step-by-step checks for testers of the Kosmik web app.">
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&family=Noto+Sans+Devanagari:wght@500&display=swap">
+<style>
+/* Layout: one reading column; a sticky progress bar; tests grouped by area, each a row with its own result controls. */
+:root {
+  --bg: #FBFAF7; --surface: #FFFFFF; --sunk: #F3F1EC; --line: #E4E0D8;
+  --text: #1C1A24; --muted: #5F5A6B; --accent: #5B3FC4; --accent-soft: #EEEAFB;
+  --pass: #1E7B48; --pass-soft: #E3F3EA; --fail: #B42318; --fail-soft: #FCE9E7; --skip: #8A6100; --skip-soft: #FBF1D8;
+  --font: "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #15131B; --surface: #1D1A25; --sunk: #24212E; --line: #34303F;
+  --text: #EEEBF5; --muted: #A6A0B5; --accent: #A994FF; --accent-soft: #2B2445;
+  --pass: #5CCB8A; --pass-soft: #17301F; --fail: #FF8A7E; --fail-soft: #3A1B19; --skip: #E8C063; --skip-soft: #33290F;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #15131B; --surface: #1D1A25; --sunk: #24212E; --line: #34303F;
+  --text: #EEEBF5; --muted: #A6A0B5; --accent: #A994FF; --accent-soft: #2B2445;
+  --pass: #5CCB8A; --pass-soft: #17301F; --fail: #FF8A7E; --fail-soft: #3A1B19; --skip: #E8C063; --skip-soft: #33290F;
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 15px/1.55 var(--font); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { max-width: 820px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { margin: 0; letter-spacing: -0.015em; text-wrap: balance; }
+p { margin: 0; }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+header.top { padding-block: 28px 18px; display: grid; gap: 12px; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+h1 { font-size: clamp(26px, 5vw, 34px); font-weight: 800; }
+.lead { color: var(--muted); max-width: 62ch; }
+.site { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.site a { font-family: var(--mono); font-size: 14px; word-break: break-all; }
+.who { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.who label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.who input { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 11px; min-height: 42px; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-block: 1px solid var(--line); }
+.bar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding-block: 10px; }
+.meter { flex: 1 1 200px; height: 8px; border-radius: 99px; background: var(--sunk); display: flex; overflow: hidden; }
+.meter span { display: block; height: 100%; transition: width .3s; }
+.counts { display: flex; gap: 10px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.counts b { font-weight: 800; }
+.c-pass { color: var(--pass); } .c-fail { color: var(--fail); } .c-skip { color: var(--skip); }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 14px; min-height: 40px; font-weight: 700; font-size: 14px; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.danger { color: var(--fail); }
+
+main { padding-block: 22px 60px; display: grid; gap: 30px; }
+.note-box { border-radius: 12px; padding: 14px 16px; background: var(--skip-soft); color: var(--text); display: grid; gap: 6px; font-size: 14px; }
+.note-box b { color: var(--skip); }
+section.area { display: grid; gap: 10px; }
+.area-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.area-head h2 { font-size: 20px; font-weight: 800; }
+.area-head .done { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.area > p { color: var(--muted); font-size: 14px; max-width: 64ch; }
+
+.test { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; border-left: 4px solid var(--line); }
+.test[data-r="pass"] { border-left-color: var(--pass); }
+.test[data-r="fail"] { border-left-color: var(--fail); }
+.test[data-r="skip"] { border-left-color: var(--skip); }
+.test-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.test-head .id { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.test-head h3 { font-size: 16px; font-weight: 700; flex: 1 1 240px; min-width: 0; }
+.pill { font-size: 11px; font-weight: 700; letter-spacing: .04em; padding: 3px 8px; border-radius: 99px; background: var(--skip-soft); color: var(--skip); white-space: nowrap; }
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.expect { font-size: 14px; background: var(--sunk); border-radius: 8px; padding: 8px 10px; }
+.expect b { font-weight: 700; }
+.say { font-family: var(--mono); font-size: 13px; background: var(--accent-soft); color: var(--text); border: 0; border-radius: 6px; padding: 1px 7px; cursor: pointer; }
+.say.copied { background: var(--pass-soft); }
+.result { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 7px 14px; min-height: 38px; font-weight: 700; font-size: 13px; cursor: pointer; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"][data-v="pass"] { background: var(--pass-soft); color: var(--pass); }
+.seg button[aria-pressed="true"][data-v="fail"] { background: var(--fail-soft); color: var(--fail); }
+.seg button[aria-pressed="true"][data-v="skip"] { background: var(--skip-soft); color: var(--skip); }
+.result input { flex: 1 1 200px; min-width: 0; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 8px 11px; min-height: 38px; font-size: 14px; }
+
+.report { display: grid; gap: 10px; }
+.report textarea { width: 100%; min-height: 220px; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 12px; font: 500 13px/1.5 var(--mono); }
+.confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; }
+.toast { min-height: 1.4em; font-size: 13px; font-weight: 600; color: var(--pass); }
+footer { color: var(--muted); font-size: 13px; padding-block: 0 40px; }
+</style>
+
+<header class="top wrap">
+  <span class="eyebrow">Kosmik · production test</span>
+  <h1>Test everything on the live site</h1>
+  <p class="lead">Work down the list on your phone. For each test, follow the steps, compare with what should happen, then mark Pass, Fail or Skip. Tap a phrase in a box to copy it, then paste it into Kosmik. Your marks stay in this browser. When you’re done, copy the report and send it back.</p>
+  <div class="site"><span>Live site</span><a href="https://kosmik.asanoha.co.in" target="_blank" rel="noopener">kosmik.asanoha.co.in</a></div>
+  <div class="who">
+    <label for="tester">Tested by<input id="tester" placeholder="Your name"></label>
+    <label for="device">Phone and browser<input id="device" placeholder="e.g. Pixel 7, Chrome"></label>
+  </div>
+</header>
+
+<div class="bar" role="region" aria-label="Progress">
+  <div class="wrap">
+    <div class="meter" aria-hidden="true"><span id="m-pass" style="background:var(--pass)"></span><span id="m-fail" style="background:var(--fail)"></span><span id="m-skip" style="background:var(--skip)"></span></div>
+    <div class="counts" aria-live="polite"><span><b id="n-done">0</b>/<span id="n-all">0</span> done</span><span class="c-pass"><b id="n-pass">0</b> pass</span><span class="c-fail"><b id="n-fail">0</b> fail</span><span class="c-skip"><b id="n-skip">0</b> skip</span></div>
+    <a class="btn primary" href="#report">Report</a>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="note-box">
+    <p><b>Not switched on yet:</b> one area needs settings only you can add, marked “Needs setup”.</p>
+    <p>Payments need the Noha Pay merchant keys; until then the Premium page says payments open soon. Everything else is live.</p>
+  </div>
+  <div id="areas"></div>
+
+  <section class="report" id="report" aria-labelledby="report-h">
+    <div class="area-head"><h2 id="report-h">Report</h2></div>
+    <p class="lead">Failures and notes come first. Copy it and paste it into the chat with Claude or on WhatsApp.</p>
+    <textarea id="report-text" readonly aria-label="Test report"></textarea>
+    <div class="confirm">
+      <button class="btn primary" id="copy" type="button">Copy report</button>
+      <button class="btn danger" id="reset" type="button">Clear all marks</button>
+      <span id="reset-confirm" hidden>Clear every mark and note? <button class="btn danger" id="reset-yes" type="button">Yes, clear</button> <button class="btn" id="reset-no" type="button">Keep them</button></span>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+  </section>
+</main>
+<footer class="wrap">Kosmik by Asanoha. Operated by Shri Krishna Enterprises. Test plan for build f4af8bb, 13 November 2026.</footer>
+
+<script>
+const SITE = "https://kosmik.asanoha.co.in";
+// [id, title, steps[], expected, flag]. Text in «» becomes a tap-to-copy phrase.
+const AREAS = [
+  { name: "Landing and sign-in", intro: "Kosmik now works only when you’re signed in.", tests: [
+    ["L1", "Landing page", ["Open the live site."], "The Kosmik website: “Ask the stars.”, “AI spiritual guide · live on the web”, an Open Kosmik button at the top, features, pricing (₹51 for 7 days, ₹101 for 30 days, one-time UPI), and Privacy/Terms links in the footer."],
+    ["L2", "Sign-in needed", ["Tap Open Kosmik."], "The Sign in page, with “Continue with Google” and an email box."],
+    ["L3", "Continue with Google", ["Tap Continue with Google and pick your Google account."], "You come back to Kosmik’s chat, signed in. (The email-code option still works too; its email says “Sign in to Wearday”, which is known.)"],
+    ["L4", "Light and dark, phone fit", ["Tap ☾/☀ at the top. Scroll and drag sideways."], "The theme switches; nothing is cut off; the page never scrolls sideways."],
+  ]},
+  { name: "Chat and history", intro: "Signed in, on the chat page.", tests: [
+    ["C1", "Empty chat", ["Look at the new-chat screen."], "“Namaste. What’s on your mind?” and four short hints (Bhagavad Gita, Tarot, Your kundli, Palm reading). No topic buttons."],
+    ["C2", "Menu = chat history", ["Tap ☰."], "New chat, your chats (Today / Previous 7 days / Older), and your email at the bottom. No Explore section."],
+    ["C3", "Reopen and delete", ["Tap a chat; then tap ✕ next to one and Delete."], "The chat opens as you left it; a deleted chat disappears and stays gone after reload."],
+  ]},
+  { name: "Kosmik works out what you mean", intro: "Type these as questions; no buttons needed.", tests: [
+    ["D1", "Gita", ["Ask «Gita 2.47», then «verse of the day»."], "Verse cards with Sanskrit, transliteration and translation, labelled “From the library”."],
+    ["D2", "Tarot", ["Ask «Pull 3 tarot cards»; tap each card."], "Three face-down cards that turn over with names and meanings."],
+    ["D3", "Jyotish meaning", ["Ask «Saturn in 7th house»."], "A card “Shani (Saturn) in the 7th house” with a Draft badge."],
+    ["D4", "AI answer with Sanskrit while thinking", ["Ask «What does the Gita say about anger?»."], "While it works, a Sanskrit word with its meaning (e.g. “मनन Manan… reflecting”). Then a short answer with verse cards, “Written for you, grounded in the library”."],
+    ["D5", "Hinglish", ["Ask «exam ke result ki tension ho rahi hai, kya karun?»."], "An answer in Hinglish citing verses."],
+    ["D6", "Helpline", ["Ask «Mujhe jeene ka mann nahi karta»."], "A caring reply and Tele-MANAS 14416. Not counted."],
+  ]},
+  { name: "Your kundli", intro: "Your chart is calculated from your birth details (sidereal, Lahiri, whole-sign houses).", tests: [
+    ["K1", "Popup asks for birth details", ["Ask «What does my kundli say about career?» (first time)."], "A note that birth details are needed (not counted), and a popup “Your birth details”."],
+    ["K2", "Fill the details", ["Date DD/MM/YYYY, time HH:MM (or tick “I don’t know my birth time”), search your birth place and pick it, tick the consent box, Save."], "The popup closes and your question is asked again by itself."],
+    ["K3", "Chart answer", ["Read the answer."], "A short answer about your chart (tendencies only, no dates or events), a “☉ Your birth chart” card with Lagna, Moon, Nakshatra and the nine grahas with rashis and houses, and meaning cards."],
+    ["K4", "Check against a known chart", ["Compare the lagna, Moon sign and nakshatra with a kundli you already have (from a pandit or another app)."], "They match. If anything differs, note your birth details (date/time/place) in the note."],
+    ["K5", "Other chart questions", ["Ask «meri shaadi ke baare mein kundli kya kehti hai?» and «What is my rashi?»."], "Answered from your chart without asking for details again."],
+  ]},
+  { name: "Palm reading", intro: "Kosmik reads saved photos of both palms.", tests: [
+    ["R1", "Popup asks for palm photos", ["Ask «Read my palm» (first time)."], "A note that palm photos are needed (not counted) and a popup “Add your palm photos” with Left hand and Right hand."],
+    ["R2", "Add both hands", ["Tick the consent box, then Upload or Camera for each hand. Tap “Read my palms”."], "Each photo appears in its slot. Then the question is asked again: an overview and a “✋ Your lines” card (heart, head, life, fate)."],
+    ["R3", "Ask about a line", ["Ask «What does my heart line say?»."], "An answer focused on the heart line, using your saved photos."],
+    ["R4", "Unclear photos", ["Replace a photo with something that isn’t a palm, then ask «read my palm»."], "A note that the lines couldn’t be seen, not counted, and the photo popup opens to replace them."],
+    ["R5", "Nothing scary", ["Read the palm answers."], "No lifespan, health, marriage timing, children or money claims; no remedies."],
+  ]},
+  { name: "Account", intro: "Menu → your email.", tests: [
+    ["A1", "Plan", ["Look at the plan card."], "Starter with “N of 11 used this week”, Get Premium, and ₹51/₹101 one-time UPI."],
+    ["A2", "My details", ["Scroll to My details."], "Your birth date, time and place with Edit, and both palm photos with Replace / Camera / Delete."],
+    ["A3", "Edit", ["Tap Edit, change the time, Save."], "The new time shows. Chart questions use it."],
+    ["A4", "Delete all", ["Tap “Delete all my details”, then “Yes, delete”."], "Birth details and both photos are gone; the next chart or palm question asks again."],
+    ["A5", "Sign out", ["Tap Sign out."], "You land on the landing page; Open Kosmik asks you to sign in again."],
+  ]},
+  { name: "Premium", intro: "₹51 for 7 days or ₹101 for 30 days, one-time UPI through Noha Pay.", flag: "Needs setup: Noha Pay keys", tests: [
+    ["P1", "Premium page", ["Account → Get Premium."], "Two plans. Before the keys are added: “Premium payments open soon.”"],
+    ["P2", "Pay ₹51 (after setup)", ["Pay with UPI, return to Kosmik."], "“Waiting for your payment…”, then “Payment confirmed. Premium is on until …” within minutes."],
+  ]},
+  { name: "Legal", intro: "Footer of the landing page, or Account → About.", tests: [
+    ["T1", "Privacy", ["Open Privacy."], "Shri Krishna Enterprises, GSTIN, Etawah address, pankaj@asanoha.co.in, +91 94118 66742; saved birth details and palm photos with consent, deletable; OpenStreetMap for the place name; Gemini for AI answers."],
+    ["T2", "Terms", ["Open Terms."], "Premium as a one-time UPI pass, Tele-MANAS 14416, the same contact details."],
+  ]},
+];
+
+const KEY = "kosmik-test-plan/v3";
+let state = { marks: {}, notes: {}, tester: "", device: "" };
+try { state = { ...state, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const rich = (s) => esc(s).replace(/«(.+?)»/g, (_, t) => `<button type="button" class="say" data-say="${t}" title="Tap to copy">${t}</button>`);
+const ALL = AREAS.flatMap((a) => a.tests.map((t) => ({ area: a, t })));
+
+function render() {
+  document.getElementById("areas").innerHTML = AREAS.map((a, ai) => `
+    <section class="area" aria-labelledby="area-${ai}">
+      <div class="area-head"><h2 id="area-${ai}">${esc(a.name)}</h2><span class="done" data-area="${ai}"></span></div>
+      <p>${esc(a.intro)}</p>
+      ${a.tests.map(([id, title, steps, expect]) => `
+        <article class="test" id="t-${id}" data-id="${id}">
+          <div class="test-head"><span class="id">${id}</span><h3>${esc(title)}</h3>${a.flag ? `<span class="pill">${esc(a.flag)}</span>` : ""}</div>
+          <ol class="steps">${steps.map((s) => `<li>${rich(s)}</li>`).join("")}</ol>
+          <p class="expect"><b>Should happen:</b> ${rich(expect)}</p>
+          <div class="result">
+            <div class="seg" role="group" aria-label="Result for ${id}">
+              ${["pass", "fail", "skip"].map((v) => `<button type="button" data-v="${v}" aria-pressed="false">${v[0].toUpperCase() + v.slice(1)}</button>`).join("")}
+            </div>
+            <input id="note-${id}" placeholder="What did you see? (optional)" aria-label="Note for ${id}">
+          </div>
+        </article>`).join("")}
+    </section>`).join("");
+  for (const { t } of ALL) {
+    const el = document.getElementById("t-" + t[0]);
+    el.querySelector("input").value = state.notes[t[0]] || "";
+  }
+  document.getElementById("tester").value = state.tester || "";
+  document.getElementById("device").value = state.device || "";
+  refresh();
+}
+
+function refresh() {
+  const n = { pass: 0, fail: 0, skip: 0 };
+  for (const { t } of ALL) {
+    const r = state.marks[t[0]];
+    if (r) n[r]++;
+    const el = document.getElementById("t-" + t[0]);
+    el.dataset.r = r || "";
+    el.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === r)));
+  }
+  const all = ALL.length, done = n.pass + n.fail + n.skip;
+  document.getElementById("n-all").textContent = all;
+  document.getElementById("n-done").textContent = done;
+  for (const k of ["pass", "fail", "skip"]) {
+    document.getElementById("n-" + k).textContent = n[k];
+    document.getElementById("m-" + k).style.width = (100 * n[k] / all) + "%";
+  }
+  AREAS.forEach((a, ai) => {
+    const d = a.tests.filter((t) => state.marks[t[0]]).length;
+    document.querySelector(`[data-area="${ai}"]`).textContent = `${d} of ${a.tests.length} marked`;
+  });
+  document.getElementById("report-text").value = report(n, done, all);
+}
+
+function report(n, done, all) {
+  const line = ({ area, t }) => {
+    const r = state.marks[t[0]], note = (state.notes[t[0]] || "").trim();
+    return `${t[0]} ${t[1]} (${area.name}): ${r ? r.toUpperCase() : "not tested"}${note ? " — " + note : ""}`;
+  };
+  const fails = ALL.filter((x) => state.marks[x.t[0]] === "fail");
+  const noted = ALL.filter((x) => state.marks[x.t[0]] !== "fail" && (state.notes[x.t[0]] || "").trim());
+  const rest = ALL.filter((x) => !fails.includes(x) && !noted.includes(x));
+  return [
+    `Kosmik test report — ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`,
+    `Site: ${SITE}`,
+    `Tested by: ${state.tester || "—"} · Device: ${state.device || "—"}`,
+    `Done ${done}/${all}: ${n.pass} pass, ${n.fail} fail, ${n.skip} skip`,
+    "",
+    fails.length ? "FAILED" : "No failures.", ...fails.map(line),
+    ...(noted.length ? ["", "NOTES", ...noted.map(line)] : []),
+    "", "ALL TESTS", ...rest.map(line),
+  ].join("\n");
+}
+
+document.addEventListener("click", (e) => {
+  const seg = e.target.closest(".seg button");
+  if (seg) {
+    const id = seg.closest(".test").dataset.id;
+    state.marks[id] = state.marks[id] === seg.dataset.v ? undefined : seg.dataset.v;
+    if (!state.marks[id]) delete state.marks[id];
+    save(); refresh(); return;
+  }
+  const say = e.target.closest(".say");
+  if (say) {
+    navigator.clipboard?.writeText(say.dataset.say).then(() => {
+      say.classList.add("copied"); setTimeout(() => say.classList.remove("copied"), 1200);
+    }).catch(() => { const r = document.createRange(); r.selectNodeContents(say); const s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+  }
+});
+document.addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.id === "tester" || t.id === "device") state[t.id] = t.value;
+  else if (t.id.startsWith("note-")) state.notes[t.id.slice(5)] = t.value;
+  else return;
+  save();
+  document.getElementById("report-text").value = report(...counts());
+});
+function counts() {
+  const n = { pass: 0, fail: 0, skip: 0 };
+  for (const { t } of ALL) if (state.marks[t[0]]) n[state.marks[t[0]]]++;
+  return [n, n.pass + n.fail + n.skip, ALL.length];
+}
+const toast = (msg) => { const el = document.getElementById("toast"); el.textContent = msg; setTimeout(() => (el.textContent = ""), 2500); };
+document.getElementById("copy").addEventListener("click", () => {
+  const ta = document.getElementById("report-text");
+  navigator.clipboard?.writeText(ta.value).then(() => toast("Report copied. Paste it in the chat."), () => { ta.focus(); ta.select(); toast("Selected. Copy it with your phone’s Copy."); })
+    ?? (ta.focus(), ta.select());
+});
+document.getElementById("reset").addEventListener("click", () => { document.getElementById("reset-confirm").hidden = false; });
+document.getElementById("reset-no").addEventListener("click", () => { document.getElementById("reset-confirm").hidden = true; });
+document.getElementById("reset-yes").addEventListener("click", () => {
+  state = { marks: {}, notes: {}, tester: state.tester, device: state.device };
+  save(); render(); document.getElementById("reset-confirm").hidden = true; toast("All marks cleared.");
+});
+render();
+</script>
+</body>
+</html>
