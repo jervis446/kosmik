@@ -27,7 +27,7 @@ const embedText = (t: string) => {
 class Fakes {
   aiCalls = 0;
   embedCalls = 0;
-  cacheRows: { id: number; lang: string; hash: string; blocks: Block[]; question: string }[] = [];
+  cacheRows: { id: number; lang: string; hash: string; blocks: Block[]; question: string; sources: string[]; sourcesHash: string | null; disabled: boolean }[] = [];
   vectorsByNs = new Map<string, { id: string; vector: number[] }[]>([
     ['verses', [{ id: 'BG 2.47', vector: embedText('work result karma worry') }, { id: 'BG 6.25', vector: embedText('calm mind anxiety') }]],
     ['meanings', [{ id: 'graha-house/saturn:7', vector: embedText('marriage') }]],
@@ -46,14 +46,22 @@ class Fakes {
       meanings: async (ids) => meanings.filter((m) => ids.includes(`${m.kind}/${m.key}`)),
     };
     const cache: AnswerCache = {
-      exact: async (lang, hash) => this.cacheRows.find((r) => r.lang === lang && r.hash === hash) ?? null,
-      byId: async (id) => this.cacheRows.find((r) => r.id === id) ?? null,
+      exact: async (lang, hash) => this.cacheRows.find((r) => r.lang === lang && r.hash === hash && !r.disabled) ?? null,
+      byId: async (id) => this.cacheRows.find((r) => r.id === id && !r.disabled) ?? null,
       put: async (e) => {
+        const row = { lang: e.lang, hash: e.hash, blocks: e.blocks, question: e.question, sources: e.sources, sourcesHash: e.sourcesHash, disabled: false };
+        const existing = this.cacheRows.find((r) => r.lang === e.lang && r.hash === e.hash);
+        if (existing?.disabled) Object.assign(existing, row);
+        if (existing) return existing.id;
         const id = this.cacheRows.length + 1;
-        this.cacheRows.push({ id, lang: e.lang, hash: e.hash, blocks: e.blocks, question: e.question });
+        this.cacheRows.push({ id, ...row });
         return id;
       },
       hit: async () => {},
+      retire: async (id) => {
+        const r = this.cacheRows.find((x) => x.id === id);
+        if (r) r.disabled = true;
+      },
     };
     const vectors: VectorSearch = {
       search: async (ns: Namespace, v, k, min) => topK(v, this.vectorsByNs.get(ns) ?? [], k, min),
@@ -242,4 +250,37 @@ test('when the AI model is down, library and cached answers still work and new q
   assert.equal(fresh.layer, 'ai');
   assert.ok(fresh.blocks.some((b) => b.type === 'notice' && b.kind === 'busy'));
   assert.equal(fresh.remaining, before, 'a failed answer must not use up a question');
+});
+
+test('a cached answer is retired and rewritten when a verse it cites is edited', async () => {
+  const f = new Fakes();
+  const q = 'How do I stop worry about the result of my work?';
+  await ask(f.deps(), { question: q, lang: 'en', identity: user });
+  const again = await ask(f.deps(), { question: q, lang: 'en', identity: user });
+  assert.equal(again.layer, 'exact');
+  assert.equal(f.aiCalls, 1);
+
+  const original = verses[0].translation;
+  verses[0].translation = 'You have a right to your actions, never to their fruits.';
+  try {
+    const fresh = await ask(f.deps(), { question: q, lang: 'en', identity: user });
+    assert.equal(fresh.layer, 'ai', 'stale answer is not served');
+    assert.equal(f.aiCalls, 2);
+    const verse = fresh.blocks.find((b) => b.type === 'verse');
+    assert.equal(verse?.type === 'verse' && verse.translation, verses[0].translation, 'new answer shows the edited text');
+    assert.equal(f.cacheRows.length, 1, 'the retired row is replaced, not duplicated');
+    assert.equal(f.cacheRows[0].disabled, false);
+    assert.equal((await ask(f.deps(), { question: q, lang: 'en', identity: user })).layer, 'exact', 'and cached again');
+  } finally {
+    verses[0].translation = original;
+  }
+});
+
+test('a same-meaning match is not served when its sources changed, nor when it predates fingerprints', async () => {
+  const f = new Fakes();
+  await ask(f.deps(), { question: 'How do I calm my anxiety and mind?', lang: 'en', identity: user });
+  f.cacheRows[0].sourcesHash = null; // as if cached before fingerprints existed
+  const r = await ask(f.deps(), { question: 'Calm the anxiety in my mind, how?', lang: 'en', identity: user });
+  assert.equal(r.layer, 'ai');
+  assert.equal(f.cacheRows[0].disabled, true);
 });

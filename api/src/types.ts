@@ -33,7 +33,8 @@ export type Verse = {
 
 export type Meaning = { kind: string; key: string; title: string; body: string; reviewed: boolean };
 
-export type CacheEntry = { id: number; blocks: Block[] };
+/** A cached answer, with the library entries it cites and a fingerprint of their text when cached. */
+export type CacheEntry = { id: number; blocks: Block[]; sources: string[]; sourcesHash: string | null };
 
 export interface Env {
   DB: D1Database;

@@ -12,6 +12,7 @@
 import { GeminiAi } from './ai.ts';
 import { guestSubject, isPremium, Unauthorized, userFromRequest } from './auth.ts';
 import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
+import { purgeExpired } from './retention.ts';
 import { D1AnswerCache, D1History, D1Library, D1Usage, MemoryVectorSearch, VectorizeSearch } from './store.ts';
 import type { Env } from './types.ts';
 
@@ -180,5 +181,9 @@ export default {
       console.error('api error', (e as Error).message);
       return error(req, env, 'Something went wrong. Please try again.', 500);
     }
+  },
+
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(purgeExpired(env.DB, Date.now()).then((purged) => console.log('retention', JSON.stringify(purged))));
   },
 } satisfies ExportedHandler<Env>;

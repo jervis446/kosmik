@@ -13,7 +13,7 @@ import { contentProblems, HELPLINE, isCrisis } from './lib/safety.ts';
 import { detectLang, type Lang, LANGS, normalizeQuestion, sha256 } from './lib/text.ts';
 import { TAROT } from './lib/catalog.ts';
 import type { AnswerCache, History, Library, Usage, VectorSearch } from './store.ts';
-import type { AskResult, Block, Layer, Verse } from './types.ts';
+import type { AskResult, Block, CacheEntry, Layer, Meaning, Verse } from './types.ts';
 
 export const MAX_QUESTION = 500;
 /**
@@ -148,7 +148,7 @@ export async function ask(
   const normalized = normalizeQuestion(question);
   const hash = await sha256(normalized);
   const exact = await deps.cache.exact(lang, hash);
-  if (exact) {
+  if (exact && (await stillCurrent(deps, exact))) {
     await deps.cache.hit(exact.id);
     return finish('exact', exact.blocks, { count: true, cacheId: exact.id, used });
   }
@@ -164,8 +164,8 @@ export async function ask(
     outcome = { layer: 'ai', blocks: [{ type: 'notice', kind: 'busy', text: T.busy[lang] }], count: false, cacheId: null };
   }
   if (outcome.cache) {
-    const { blocks, embedding } = outcome.cache;
-    outcome.cacheId = await deps.cache.put({ lang, question: normalized, hash, blocks, sources: outcome.cache.sources, model: deps.ai.model, embedding });
+    const { blocks, embedding, sources, sourcesHash } = outcome.cache;
+    outcome.cacheId = await deps.cache.put({ lang, question: normalized, hash, blocks, sources, sourcesHash, model: deps.ai.model, embedding });
     await deps.vectors.add(`cache:${lang}`, String(outcome.cacheId), embedding);
   }
   if (outcome.layer === 'semantic' && outcome.cacheId !== null) await deps.cache.hit(outcome.cacheId);
@@ -177,7 +177,7 @@ export async function ask(
     const [similar] = await deps.vectors.search(`cache:${lang}`, embedding, 1, SAME_MEANING);
     if (similar) {
       const entry = await deps.cache.byId(Number(similar.id));
-      if (entry) return { layer: 'semantic', blocks: entry.blocks, count: true, cacheId: entry.id };
+      if (entry && (await stillCurrent(deps, entry))) return { layer: 'semantic', blocks: entry.blocks, count: true, cacheId: entry.id };
     }
 
     // 4. Retrieve sources and ask the model.
@@ -207,7 +207,12 @@ export async function ask(
     ];
     if (grounded.personal) blocks.push({ type: 'notice', kind: 'needs-chart', text: T.needsChart[lang] });
 
-    return { layer: 'ai', blocks, count: true, cacheId: null, cache: cacheable(question, grounded.personal) ? { blocks, sources, embedding } : undefined };
+    if (!cacheable(question, grounded.personal)) return { layer: 'ai', blocks, count: true, cacheId: null };
+    const sourcesHash = await sourcesFingerprint(
+      verses.filter((v) => sources.includes(v.ref)),
+      meanings.filter((m) => sources.includes(`${m.kind}/${m.key}`)),
+    );
+    return { layer: 'ai', blocks, count: true, cacheId: null, cache: { blocks, sources, sourcesHash, embedding } };
   }
 }
 
@@ -217,8 +222,34 @@ type Outcome = {
   count: boolean;
   cacheId: number | null;
   /** Set when a fresh answer should be stored in the shared cache. */
-  cache?: { blocks: Block[]; sources: string[]; embedding: number[] };
+  cache?: { blocks: Block[]; sources: string[]; sourcesHash: string; embedding: number[] };
 };
+
+/**
+ * Fingerprint of the library text an answer was built from. Changes when a cited verse or
+ * meaning is edited, or a meaning is reviewed (the "Draft" badge is part of the cached answer).
+ */
+export async function sourcesFingerprint(verses: Verse[], meanings: Meaning[]): Promise<string> {
+  const parts = [
+    ...verses.map((v) => [v.ref, v.translation, v.translator].join('\u0000')),
+    ...meanings.map((m) => [`${m.kind}/${m.key}`, m.title, m.body, m.reviewed ? 1 : 0].join('\u0000')),
+  ];
+  return sha256(parts.sort().join('\u0001'));
+}
+
+/** Whether a cached answer still matches the library. If not, it is retired and a fresh one is written. */
+async function stillCurrent(deps: Deps, entry: CacheEntry): Promise<boolean> {
+  let current = false;
+  if (entry.sourcesHash) {
+    // Verse refs look like "BG 2.47"; meaning ids are "kind/key".
+    const refs = entry.sources.filter((s) => !s.includes('/'));
+    const ids = entry.sources.filter((s) => s.includes('/'));
+    const [verses, meanings] = await Promise.all([deps.library.verses(refs), deps.library.meanings(ids)]);
+    current = verses.length + meanings.length === entry.sources.length && (await sourcesFingerprint(verses, meanings)) === entry.sourcesHash;
+  }
+  if (!current) await deps.cache.retire(entry.id);
+  return current;
+}
 
 async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number): Promise<{ blocks: Block[]; counts: boolean } | null> {
   switch (intent.type) {

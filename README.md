@@ -29,6 +29,21 @@ Answers are only cached when the question is general. Questions with personal co
 
 Feedback: three or more 👎 (and more 👎 than 👍) takes a cached answer out of service.
 
+Cached answers store a fingerprint of the library text they cite. When a cited verse or meaning is edited, or a meaning is marked reviewed, the next request for that answer retires it and writes a fresh one, so corrections reach users without clearing the cache by hand.
+
+## Data kept, and for how long
+
+Everything is in D1. Supabase is only the sign-in.
+
+| Data | Kept |
+|---|---|
+| Question counts (users, and guests' daily one-way code) | 30 days |
+| Chats (signed-in users only) | 12 months after last use, or until the user deletes them |
+| Shared cached answers (general questions only, no user link) | Removed after 6 months unused, unless reviewed |
+| Library (verses, meanings) | Permanent |
+
+A daily Cron Trigger (`src/retention.ts`, 03:00 India time) deletes what has expired. The periods are stated on the privacy page; change both together. Test it locally with `npx wrangler dev --test-scheduled`, then open `http://127.0.0.1:8787/cdn-cgi/handler/scheduled`.
+
 ## Limits
 
 | Who | Allowance |

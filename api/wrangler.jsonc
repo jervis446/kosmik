@@ -20,6 +20,9 @@
   // then uncomment and run data/scripts/push-vectorize.ts. Without it, vectors are searched in memory.
   // "vectorize": [{ "binding": "VECTORS", "index_name": "kosmik" }],
 
+  // Daily clean-up of old counts, chats and unused cached answers (src/retention.ts): 03:00 India time.
+  "triggers": { "crons": ["30 21 * * *"] },
+
   // 20 write requests a minute per IP address.
   "ratelimits": [{ "name": "RATE_LIMITER", "namespace_id": "2001", "simple": { "limit": 20, "period": 60 } }],
 

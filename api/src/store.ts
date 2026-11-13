@@ -16,8 +16,10 @@ export interface Library {
 export interface AnswerCache {
   exact(lang: string, hash: string): Promise<CacheEntry | null>;
   byId(id: number): Promise<CacheEntry | null>;
-  put(e: { lang: string; question: string; hash: string; blocks: Block[]; sources: string[]; model: string; embedding: number[] }): Promise<number>;
+  put(e: { lang: string; question: string; hash: string; blocks: Block[]; sources: string[]; sourcesHash: string; model: string; embedding: number[] }): Promise<number>;
   hit(id: number): Promise<void>;
+  /** Takes an answer out of service, e.g. because the library text it cites has changed. */
+  retire(id: number): Promise<void>;
 }
 
 export interface VectorSearch {
@@ -39,7 +41,10 @@ const VERSE_COLS = 'ref, chapter, verse, sanskrit, iast, translation, translator
 const toMeaning = (r: { kind: string; key: string; title: string; body: string; reviewed: number }): Meaning => ({ ...r, reviewed: !!r.reviewed });
 
 export class D1Library implements Library {
-  constructor(private db: D1Database) {}
+  private readonly db: D1Database;
+  constructor(db: D1Database) {
+    this.db = db;
+  }
   async verse(chapter: number, verse: number) {
     return (await this.db.prepare(`SELECT ${VERSE_COLS} FROM verses WHERE chapter = ? AND verse = ?`).bind(chapter, verse).first<VerseRow>()) ?? null;
   }
@@ -68,38 +73,57 @@ export class D1Library implements Library {
   }
 }
 
+type CacheRow = { id: number; blocks: string; sources: string; sources_hash: string | null };
+const CACHE_COLS = 'id, answer AS blocks, sources, sources_hash';
+
 export class D1AnswerCache implements AnswerCache {
-  constructor(private db: D1Database) {}
-  private parse(row: { id: number; blocks: string } | null): CacheEntry | null {
-    return row ? { id: row.id, blocks: JSON.parse(row.blocks) as Block[] } : null;
+  private readonly db: D1Database;
+  constructor(db: D1Database) {
+    this.db = db;
+  }
+  private parse(row: CacheRow | null): CacheEntry | null {
+    return row ? { id: row.id, blocks: JSON.parse(row.blocks) as Block[], sources: JSON.parse(row.sources) as string[], sourcesHash: row.sources_hash } : null;
   }
   async exact(lang: string, hash: string) {
-    return this.parse(await this.db.prepare('SELECT id, answer AS blocks FROM answer_cache WHERE lang = ? AND question_hash = ? AND disabled = 0').bind(lang, hash).first());
+    return this.parse(await this.db.prepare(`SELECT ${CACHE_COLS} FROM answer_cache WHERE lang = ? AND question_hash = ? AND disabled = 0`).bind(lang, hash).first<CacheRow>());
   }
   async byId(id: number) {
-    return this.parse(await this.db.prepare('SELECT id, answer AS blocks FROM answer_cache WHERE id = ? AND disabled = 0').bind(id).first());
+    return this.parse(await this.db.prepare(`SELECT ${CACHE_COLS} FROM answer_cache WHERE id = ? AND disabled = 0`).bind(id).first<CacheRow>());
   }
   async put(e: Parameters<AnswerCache['put']>[0]) {
-    // Two people can ask the same new question at once: the second insert keeps the first answer.
+    // A retired answer (out of date, or too many 👎) is replaced by the new one with fresh counts.
+    // A live one is kept: two people asked the same new question at once.
     const row = await this.db
       .prepare(
-        `INSERT INTO answer_cache (lang, question, question_hash, answer, sources, model, embedding, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT (lang, question_hash) DO UPDATE SET lang = excluded.lang
+        `INSERT INTO answer_cache (lang, question, question_hash, answer, sources, sources_hash, model, embedding, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (lang, question_hash) DO UPDATE SET
+           question = excluded.question, answer = excluded.answer, sources = excluded.sources, sources_hash = excluded.sources_hash,
+           model = excluded.model, embedding = excluded.embedding, created_at = excluded.created_at,
+           hits = 0, up = 0, down = 0, disabled = 0, reviewed = 0, last_hit_at = NULL
+         WHERE answer_cache.disabled = 1
          RETURNING id`,
       )
-      .bind(e.lang, e.question, e.hash, JSON.stringify(e.blocks), JSON.stringify(e.sources), e.model, toBlob(e.embedding), Date.now())
+      .bind(e.lang, e.question, e.hash, JSON.stringify(e.blocks), JSON.stringify(e.sources), e.sourcesHash, e.model, toBlob(e.embedding), Date.now())
       .first<{ id: number }>();
-    return row!.id;
+    if (row) return row.id;
+    const live = await this.db.prepare('SELECT id FROM answer_cache WHERE lang = ? AND question_hash = ?').bind(e.lang, e.hash).first<{ id: number }>();
+    return live!.id;
   }
   async hit(id: number) {
     await this.db.prepare('UPDATE answer_cache SET hits = hits + 1, last_hit_at = ? WHERE id = ?').bind(Date.now(), id).run();
+  }
+  async retire(id: number) {
+    await this.db.prepare('UPDATE answer_cache SET disabled = 1 WHERE id = ?').bind(id).run();
   }
 }
 
 /** Production: Cloudflare Vectorize, one namespace per library and per cache language. */
 export class VectorizeSearch implements VectorSearch {
-  constructor(private index: VectorizeIndex) {}
+  private readonly index: VectorizeIndex;
+  constructor(index: VectorizeIndex) {
+    this.index = index;
+  }
   async search(ns: Namespace, vector: number[], k: number, minScore: number) {
     const res = await this.index.query(vector, { topK: k, namespace: ns, returnValues: false, returnMetadata: 'none' });
     return res.matches.filter((m) => m.score >= minScore).map((m) => ({ id: m.id, score: m.score }));
@@ -119,7 +143,10 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 const CACHE_SCAN_LIMIT = 3000;
 
 export class MemoryVectorSearch implements VectorSearch {
-  constructor(private db: D1Database) {}
+  private readonly db: D1Database;
+  constructor(db: D1Database) {
+    this.db = db;
+  }
   private async load(ns: Namespace) {
     const cached = memory.get(ns);
     const isCache = ns.startsWith('cache:');
@@ -148,7 +175,10 @@ export class MemoryVectorSearch implements VectorSearch {
 }
 
 export class D1Usage implements Usage {
-  constructor(private db: D1Database) {}
+  private readonly db: D1Database;
+  constructor(db: D1Database) {
+    this.db = db;
+  }
   async count(subject: string, period: string) {
     return (await this.db.prepare('SELECT count FROM usage WHERE subject = ? AND period = ?').bind(subject, period).first<{ count: number }>())?.count ?? 0;
   }
@@ -161,7 +191,10 @@ export class D1Usage implements Usage {
 }
 
 export class D1History implements History {
-  constructor(private db: D1Database) {}
+  private readonly db: D1Database;
+  constructor(db: D1Database) {
+    this.db = db;
+  }
   async record(e: Parameters<History['record']>[0]) {
     let conversationId = e.conversationId ?? null;
     if (conversationId) {

@@ -1,10 +1,11 @@
 import { Legal } from "../components/Legal";
+import { GRIEVANCE, OPERATOR } from "../lib/legal";
 
 export default function Privacy() {
   return (
     <Legal
       title="Privacy"
-      updated="12 November 2026"
+      updated="13 November 2026"
       sections={[
         {
           h: "What we collect",
@@ -23,6 +24,14 @@ export default function Privacy() {
           ],
         },
         {
+          h: "How long we keep it",
+          p: [
+            "Chats are deleted automatically 12 months after you last used them, or sooner if you delete them yourself.",
+            "Question counts, including the daily guest code, are deleted after 30 days.",
+            "Shared general answers are removed after 6 months if nobody has asked for them, unless we have reviewed them for the library. When a verse or meaning in the library is corrected, answers that relied on the old text stop being shown.",
+          ],
+        },
+        {
           h: "What we don’t do",
           p: [
             "We don’t sell your data, show ads, or use your chats to build a profile of you. We don’t ask for your birth details in this version.",
@@ -37,8 +46,8 @@ export default function Privacy() {
         {
           h: "Your choices",
           p: [
-            "Delete chats any time from History. To delete your account and everything linked to it, email the Grievance Officer below and we will do it within 30 days.",
-            "Grievance Officer: Joseph, joseph@asanoha.co.in.",
+            `Delete chats any time from History. To delete your account and everything linked to it, email ${OPERATOR.email} and we will do it within 30 days.`,
+            GRIEVANCE,
           ],
         },
       ]}

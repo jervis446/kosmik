@@ -1,10 +1,11 @@
 import { Legal } from "../components/Legal";
+import { GRIEVANCE, OPERATOR } from "../lib/legal";
 
 export default function Terms() {
   return (
     <Legal
       title="Terms"
-      updated="12 November 2026"
+      updated="13 November 2026"
       sections={[
         {
           h: "What Kosmik is",
@@ -35,7 +36,10 @@ export default function Terms() {
         },
         {
           h: "Contact",
-          p: ["Asanoha LLP. Grievance Officer: Joseph, joseph@asanoha.co.in."],
+          p: [
+            `Kosmik is a product of Asanoha, operated by ${OPERATOR.name} (GSTIN ${OPERATOR.gstin}).`,
+            GRIEVANCE,
+          ],
         },
       ]}
     />

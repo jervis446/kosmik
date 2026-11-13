@@ -3,6 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { font, useTheme } from "../lib/theme";
 import { Header } from "./Header";
+import { OPERATOR } from "../lib/legal";
 
 export type Section = { h: string; p: string[] };
 
@@ -31,7 +32,8 @@ export function Legal({
         <Text
           style={{ color: colors.muted, fontFamily: font.medium, fontSize: 13 }}
         >
-          Last updated {updated}. Asanoha LLP.
+          Last updated {updated}. Kosmik by Asanoha, operated by {OPERATOR.name}
+          (GSTIN {OPERATOR.gstin}).
         </Text>
         {sections.map((s) => (
           <View key={s.h} style={{ gap: 8 }}>
