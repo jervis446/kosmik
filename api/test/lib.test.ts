@@ -100,3 +100,12 @@ test('vector search skips vectors of a different size (from an older embedding m
   const hits = topK([1, 0], [{ id: 'old', vector: [1, 0, 0] }, { id: 'new', vector: [1, 0] }], 5);
   assert.deepEqual(hits.map((h) => h.id), ['new']);
 });
+
+test('wrangler.jsonc parses after stripping comments, keeping // inside strings', async () => {
+  const { stripJsonComments } = await import('../scripts/embed-web.ts');
+  assert.deepEqual(JSON.parse(stripJsonComments('{\n  // note\n  "url": "https://x.dev/a", /* block */ "n": [1, 2,],\n}')), { url: 'https://x.dev/a', n: [1, 2] });
+  const { readFileSync } = await import('node:fs');
+  const config = JSON.parse(stripJsonComments(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8')));
+  assert.equal(config.name, 'kosmik');
+  assert.ok(config.assets && config.triggers.crons.length);
+});

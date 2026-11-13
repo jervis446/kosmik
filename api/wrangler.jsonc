@@ -13,8 +13,8 @@
     "run_worker_first": ["/api/*"]
   },
 
-  // Create with: npx wrangler d1 create kosmik   (then put the id it prints here)
-  "d1_databases": [{ "binding": "DB", "database_name": "kosmik", "database_id": "local-development", "migrations_dir": "migrations" }],
+  // Production database (created with: npx wrangler d1 create kosmik --location apac)
+  "d1_databases": [{ "binding": "DB", "database_name": "kosmik", "database_id": "073d7c72-530a-4e07-a2f2-e8dd5b8ce4f4", "migrations_dir": "migrations" }],
 
   // Optional, for many cached answers: npx wrangler vectorize create kosmik --dimensions=768 --metric=cosine
   // then uncomment and run data/scripts/push-vectorize.ts. Without it, vectors are searched in memory.

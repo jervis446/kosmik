@@ -110,46 +110,39 @@ cd api && npm run typecheck && npm test
 cd app && npm run typecheck && npm run lint && npm run build:web
 ```
 
-## Deploying (not done yet)
+## Deploying
 
-Nothing has been deployed. AI runs on Google Gemini (paid tier: on the free tier Google may use prompts to improve its products, which our privacy policy doesn't allow). When Gemini is down or rate-limited, Kosmik keeps serving library and cached answers and tells people it is busy for new questions (not counted against their limit).
+**Live:** https://kosmik.prime-adarsh108.workers.dev (Worker `kosmik`, D1 database `kosmik` in APAC). AI runs on Google Gemini (paid tier: on the free tier Google may use prompts to improve its products, which our privacy policy doesn't allow). When Gemini is down, rate-limited or not configured, Kosmik keeps serving library and cached answers and tells people it is busy for new questions (not counted against their limit).
 
-When ready:
+The database exists and its id is in `api/wrangler.jsonc`. To update:
 
-1. Create the database and put its id into `api/wrangler.jsonc` (replace `local-development`):
+1. Schema changes:
    ```bash
-   cd api && npx wrangler d1 create kosmik
+   cd api && npx wrangler d1 migrations apply kosmik --remote
    ```
-2. Apply the schema and load the library:
+   Library changes (after `node data/scripts/make-seed.ts`):
    ```bash
-   npx wrangler d1 migrations apply kosmik --remote
+   cd api && npx wrangler d1 execute kosmik --remote --file seed/library.sql
    ```
+2. Secrets (already set: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `GUEST_SALT`). **`GEMINI_API_KEY` must be set before AI answers work:**
    ```bash
-   npx wrangler d1 execute kosmik --remote --file seed/library.sql
+   cd api && npx wrangler secret put GEMINI_API_KEY
    ```
-3. Secrets (production Supabase project: the same one as the Asanoha store and Wearday):
+   or in the Cloudflare dashboard: Workers & Pages → kosmik → Settings → Variables and Secrets → Add → type Secret.
+3. Build the app with the production Supabase URL and anon key (the same project as the Asanoha store and Wearday). Put them in `app/.env.production`, and export them when building, because `.env.local` otherwise takes precedence:
    ```bash
-   npx wrangler secret put SUPABASE_URL
+   cd app && set -a && . ./.env.production && set +a && npm run build:web
    ```
-   ```bash
-   npx wrangler secret put SUPABASE_ANON_KEY
-   ```
-   ```bash
-   npx wrangler secret put GUEST_SALT
-   ```
-   ```bash
-   npx wrangler secret put GEMINI_API_KEY
-   ```
-   `GUEST_SALT` should be a long random string.
-4. Build the app with the production Supabase URL and anon key in `app/.env.production`, then deploy:
-   ```bash
-   cd app && npm run build:web
-   ```
+4. Deploy:
    ```bash
    cd api && npx wrangler deploy
    ```
-5. Domain: add `kosmik.asanoha.co.in` as a Custom Domain on the Worker in the Cloudflare dashboard (Workers & Pages → kosmik → Settings → Domains & Routes). If asanoha.co.in's DNS isn't on Cloudflare, use the Worker's `workers.dev` URL or move DNS first.
-6. In Supabase Auth → URL Configuration, add `https://kosmik.asanoha.co.in` to the redirect URLs.
+   If the static-asset upload fails with 401 (some proxies rewrite the Authorization header the upload uses), ship the app inside the Worker instead:
+   ```bash
+   cd api && node scripts/embed-web.ts && npx wrangler deploy -c wrangler.embedded.json
+   ```
+   The current production deploy was made this way.
+5. Domain: add `kosmik.asanoha.co.in` as a Custom Domain on the Worker (Workers & Pages → kosmik → Settings → Domains & Routes). asanoha.co.in's DNS must be on this Cloudflare account; it isn't yet.
 
 **Optional, for scale:** the semantic cache and library search run in memory inside each Worker isolate (fine up to a few thousand cached answers). For more, create a Vectorize index (`npx wrangler vectorize create kosmik --dimensions=768 --metric=cosine`), uncomment the `vectorize` block in `wrangler.jsonc`, and upload the library vectors. The code switches automatically when the `VECTORS` binding exists.
 
