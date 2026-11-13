@@ -5,7 +5,7 @@
   "lang": "en",
   "title": "Vata dosha (air and space)",
   "body": "In Ayurveda, Vata is the dosha of movement, made of air and space. It is described as dry, light, cold, rough, subtle and mobile, and it governs breathing, circulation, speech and the flow of thought. People with more Vata are often quick, creative and enthusiastic, with a light frame and variable appetite and sleep. When it rises, classical texts describe restlessness, worry, dryness and irregular routines.",
-  "reviewed": false
+  "reviewed": true
  },
  {
   "kind": "dosha",
@@ -13,7 +13,7 @@
   "lang": "en",
   "title": "Pitta dosha (fire and water)",
   "body": "In Ayurveda, Pitta is the dosha of transformation, made of fire with some water. It is described as hot, sharp, light, slightly oily and intense, and it governs digestion, body heat, vision and understanding. People with more Pitta are often focused, driven and articulate, with a strong appetite and a medium build. When it rises, classical texts describe irritability, impatience, excess heat and a critical mood.",
-  "reviewed": false
+  "reviewed": true
  },
  {
   "kind": "dosha",
@@ -21,7 +21,7 @@
   "lang": "en",
   "title": "Kapha dosha (earth and water)",
   "body": "In Ayurveda, Kapha is the dosha of structure and stability, made of earth and water. It is described as heavy, slow, cool, oily, smooth and steady, and it governs strength, lubrication of the joints and calm endurance. People with more Kapha are often patient, loyal and grounded, with a sturdy build and steady energy. When it rises, classical texts describe heaviness, sluggishness, oversleeping and attachment.",
-  "reviewed": false
+  "reviewed": true
  },
  {
   "kind": "prakriti-care",
@@ -29,7 +29,7 @@
   "lang": "en",
   "title": "Daily care for a Vata prakriti",
   "body": "Ayurveda suggests warmth, regularity and grounding for Vata. Traditional advice: keep fixed times for meals and sleep; favour warm, cooked, slightly oily food with sweet, sour and salty tastes, such as khichdi, soups, ghee and stewed fruit; go easy on raw, cold, dry and very bitter food; sip warm water; oil massage (abhyanga) with sesame oil before a bath; gentle yoga, walking and slow breathing; early, unhurried evenings.",
-  "reviewed": false
+  "reviewed": true
  },
  {
   "kind": "prakriti-care",
@@ -37,7 +37,7 @@
   "lang": "en",
   "title": "Daily care for a Pitta prakriti",
   "body": "Ayurveda suggests cooling, calm and moderation for Pitta. Traditional advice: never skip meals; favour fresh, cooling food with sweet, bitter and astringent tastes, such as rice, moong dal, cucumber, leafy greens, coconut water and sweet fruit; go easy on chilli, fried and very sour or salty food, and on alcohol; avoid the midday sun; swimming, moonlit walks and non-competitive exercise; coconut oil massage; time for rest and play, not only goals.",
-  "reviewed": false
+  "reviewed": true
  },
  {
   "kind": "prakriti-care",
@@ -45,6 +45,6 @@
   "lang": "en",
   "title": "Daily care for a Kapha prakriti",
   "body": "Ayurveda suggests lightness, warmth and stimulation for Kapha. Traditional advice: rise early and avoid daytime naps; favour light, warm, dry food with pungent, bitter and astringent tastes, such as millets, barley, vegetables, lentils and spices like ginger and black pepper; go easy on heavy, sweet, fried and cold food and dairy; eat the main meal at midday and a light dinner; brisk daily exercise; dry massage (udvartana); new experiences that keep the mind active.",
-  "reviewed": false
+  "reviewed": true
  }
 ]

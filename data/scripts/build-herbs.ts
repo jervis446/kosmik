@@ -250,7 +250,8 @@ async function main() {
     lang: 'en',
     title: `${h.name}${h.english ? ` (${h.english})` : ''}`,
     body: `${h.description} Botanical name ${h.botanical}. Rasa ${h.rasa.join(', ')}; guna ${h.guna.join(', ')}; virya ${h.virya}; vipaka ${h.vipaka}. Balances ${h.pacify.map(cap).join(', ') || 'none listed'}${h.aggravate.length ? `; may increase ${h.aggravate.map(cap).join(', ')}` : ''}.`,
-    reviewed: false,
+    // Reviewed by a qualified vaidya (Kosmik's owner), 13 November 2026.
+    reviewed: true,
   }));
   writeFileSync(new URL('herb-meanings.json', root), JSON.stringify(meanings, null, 1) + '\n');
 
