@@ -13,8 +13,8 @@ export default function Privacy() {
             "Your Asanoha account email, if you sign in. Sign-in is shared across Asanoha apps.",
             "Your questions and Kosmik’s answers, saved to your history when you are signed in, so you can come back to them. You can delete any chat from History.",
             "Your 👍 / 👎 on answers, used to improve the library.",
-            "If you add them in Account → My details: your date, time and place of birth, and photos of your palms. These are sensitive, so we keep them only with your consent, only you can see them, and you can change or delete them any time. To find your place of birth, only the place name you type is sent to OpenStreetMap.",
-            "When you ask about your own chart, Kosmik calculates it from your birth details and sends the chart (not your name) to Google Gemini to explain it. When you ask about your palm, your palm photos are sent to Google Gemini to read them. The answers are saved to your history like any other chat.",
+            "If you add them in Account → My details: your date, time and place of birth, photos of your palms, and your answers to the dosha quiz with the prakriti they give. These are sensitive, so we keep them only with your consent, only you can see them, and you can change or delete them any time. To find your place of birth, only the place name you type is sent to OpenStreetMap.",
+            "When you ask about your own chart, Kosmik calculates it from your birth details and sends the chart (not your name) to Google Gemini to explain it. When you ask about your palm, your palm photos are sent to Google Gemini to read them. When you ask for Ayurveda advice for your prakriti, your Vata, Pitta and Kapha scores are sent with the question. The answers are saved to your history like any other chat.",
             "If you buy Premium: the plan, amount, date and the UPI reference (UTR) of your payment. You pay through Noha Pay, Asanoha’s UPI payment page; we never see your bank or UPI PIN details. Payment records are kept as long as tax law requires.",
             "If you use Kosmik without signing in, we keep a one-way code made from your network address and the date, only to apply the daily guest limit. It changes every day and cannot be turned back into your address.",
           ],
@@ -29,7 +29,7 @@ export default function Privacy() {
         {
           h: "How long we keep it",
           p: [
-            "Chats are deleted automatically 12 months after you last used them, or sooner if you delete them yourself. Birth details and palm photos are kept until you delete them, or your account.",
+            "Chats are deleted automatically 12 months after you last used them, or sooner if you delete them yourself. Birth details, palm photos and your prakriti are kept until you delete them, or your account.",
             "Question counts, including the daily guest code, are deleted after 30 days.",
             "Shared general answers are removed after 6 months if nobody has asked for them, unless we have reviewed them for the library. When a verse or meaning in the library is corrected, answers that relied on the old text stop being shown.",
           ],
@@ -37,7 +37,7 @@ export default function Privacy() {
         {
           h: "What we don’t do",
           p: [
-            "We don’t sell your data, show ads, or use your chats, birth details or palm photos for anything except answering you.",
+            "We don’t sell your data, show ads, or use your chats, birth details, palm photos or prakriti for anything except answering you.",
           ],
         },
         {

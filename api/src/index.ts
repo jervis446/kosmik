@@ -1,7 +1,8 @@
 /**
  * Kosmik API and web app host (Cloudflare Worker).
  *   POST /api/ask                 ask a question (signed in)
- *   GET/PUT/DELETE /api/profile   your birth details (and which palm photos are saved)
+ *   GET/PUT/DELETE /api/profile   your birth details (and which palm photos are saved, and your prakriti)
+ *   PUT/DELETE /api/prakriti      your dosha quiz answers → your saved prakriti
  *   GET/PUT/DELETE /api/palm-photo/:hand   a saved palm photo (left or right)
  *   GET  /api/places?q=           birth place search
  *   GET  /api/conversations       your conversations
@@ -22,6 +23,7 @@ import { planFor } from './lib/limits.ts';
 import { handleWebhook, PaymentError, paymentsEnabled, paymentStatus, PLANS, premiumUntil, startPayment } from './payments.ts';
 import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { D1Profiles, MAX_PHOTO_BASE64, ProfileError, searchPlaces } from './profiles.ts';
+import { D1Ayurveda, PrakritiError, prakritiLabel } from './ayurveda.ts';
 import { purgeExpired } from './retention.ts';
 import { D1AnswerCache, D1History, D1Library, D1Usage, MemoryVectorSearch, VectorizeSearch } from './store.ts';
 import type { Env } from './types.ts';
@@ -106,6 +108,7 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
         history: new D1History(env.DB),
         ai: gemini(env),
         profiles: new D1Profiles(env.DB),
+        ayurveda: new D1Ayurveda(env.DB),
       },
       {
         question: body.question,
@@ -117,11 +120,28 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
     return json(req, env, result);
   }
 
+  // My details: the prakriti from the dosha quiz.
+  if (path === '/api/prakriti') {
+    const userId = await requireUser(req, env);
+    const ayurveda = new D1Ayurveda(env.DB);
+    if (req.method === 'PUT') {
+      const p = await ayurveda.savePrakriti(userId, (await readJson(req)).answers, now);
+      return json(req, env, { prakriti: { ...p, label: prakritiLabel(p) } });
+    }
+    if (req.method === 'DELETE') {
+      await ayurveda.deletePrakriti(userId);
+      return json(req, env, { deleted: true });
+    }
+  }
+
   // My details: birth details for the kundli and photos of both palms.
   if (path === '/api/profile') {
     const userId = await requireUser(req, env);
     const profiles = new D1Profiles(env.DB);
-    if (req.method === 'GET') return json(req, env, { details: await profiles.get(userId), palms: await profiles.palmStatus(userId) });
+    if (req.method === 'GET') {
+      const prakriti = await new D1Ayurveda(env.DB).prakriti(userId);
+      return json(req, env, { details: await profiles.get(userId), palms: await profiles.palmStatus(userId), prakriti: prakriti && { ...prakriti, label: prakritiLabel(prakriti) } });
+    }
     if (req.method === 'PUT') return json(req, env, { details: await profiles.save(userId, await readJson(req), now) });
     if (req.method === 'DELETE') {
       await profiles.deleteAll(userId);
@@ -275,7 +295,7 @@ export default {
       if (e instanceof BadQuestion) return error(req, env, e.message, 400);
       if (e instanceof Unauthorized) return error(req, env, e.message, 401);
       if (e instanceof PaymentError) return error(req, env, e.message, e.status);
-      if (e instanceof ProfileError) return error(req, env, e.message, 400);
+      if (e instanceof ProfileError || e instanceof PrakritiError) return error(req, env, e.message, 400);
       console.error('api error', (e as Error).message);
       return error(req, env, 'Something went wrong. Please try again.', 500);
     }

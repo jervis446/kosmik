@@ -15,8 +15,8 @@ export type PalmImage = { data: string; mime: string; hand?: 'left' | 'right' };
 export interface AiClient {
   readonly model: string;
   embed(text: string): Promise<number[]>;
-  /** chart: the person's calculated birth chart, when the question is about them. */
-  answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter?: boolean, chart?: string): Promise<Grounded>;
+  /** facts: labelled facts about the person (their calculated CHART, or their PRAKRITI), when the question is about them. */
+  answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter?: boolean, facts?: string): Promise<Grounded>;
   readPalm(images: PalmImage[], lang: Lang, opts?: { question?: string; stricter?: boolean }): Promise<PalmReading>;
 }
 
@@ -66,7 +66,7 @@ const LANGUAGE: Record<Lang, string> = {
   hinglish: 'Reply in Hinglish: Hindi written in Latin letters, mixed with English the way the user writes.',
 };
 
-export const SYSTEM_PROMPT = `You are Kosmik, a warm spiritual guide for young Indians: Vedic astrology, tarot, palmistry and Hindu scriptures.
+export const SYSTEM_PROMPT = `You are Kosmik, a warm spiritual guide for young Indians: Vedic astrology, tarot, palmistry, Ayurveda and Hindu scriptures.
 Rules, always:
 - Use only the SOURCES given. Cite a source by putting its id in "cited" (for example "BG 2.47" or "graha-house/saturn:7"). Never quote or cite a verse that is not in SOURCES. If SOURCES don't cover the question, say so briefly and answer only in general terms.
 - Astrology, tarot and palmistry are spiritual guidance and entertainment, not certainty. Never predict death, illness, accidents, divorce or guaranteed outcomes.
@@ -75,7 +75,9 @@ Rules, always:
 - Respect every tradition; no caste or communal content.
 - If the question depends on the person's own birth chart or private life (their kundli, dasha, marriage timing) and no CHART is given, set "personal" to true and explain the general idea; Kosmik will ask for their birth details.
 - If a CHART is given, it was calculated from this person's birth details: answer about their chart using only the CHART facts and SOURCES, say "your chart", set "personal" to false. Describe tendencies, never events, dates or timing (dashas are not calculated). Cite the SOURCES you used.
-- If the question has nothing to do with spirituality, astrology, tarot or scriptures, set "off_topic" to true and gently say what you can help with.
+- Ayurveda: describe herbs, doshas and daily routine as traditional knowledge, from SOURCES only. Never say a herb cures, treats or prevents anything, never give doses or home preparations, and never suggest changing or stopping medicine. For any health problem, suggest seeing a doctor or a qualified Ayurvedic practitioner (vaidya).
+- If a PRAKRITI is given, it is the person's own dosha self-assessment: tailor diet and routine suggestions to it, say "your prakriti", set "personal" to false, and cite the SOURCES you used.
+- If the question has nothing to do with spirituality, astrology, tarot, Ayurveda or scriptures, set "off_topic" to true and gently say what you can help with.
 - Keep "answer" under 140 words, short paragraphs, no headings, emojis rarely. Don't write source ids like "BG 2.47" in the answer text: cited verses are shown as cards below it. You may say "the Gita says".
 Reply with JSON only: {"answer": "...", "cited": ["..."], "personal": false, "off_topic": false}.`;
 
@@ -168,8 +170,8 @@ export class GeminiAi implements AiClient {
     return v;
   }
 
-  async answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter = false, chart?: string): Promise<Grounded> {
-    const user = `${LANGUAGE[lang]}\n\n${chart ? `CHART (calculated, sidereal, Lahiri, whole-sign houses):\n${chart}\n\n` : ''}SOURCES:\n${buildSources(sources.verses, sources.meanings)}\n\nQUESTION: ${question}${
+  async answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter = false, facts?: string): Promise<Grounded> {
+    const user = `${LANGUAGE[lang]}\n\n${facts ? `${facts}\n\n` : ''}SOURCES:\n${buildSources(sources.verses, sources.meanings)}\n\nQUESTION: ${question}${
       stricter ? '\n\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''
     }`;
     const out = (await this.post('/chat/completions', {

@@ -19,6 +19,7 @@ import {
   type Place,
 } from "../lib/api";
 import { pickPalmPhoto } from "../lib/palm";
+import { PrakritiQuiz } from "./Prakriti";
 import { type Colors, font, useTheme } from "../lib/theme";
 
 const message = (e: unknown) =>
@@ -509,12 +510,15 @@ export function DetailsModal({
   onClose,
   onDone,
 }: {
-  kind: "birth" | "palm" | null;
+  kind: "birth" | "palm" | "prakriti" | null;
   onClose: () => void;
   onDone: () => void;
 }) {
   const { colors } = useTheme();
   const s = styles(colors);
+  // Keep showing the last popup while it fades out, so its title doesn't flip.
+  const [shown, setShown] = useState(kind);
+  if (kind !== null && kind !== shown) setShown(kind);
   const [palms, setPalms] = useState<Record<Hand, boolean>>({
     left: false,
     right: false,
@@ -530,7 +534,11 @@ export function DetailsModal({
         <View style={s.sheet} accessibilityViewIsModal>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Text style={s.sheetTitle} role="heading">
-              {kind === "palm" ? "Add your palm photos" : "Your birth details"}
+              {shown === "palm"
+                ? "Add your palm photos"
+                : shown === "prakriti"
+                  ? "Your dosha quiz"
+                  : "Your birth details"}
             </Text>
             <Pressable
               onPress={onClose}
@@ -543,12 +551,15 @@ export function DetailsModal({
           </View>
           <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 6 }}>
             <Text style={s.small}>
-              {kind === "palm"
+              {shown === "palm"
                 ? "Kosmik reads both hands. Add them once and every palm question uses them."
-                : "Kosmik calculates your chart from these. Add them once and every chart question uses them."}
+                : shown === "prakriti"
+                  ? "Twelve quick questions. Your answers give your prakriti, the mix of Vata, Pitta and Kapha Ayurveda says you were born with."
+                  : "Kosmik calculates your chart from these. Add them once and every chart question uses them."}
             </Text>
-            {kind === "birth" ? <BirthForm onSaved={onDone} /> : null}
-            {kind === "palm" ? (
+            {shown === "prakriti" ? <PrakritiQuiz onSaved={onDone} /> : null}
+            {shown === "birth" ? <BirthForm onSaved={onDone} /> : null}
+            {shown === "palm" ? (
               <>
                 <PalmForm onChanged={setPalms} />
                 <Pressable

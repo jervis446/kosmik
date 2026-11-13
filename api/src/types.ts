@@ -8,7 +8,30 @@ export type Block =
   | { type: 'tarot'; cards: { key: string; name: string; reversed: boolean; position: string; meaning: string }[] }
   | { type: 'palm'; lines: { name: string; reading: string }[] }
   | { type: 'chart'; lagna: string | null; moon: string; nakshatra: string; rows: { graha: string; rashi: string; house: string | null; retrograde: boolean }[] }
-  | { type: 'notice'; kind: 'helpline' | 'needs-chart' | 'needs-details' | 'needs-palm' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake'; text: string };
+  | {
+      type: 'herb';
+      key: string;
+      name: string;
+      english: string;
+      botanical: string;
+      rasa: string[];
+      guna: string[];
+      virya: string;
+      vipaka: string;
+      pacify: string[];
+      aggravate: string[];
+      description: string;
+      /** Classed as poisonous in classical texts. */
+      caution: boolean;
+      link: string;
+    }
+  | { type: 'herb-list'; title: string; total: number; herbs: { key: string; name: string; english: string; virya: string }[] }
+  | { type: 'prakriti'; vata: number; pitta: number; kapha: number; label: string; takenAt: number }
+  | {
+      type: 'notice';
+      kind: 'helpline' | 'needs-chart' | 'needs-details' | 'needs-palm' | 'needs-prakriti' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake';
+      text: string;
+    };
 
 /** Which layer answered: no AI, exact repeat, same meaning, or a new AI answer. */
 export type Layer = 'direct' | 'exact' | 'semantic' | 'ai' | 'safety' | 'limit';

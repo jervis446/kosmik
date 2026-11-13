@@ -5,6 +5,7 @@
  *
  * Usage: node data/scripts/make-seed.ts
  */
+import type { Herb } from './build-herbs.ts';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 type Verse = { ref: string; work: string; chapter: number; verse: number; sanskrit: string; iast: string; translation: string; translator: string; translationAlt: string; translatorAlt: string };
@@ -24,7 +25,12 @@ function main() {
   const meanings = existsSync(new URL('meanings.json', root)) ? read<Meaning[]>('meanings.json') : [];
   const meaningVectors = existsSync(new URL('vectors/meanings.json', root)) ? read<{ vectors: Record<string, string> }>('vectors/meanings.json').vectors : {};
 
-  const lines = ['DELETE FROM verses;', 'DELETE FROM meanings;'];
+  // Ayurveda: herb meanings and dosha guidance (data/scripts/build-herbs.ts, data/ayurveda-meanings.json).
+  for (const f of ['herb-meanings.json', 'ayurveda-meanings.json']) if (existsSync(new URL(f, root))) meanings.push(...read<Meaning[]>(f));
+  if (existsSync(new URL('vectors/ayurveda.json', root))) Object.assign(meaningVectors, read<{ vectors: Record<string, string> }>('vectors/ayurveda.json').vectors);
+  const herbs = existsSync(new URL('herbs.json', root)) ? read<Herb[]>('herbs.json') : [];
+
+  const lines = ['DELETE FROM verses;', 'DELETE FROM meanings;', 'DELETE FROM herbs;'];
   for (const v of verses) {
     const vec = verseVectors[v.ref];
     if (!vec) throw new Error(`No embedding for ${v.ref}`);
@@ -42,9 +48,17 @@ function main() {
       ].join(', ')});`,
     );
   }
+  const json = (x: unknown) => sql(JSON.stringify(x));
+  for (const h of herbs) {
+    lines.push(
+      `INSERT INTO herbs (key, name, english, botanical, family, synonyms, parts, rasa, guna, virya, vipaka, pacify, aggravate, description, caution, link) VALUES (${[
+        sql(h.key), sql(h.name), sql(h.english), sql(h.botanical), sql(h.family), json(h.synonyms), json(h.parts), json(h.rasa), json(h.guna), sql(h.virya), sql(h.vipaka), json(h.pacify), json(h.aggravate), sql(h.description), h.caution ? 1 : 0, sql(h.link),
+      ].join(', ')});`,
+    );
+  }
   mkdirSync(new URL('../api/seed/', root), { recursive: true });
   writeFileSync(new URL('../api/seed/library.sql', root), lines.join('\n') + '\n');
-  console.log(`Seed: ${verses.length} verses, ${meanings.length} meanings (${Object.keys(meaningVectors).length} with embeddings)`);
+  console.log(`Seed: ${verses.length} verses, ${meanings.length} meanings, ${herbs.length} herbs (${Object.keys(meaningVectors).length} with embeddings)`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

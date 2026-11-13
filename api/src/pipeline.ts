@@ -3,7 +3,7 @@
  *   1. direct    — recognised questions answered from the libraries (no AI)
  *   2. exact     — the same question asked before (normalised text, hashed)
  *   3. semantic  — a question with the same meaning asked before (embeddings)
- *   4. ai        — RAG: retrieve verses and meanings, Llama writes the answer, then it is cached
+ *   4. ai        — RAG: retrieve verses and meanings, Gemini writes the answer, then it is cached
  * Answers about one person's own life are never stored in the shared cache.
  */
 import type { AiClient } from './ai.ts';
@@ -15,6 +15,7 @@ import { GRAHAS, ordinal, RASHIS, NAKSHATRAS, TAROT } from './lib/catalog.ts';
 import { calculateChart, type Chart, describeChart } from './lib/chart.ts';
 import { type Profile, type Profiles, toBirth } from './profiles.ts';
 import type { AnswerCache, History, Library, Usage, VectorSearch } from './store.ts';
+import { type Ayurveda, dominant, type Dosha, herbBlock, type Prakriti, prakritiBlock, prakritiLabel } from './ayurveda.ts';
 import type { AskResult, Block, CacheEntry, Layer, Meaning, Verse } from './types.ts';
 
 export const MAX_QUESTION = 500;
@@ -37,6 +38,7 @@ export type Deps = {
   history: History;
   ai: AiClient;
   profiles: Profiles;
+  ayurveda: Ayurveda;
   now?: () => number;
   random?: (n: number) => number;
 };
@@ -105,6 +107,32 @@ const T = {
     en: 'Palmistry is for reflection, not prediction.',
     hi: 'हस्तरेखा आत्मचिंतन के लिए है, भविष्यवाणी के लिए नहीं।',
     hinglish: 'Palmistry reflection ke liye hai, prediction ke liye nahi.',
+  },
+  herbIntro: { en: 'In Ayurveda:', hi: 'आयुर्वेद में:', hinglish: 'Ayurveda mein:' },
+  herbMissing: {
+    en: 'That herb isn’t in Kosmik’s herb library yet. Try another name, or ask which herbs balance Vata, Pitta or Kapha.',
+    hi: 'यह जड़ी-बूटी अभी Kosmik की लाइब्रेरी में नहीं है। कोई और नाम आज़माएँ, या पूछें कि कौन सी जड़ी-बूटियाँ वात, पित्त या कफ को संतुलित करती हैं।',
+    hinglish: 'Yeh jadi-buti abhi Kosmik ki library mein nahi hai. Koi aur naam try kijiye, ya poochhiye ki kaun si herbs Vata, Pitta ya Kapha balance karti hain.',
+  },
+  herbList: {
+    en: 'Herbs Ayurveda describes this way. Tap one to learn more.',
+    hi: 'आयुर्वेद इन जड़ी-बूटियों को ऐसा बताता है। किसी एक पर टैप करके और जानें।',
+    hinglish: 'Ayurveda in herbs ko aisa batata hai. Kisi ek par tap karke aur jaaniye.',
+  },
+  needsPrakriti: {
+    en: 'To answer from your own prakriti, Kosmik needs your dosha quiz. It takes about two minutes and is saved for next time. This question wasn’t counted.',
+    hi: 'आपकी अपनी प्रकृति से जवाब देने के लिए Kosmik को आपका दोष क्विज़ चाहिए। लगभग दो मिनट लगते हैं और यह अगली बार के लिए सहेजा जाता है। यह सवाल गिना नहीं गया।',
+    hinglish: 'Aapki apni prakriti se jawaab dene ke liye Kosmik ko aapka dosha quiz chahiye. Lagbhag do minute lagte hain aur agli baar ke liye save ho jaata hai. Yeh sawaal count nahi hua.',
+  },
+  takeQuiz: {
+    en: 'Answer 12 quick questions about your body and nature, and Kosmik will save your prakriti.',
+    hi: 'अपने शरीर और स्वभाव के बारे में 12 छोटे सवालों के जवाब दें, और Kosmik आपकी प्रकृति सहेज लेगा।',
+    hinglish: 'Apne body aur nature ke baare mein 12 chhote sawaalon ke jawaab dijiye, aur Kosmik aapki prakriti save kar lega.',
+  },
+  prakritiIntro: {
+    en: 'Your prakriti, from your dosha quiz. It’s a self-assessment for reflection, not a diagnosis.',
+    hi: 'आपके दोष क्विज़ से आपकी प्रकृति। यह आत्म-मूल्यांकन है, निदान नहीं।',
+    hinglish: 'Aapke dosha quiz se aapki prakriti. Yeh self-assessment hai, diagnosis nahi.',
   },
   unsure: {
     en: 'I couldn’t put together a reliable answer to that one. Try asking it a little differently.',
@@ -208,6 +236,22 @@ export async function ask(
     return chartOutcome(profile);
   }
 
+  // Ayurveda for the person's own prakriti uses their saved quiz result.
+  if (intent?.type === 'prakriti' || intent?.type === 'prakriti-advice') {
+    const prakriti = userId ? await deps.ayurveda.prakriti(userId) : null;
+    if (!prakriti || (intent.type === 'prakriti' && intent.quiz)) {
+      return finish('direct', [{ type: 'notice', kind: 'needs-prakriti', text: prakriti ? T.takeQuiz[lang] : T.needsPrakriti[lang] }], { count: false });
+    }
+    if (intent.type === 'prakriti') return finish('direct', await prakritiAnswer(deps, prakriti, lang), { count: false });
+    let blocks: Block[];
+    try {
+      blocks = await prakritiAdvice(deps, question, lang, prakriti);
+    } catch (err) {
+      return busy(err);
+    }
+    return finish('ai', blocks, { count: blocks[0]?.type !== 'notice' });
+  }
+
   // 1. Direct answers from the libraries.
   if (intent) {
     const direct = await answerDirect(deps, intent, lang, now);
@@ -278,7 +322,7 @@ export async function ask(
     const blocks: Block[] = [
       { type: 'text', text: grounded.answer },
       ...citedVerses.map(verseBlock),
-      ...citedMeanings.map((m): Block => ({ type: 'meaning', ...m })),
+      ...(await meaningBlocks(deps, citedMeanings)),
     ];
     if (grounded.personal) blocks.push({ type: 'notice', kind: 'needs-details', text: T.needsDetails[lang] });
 
@@ -350,8 +394,27 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number)
       const intro = intent.kind.startsWith('tarot') ? T.tarotMeaning[lang] : T.meaning[lang];
       return { blocks: [{ type: 'text', text: intro }, { type: 'meaning', ...m }], counts: true };
     }
+    case 'herb': {
+      const h = await deps.ayurveda.herb(intent.key);
+      return h
+        ? { blocks: [{ type: 'text', text: T.herbIntro[lang] }, herbBlock(h)], counts: true }
+        : { blocks: [{ type: 'text', text: T.herbMissing[lang] }], counts: false };
+    }
+    case 'herb-list': {
+      const { herbs, total } = await deps.ayurveda.findHerbs(intent, HERB_LIST);
+      if (!herbs.length) return null;
+      return {
+        blocks: [
+          { type: 'text', text: T.herbList[lang] },
+          { type: 'herb-list', title: herbListTitle(intent), total, herbs: herbs.map((h) => ({ key: h.key, name: h.name, english: h.english, virya: h.virya })) },
+        ],
+        counts: true,
+      };
+    }
     case 'needs-chart':
     case 'palm':
+    case 'prakriti':
+    case 'prakriti-advice':
       return null; // handled in ask(): they need the person's saved details
     case 'daily-horoscope':
       return { blocks: [{ type: 'notice', kind: 'coming-soon', text: T.horoscope[lang] }], counts: false };
@@ -445,7 +508,7 @@ export function chartBlock(chart: Chart): Block {
 async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile): Promise<Block[]> {
   const chart = calculateChart(toBirth(profile));
   const meanings = await deps.library.meanings(chartSources(chart, question));
-  const facts = describeChart(chart);
+  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses):\n${describeChart(chart)}`;
   let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts);
   if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts);
   if (contentProblems(grounded.answer).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
@@ -470,4 +533,42 @@ async function palmAnswer(deps: Deps, question: string, lang: Lang, photos: { ha
     { type: 'palm', lines: reading.lines },
     { type: 'text', text: T.palmNote[lang] },
   ];
+}
+
+const HERB_LIST = 12;
+const cap = (d: string) => d[0].toUpperCase() + d.slice(1);
+
+export function herbListTitle(f: { dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: string }): string {
+  if (f.dosha) return f.effect === 'pacify' ? `Herbs that balance ${cap(f.dosha)}` : `Herbs that may increase ${cap(f.dosha)}`;
+  return f.virya === 'Sheeta' ? 'Cooling (sheeta) herbs' : 'Heating (ushna) herbs';
+}
+
+/** Library meanings as cards: herbs get their full herb card. */
+async function meaningBlocks(deps: Deps, meanings: Meaning[]): Promise<Block[]> {
+  const herbs = await deps.ayurveda.herbs(meanings.filter((m) => m.kind === 'herb').map((m) => m.key));
+  return meanings.flatMap((m): Block[] => {
+    if (m.kind !== 'herb') return [{ type: 'meaning', ...m }];
+    const h = herbs.find((x) => x.key === m.key);
+    return h ? [herbBlock(h)] : [];
+  });
+}
+
+/** The person's saved prakriti, with the dosha guidance for their leading dosha(s). */
+async function prakritiAnswer(deps: Deps, p: Prakriti, lang: Lang): Promise<Block[]> {
+  const lead = dominant(p).slice(0, 2);
+  const care = await deps.library.meanings(lead.map((d) => `prakriti-care/${d}`));
+  return [{ type: 'text', text: T.prakritiIntro[lang] }, prakritiBlock(p), ...care.map((m): Block => ({ type: 'meaning', ...m }))];
+}
+
+/** Diet, routine or herb questions about the person's own prakriti, answered from their quiz result. */
+async function prakritiAdvice(deps: Deps, question: string, lang: Lang, p: Prakriti): Promise<Block[]> {
+  const lead = dominant(p).slice(0, 2);
+  const { herbs } = await deps.ayurveda.findHerbs({ dosha: lead[0], effect: 'pacify' }, 4);
+  const meanings = await deps.library.meanings([...lead.flatMap((d) => [`dosha/${d}`, `prakriti-care/${d}`]), ...herbs.map((h) => `herb/${h.key}`)]);
+  const facts = `PRAKRITI (the person's own dosha self-assessment quiz): Vata ${p.vata}%, Pitta ${p.pitta}%, Kapha ${p.kapha}% (${prakritiLabel(p)}).`;
+  let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts);
+  if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts);
+  if (contentProblems(grounded.answer).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
+  const cited = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 3);
+  return [{ type: 'text', text: grounded.answer }, prakritiBlock(p), ...(await meaningBlocks(deps, cited))];
 }

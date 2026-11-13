@@ -48,12 +48,43 @@ export type Block =
       }[];
     }
   | {
+      type: "herb";
+      key: string;
+      name: string;
+      english: string;
+      botanical: string;
+      rasa: string[];
+      guna: string[];
+      virya: string;
+      vipaka: string;
+      pacify: string[];
+      aggravate: string[];
+      description: string;
+      caution: boolean;
+      link: string;
+    }
+  | {
+      type: "herb-list";
+      title: string;
+      total: number;
+      herbs: { key: string; name: string; english: string; virya: string }[];
+    }
+  | {
+      type: "prakriti";
+      vata: number;
+      pitta: number;
+      kapha: number;
+      label: string;
+      takenAt: number;
+    }
+  | {
       type: "notice";
       kind:
         | "helpline"
         | "needs-chart"
         | "needs-details"
         | "needs-palm"
+        | "needs-prakriti"
         | "coming-soon"
         | "limit"
         | "sign-in"
@@ -105,6 +136,13 @@ export type PaymentState = {
 };
 
 export type Hand = "left" | "right";
+export type Prakriti = {
+  vata: number;
+  pitta: number;
+  kapha: number;
+  label: string;
+  takenAt: number;
+};
 export type BirthDetails = {
   name: string | null;
   birthDate: string;
@@ -172,7 +210,13 @@ export const api = {
     call<{
       details: BirthDetails | null;
       palms: Record<Hand, number | null>;
+      prakriti: Prakriti | null;
     }>("/api/profile"),
+  savePrakriti: (answers: ("v" | "p" | "k")[]) =>
+    call<{ prakriti: Prakriti }>("/api/prakriti", {
+      method: "PUT",
+      body: JSON.stringify({ answers }),
+    }),
   saveProfile: (details: BirthDetails) =>
     call<{ details: BirthDetails }>("/api/profile", {
       method: "PUT",

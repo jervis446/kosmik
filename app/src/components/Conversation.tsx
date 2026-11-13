@@ -58,6 +58,8 @@ const MAX_LEN = 500;
 const PALM_WORDS =
   /palm|hast ?rekha|hatheli|life ?line|heart ?line|head ?line|fate ?line|हथेली|हस्तरेखा/i;
 
+const QUIZ_WORDS = /\b(quiz|test|retake|redo|take|find out)\b/i;
+
 /** What Kosmik can do, shown on an empty chat. Plain text: people just type their question. */
 const HINTS: [string, string, string][] = [
   [
@@ -75,6 +77,11 @@ const HINTS: [string, string, string][] = [
     "✋",
     "Palm reading",
     "“Read my palm.” Kosmik needs photos of both palms; it asks for them the first time, or add them in Account → My details.",
+  ],
+  [
+    "❀",
+    "Ayurveda",
+    "“What is Ashwagandha?”, “Which herbs balance Pitta?” or “What is my dosha?” Kosmik asks 12 quick questions the first time.",
   ],
 ];
 let seq = 0;
@@ -109,7 +116,7 @@ export function Conversation({
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [modal, setModal] = useState<{
-    kind: "birth" | "palm";
+    kind: "birth" | "palm" | "prakriti";
     question: string;
   } | null>(null);
   const scroll = useRef<ScrollViewInstance>(null);
@@ -137,11 +144,17 @@ export function Conversation({
         b.type === "notice" &&
         (b.kind === "needs-details" ||
           b.kind === "needs-palm" ||
+          b.kind === "needs-prakriti" ||
           b.kind === "retake"),
     );
     if (need?.type === "notice") {
       setModal({
-        kind: need.kind === "needs-details" ? "birth" : "palm",
+        kind:
+          need.kind === "needs-details"
+            ? "birth"
+            : need.kind === "needs-prakriti"
+              ? "prakriti"
+              : "palm",
         question,
       });
     }
@@ -236,7 +249,7 @@ export function Conversation({
               <Text style={s.hello}>Namaste. What’s on your mind?</Text>
               <Text style={s.sub}>
                 Just ask. Kosmik works out whether it’s about the Gita, tarot,
-                your chart or your palm.
+                your chart, your palm or Ayurveda.
               </Text>
             </View>
             <View style={s.hints}>
@@ -276,6 +289,13 @@ export function Conversation({
                   onPalm={() =>
                     setModal({ kind: "palm", question: lastQuestion(t.id) })
                   }
+                  onPrakriti={() =>
+                    setModal({
+                      kind: "prakriti",
+                      question: lastQuestion(t.id),
+                    })
+                  }
+                  onAsk={(q) => send(q)}
                 />
                 <View style={s.metaRow}>
                   {t.layer && LAYER_LABEL[t.layer] ? (
@@ -391,7 +411,10 @@ export function Conversation({
         onDone={() => {
           const q = modal?.question;
           setModal(null);
-          if (q) send(q);
+          // After the quiz, a request to take it shows the result instead of opening it again.
+          if (q && modal?.kind === "prakriti" && QUIZ_WORDS.test(q))
+            send("What is my prakriti?");
+          else if (q) send(q);
         }}
       />
     </KeyboardAvoidingView>

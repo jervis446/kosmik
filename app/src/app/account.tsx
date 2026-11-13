@@ -5,7 +5,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Header } from "../components/Header";
 import { BirthForm, PalmForm, tzLabel } from "../components/DetailsForms";
-import { api, type BirthDetails, type Me } from "../lib/api";
+import { PrakritiBars, PrakritiQuiz } from "../components/Prakriti";
+import { api, type BirthDetails, type Me, type Prakriti } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { GRIEVANCE } from "../lib/legal";
 import { type Colors, font, type ThemePref, useTheme } from "../lib/theme";
@@ -27,6 +28,8 @@ export default function Account() {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [palmKey, setPalmKey] = useState(0);
+  const [prakriti, setPrakriti] = useState<Prakriti | null | undefined>();
+  const [quiz, setQuiz] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -41,8 +44,16 @@ export default function Account() {
       .catch(() => !stopped && setMe(null));
     api
       .profile()
-      .then((p) => !stopped && setDetails(p.details))
-      .catch(() => !stopped && setDetails(null));
+      .then((p) => {
+        if (stopped) return;
+        setDetails(p.details);
+        setPrakriti(p.prakriti ?? null);
+      })
+      .catch(() => {
+        if (stopped) return;
+        setDetails(null);
+        setPrakriti(null);
+      });
     return () => {
       stopped = true;
     };
@@ -134,8 +145,8 @@ export default function Account() {
         <View style={s.card} testID="my-details">
           <Text style={s.cardTitle}>My details</Text>
           <Text style={s.muted}>
-            Used to calculate your kundli and read your palms when you ask. Only
-            you can see them.
+            Used to calculate your kundli, read your palms and tailor Ayurveda
+            answers when you ask. Only you can see them.
           </Text>
           <Text style={s.label}>Birth details</Text>
           {details === undefined ? (
@@ -184,10 +195,46 @@ export default function Account() {
           )}
           <Text style={[s.label, { marginTop: 8 }]}>Palm photos</Text>
           <PalmForm key={palmKey} />
+          <Text style={[s.label, { marginTop: 8 }]}>Prakriti (dosha quiz)</Text>
+          {prakriti === undefined ? (
+            <Text style={s.muted}>…</Text>
+          ) : quiz || !prakriti ? (
+            <View style={{ gap: 8 }} testID="prakriti-quiz">
+              {!quiz ? (
+                <Pressable
+                  onPress={() => setQuiz(true)}
+                  style={[s.choice, { alignSelf: "flex-start" }]}
+                  accessibilityRole="button"
+                >
+                  <Text style={s.choiceText}>Take the dosha quiz</Text>
+                </Pressable>
+              ) : (
+                <PrakritiQuiz
+                  onSaved={(p) => {
+                    setPrakriti(p);
+                    setQuiz(false);
+                  }}
+                />
+              )}
+            </View>
+          ) : (
+            <View style={{ gap: 8 }} testID="prakriti-result">
+              <Text style={s.value}>{prakriti.label}</Text>
+              <PrakritiBars p={prakriti} />
+              <Pressable
+                onPress={() => setQuiz(true)}
+                style={[s.choice, { alignSelf: "flex-start" }]}
+                accessibilityRole="button"
+                accessibilityLabel="Retake the dosha quiz"
+              >
+                <Text style={s.choiceText}>Retake</Text>
+              </Pressable>
+            </View>
+          )}
           {confirmDelete ? (
             <View style={{ gap: 8 }}>
               <Text style={s.muted}>
-                Delete your birth details and both palm photos?
+                Delete your birth details, both palm photos and your prakriti?
               </Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <Pressable
@@ -197,6 +244,8 @@ export default function Account() {
                       setEditing(false);
                       setConfirmDelete(false);
                       setPalmKey((k) => k + 1);
+                      setPrakriti(null);
+                      setQuiz(false);
                     })
                   }
                   style={[s.choice, { borderColor: colors.danger }]}

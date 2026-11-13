@@ -8,6 +8,12 @@ import { calculateChart } from '../src/lib/chart.ts';
 import type { AnswerCache, History, Library, Namespace, Usage, VectorSearch } from '../src/store.ts';
 import { topK } from '../src/lib/vectors.ts';
 import type { Block, Meaning, Verse } from '../src/types.ts';
+import type { Herb, Prakriti } from '../src/ayurveda.ts';
+
+const herbs: Herb[] = [
+  { key: 'tulsi', name: 'Tulsi', english: 'Holy Basil', botanical: 'Ocimum sanctum', rasa: ['Katu', 'Tikta'], guna: ['Laghu'], virya: 'Ushna', vipaka: 'Katu', pacify: ['vata', 'kapha'], aggravate: ['pitta'], parts: ['Patra'], description: 'In Ayurveda, Tulsi is traditionally used to support clarity.', caution: false, link: 'https://www.amidhaayurveda.com/p/tulsi.html' },
+  { key: 'amla', name: 'Amla', english: 'Indian Gooseberry', botanical: 'Emblica officinalis', rasa: ['Amla'], guna: ['Laghu'], virya: 'Sheeta', vipaka: 'Madhura', pacify: ['vata', 'pitta', 'kapha'], aggravate: [], parts: ['Phala'], description: 'In Ayurveda, Amla is traditionally valued as a rasayana.', caution: false, link: 'https://www.amidhaayurveda.com/p/amla.html' },
+];
 
 const verses: Verse[] = [
   { ref: 'BG 2.47', chapter: 2, verse: 47, sanskrit: 'कर्मण्येवाधिकारस्ते…', iast: 'karmaṇy…', translation: 'Your right is only to work, but not to its results.', translator: 'Swami Sivananda' },
@@ -17,6 +23,9 @@ const meanings: Meaning[] = [
   { kind: 'graha-house', key: 'saturn:7', title: 'Shani (Saturn) in the 7th house', body: 'Traditionally linked with commitment and patience in partnerships.', reviewed: false },
   { kind: 'tarot-upright', key: 'star', title: 'The Star (upright)', body: 'Hope and renewal.', reviewed: false },
   { kind: 'tarot-reversed', key: 'star', title: 'The Star (reversed)', body: 'Hope feels distant for now.', reviewed: false },
+  { kind: 'dosha', key: 'pitta', title: 'Pitta dosha (fire and water)', body: 'The dosha of transformation.', reviewed: false },
+  { kind: 'prakriti-care', key: 'pitta', title: 'Daily care for a Pitta prakriti', body: 'Cooling, calm and moderation.', reviewed: false },
+  { kind: 'herb', key: 'amla', title: 'Amla (Indian Gooseberry)', body: 'Traditionally valued as a rasayana.', reviewed: false },
 ];
 
 /** Toy embedding: one dimension per keyword, so similar questions get similar vectors. */
@@ -44,6 +53,7 @@ class Fakes {
   profile: Profile | null = null;
   photos: PalmPhoto[] = [];
   chartsSeen: string[] = [];
+  prakriti: Prakriti | null = null;
 
   deps(now = Date.parse('2026-11-12T10:00:00Z')): Deps {
     const library: Library = {
@@ -113,7 +123,16 @@ class Fakes {
       },
     };
     const profiles = { get: async () => this.profile, palms: async () => this.photos };
-    return { library, cache, vectors, usage, history, ai, profiles, now: () => now, random: () => 0 };
+    const ayurveda = {
+      herb: async (k: string) => herbs.find((h) => h.key === k) ?? null,
+      herbs: async (keys: string[]) => herbs.filter((h) => keys.includes(h.key)),
+      findHerbs: async (f: { dosha?: string; effect: string }, limit: number) => {
+        const all = herbs.filter((h) => !f.dosha || (f.effect === 'pacify' ? h.pacify : h.aggravate).includes(f.dosha as never));
+        return { herbs: all.slice(0, limit), total: all.length };
+      },
+      prakriti: async () => this.prakriti,
+    };
+    return { library, cache, vectors, usage, history, ai, profiles, ayurveda, now: () => now, random: () => 0 };
   }
 }
 
@@ -381,7 +400,7 @@ test('own-chart question with birth details: calculated chart goes to the model 
   assert.equal(r.blocks[0].type === 'text' && r.blocks[0].text, 'Your chart shows a steady, practical approach to work.');
   const chart = r.blocks.find((b) => b.type === 'chart');
   assert.ok(chart && chart.type === 'chart' && chart.lagna && chart.rows.length === 9 && chart.rows.every((x) => x.house));
-  assert.match(f.chartsSeen[0], /^Lagna \(ascendant\): /);
+  assert.match(f.chartsSeen[0], /^CHART \(calculated[^\n]*\nLagna \(ascendant\): /);
   assert.equal(r.remaining, 10);
 });
 
@@ -394,4 +413,53 @@ test('chart sources follow the question: marriage looks at the 7th house, a name
   const saturn = chart.grahas.find((p) => p.graha === 'saturn')!;
   assert.ok(chartSources(chart, 'What does Saturn do in my chart?').includes(`graha-house/saturn:${saturn.house}`));
   assert.ok(forMarriage.length <= 6);
+});
+
+test('ayurveda: a herb name gets its herb card without AI, counted', async () => {
+  const f = new Fakes();
+  const r = await ask(f.deps(), { question: 'What is Tulsi?', lang: 'en', identity: user });
+  assert.equal(r.layer, 'direct');
+  const card = r.blocks.find((b) => b.type === 'herb');
+  assert.ok(card && card.type === 'herb' && card.name === 'Tulsi' && card.pacify.includes('kapha'));
+  assert.equal(f.aiCalls + f.embedCalls, 0);
+  assert.equal(r.remaining, 10);
+});
+
+test('ayurveda: "which herbs balance pitta" lists herbs from the data, without AI', async () => {
+  const f = new Fakes();
+  const r = await ask(f.deps(), { question: 'Which herbs balance Pitta?', lang: 'en', identity: user });
+  const list = r.blocks.find((b) => b.type === 'herb-list');
+  assert.ok(list && list.type === 'herb-list');
+  assert.equal(list.title, 'Herbs that balance Pitta');
+  assert.deepEqual(list.herbs.map((h) => h.key), ['amla']);
+  assert.equal(f.aiCalls, 0);
+});
+
+test('ayurveda: own prakriti without the quiz asks for it, not counted; with it, shows the result', async () => {
+  const f = new Fakes();
+  const none = await ask(f.deps(), { question: 'What is my dosha?', lang: 'en', identity: user });
+  assert.deepEqual(none.blocks.map((b) => b.type === 'notice' && b.kind), ['needs-prakriti']);
+  assert.equal(none.remaining, 11);
+
+  f.prakriti = { vata: 25, pitta: 58, kapha: 17, takenAt: 1 };
+  const mine = await ask(f.deps(), { question: 'What is my dosha?', lang: 'en', identity: user });
+  const p = mine.blocks.find((b) => b.type === 'prakriti');
+  assert.ok(p && p.type === 'prakriti' && p.label === 'Pitta');
+  assert.ok(mine.blocks.some((b) => b.type === 'meaning' && b.kind === 'prakriti-care' && b.key === 'pitta'));
+  assert.equal(f.aiCalls, 0);
+
+  const retake = await ask(f.deps(), { question: 'Retake the dosha quiz', lang: 'en', identity: user });
+  assert.deepEqual(retake.blocks.map((b) => b.type === 'notice' && b.kind), ['needs-prakriti']);
+});
+
+test('ayurveda: diet for my prakriti goes to the model with the quiz result, never cached', async () => {
+  const f = new Fakes();
+  f.prakriti = { vata: 25, pitta: 58, kapha: 17, takenAt: 1 };
+  f.reply = { answer: 'For your prakriti, favour cooling, fresh food.', cited: ['prakriti-care/pitta', 'herb/amla'] };
+  const r = await ask(f.deps(), { question: 'What should I eat for my prakriti?', lang: 'en', identity: user });
+  assert.equal(r.layer, 'ai');
+  assert.match(f.chartsSeen[0], /^PRAKRITI .*Pitta 58%/);
+  assert.deepEqual(r.blocks.map((b) => b.type), ['text', 'prakriti', 'meaning', 'herb']);
+  assert.equal(f.cacheRows.length, 0);
+  assert.equal(r.remaining, 10);
 });

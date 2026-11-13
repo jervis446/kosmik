@@ -1,8 +1,18 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { Block } from "../lib/api";
 import { type Colors, font, useTheme } from "../lib/theme";
+import { PrakritiBars } from "./Prakriti";
+
+const cap = (d: string) => d[0].toUpperCase() + d.slice(1);
+const VIRYA: Record<string, string> = { Ushna: "heating", Sheeta: "cooling" };
+const takenOn = (ms: number) =>
+  new Date(ms).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
 /** Renders an answer: text, verse cards, meaning cards, a tarot spread or notices. */
 export function Blocks({
@@ -11,12 +21,17 @@ export function Blocks({
   onPremium,
   onDetails,
   onPalm,
+  onPrakriti,
+  onAsk,
 }: {
   blocks: Block[];
   onSignIn?: () => void;
   onPremium?: () => void;
   onDetails?: () => void;
   onPalm?: () => void;
+  onPrakriti?: () => void;
+  /** Asks a follow-up question, e.g. tapping a herb in a list. */
+  onAsk?: (question: string) => void;
 }) {
   const { colors } = useTheme();
   const s = styles(colors);
@@ -89,6 +104,121 @@ export function Blocks({
                 ))}
               </View>
             );
+          case "herb":
+            return (
+              <View key={i} style={s.card} testID="herb">
+                <View style={{ gap: 2 }}>
+                  <Text style={s.title}>
+                    ❀ {b.name}
+                    {b.english ? ` · ${b.english}` : ""}
+                  </Text>
+                  <Text style={[s.small, { fontStyle: "italic" }]}>
+                    {b.botanical}
+                  </Text>
+                </View>
+                <Text style={s.body} selectable>
+                  {b.description}
+                </Text>
+                <View style={s.facts}>
+                  {(
+                    [
+                      ["Rasa (taste)", b.rasa.join(", ")],
+                      ["Guna (quality)", b.guna.join(", ")],
+                      [
+                        "Virya (potency)",
+                        `${b.virya}${VIRYA[b.virya] ? ` (${VIRYA[b.virya]})` : ""}`,
+                      ],
+                      ["Vipaka", b.vipaka],
+                      [
+                        "Balances",
+                        b.pacify.map(cap).join(", ") || "None listed",
+                      ],
+                      ...(b.aggravate.length
+                        ? [["May increase", b.aggravate.map(cap).join(", ")]]
+                        : []),
+                    ] as [string, string][]
+                  ).map(([k, v]) => (
+                    <View key={k} style={s.factRow}>
+                      <Text style={[s.small, { flex: 1 }]}>{k}</Text>
+                      <Text style={[s.chartCell, { flex: 1.4 }]}>{v}</Text>
+                    </View>
+                  ))}
+                </View>
+                {b.caution ? (
+                  <Text style={[s.small, { color: colors.danger }]}>
+                    Classical texts class this plant as poisonous. It is used
+                    only after special purification, by a qualified vaidya.
+                  </Text>
+                ) : null}
+                <Text style={s.small}>
+                  Traditional knowledge, not medical advice. Talk to a doctor or
+                  a qualified vaidya before taking any herb.
+                </Text>
+                <Text
+                  style={[s.small, { textDecorationLine: "underline" }]}
+                  accessibilityRole="link"
+                  onPress={() => Linking.openURL(b.link)}
+                >
+                  Source: Amidha Ayurveda Herb Database v2.0 (Sparsh Varshney),
+                  CC BY 4.0. Description rewritten by Kosmik.
+                </Text>
+              </View>
+            );
+          case "herb-list":
+            return (
+              <View key={i} style={s.card} testID="herb-list">
+                <Text style={s.title}>❀ {b.title}</Text>
+                <View>
+                  {b.herbs.map((h) => (
+                    <Pressable
+                      key={h.key}
+                      onPress={
+                        onAsk ? () => onAsk(`What is ${h.name}?`) : undefined
+                      }
+                      disabled={!onAsk}
+                      style={s.factRow}
+                      accessibilityRole="button"
+                      accessibilityLabel={`About ${h.name}`}
+                    >
+                      <Text style={[s.chartCell, { flex: 1 }]}>
+                        {h.name}
+                        {h.english ? (
+                          <Text style={s.small}> · {h.english}</Text>
+                        ) : null}
+                      </Text>
+                      <Text style={s.small}>{VIRYA[h.virya] ?? h.virya}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={s.small}>
+                  {b.total > b.herbs.length
+                    ? `${b.herbs.length} of ${b.total} herbs in Kosmik’s library. `
+                    : ""}
+                  Traditional knowledge, not medical advice. Source: Amidha
+                  Ayurveda Herb Database v2.0 (Sparsh Varshney), CC BY 4.0.
+                </Text>
+              </View>
+            );
+          case "prakriti":
+            return (
+              <View key={i} style={s.card} testID="prakriti">
+                <Text style={s.title}>❀ Your prakriti: {b.label}</Text>
+                <PrakritiBars p={b} />
+                <Text style={s.small}>
+                  From your dosha quiz on {takenOn(b.takenAt)}. A
+                  self-assessment, not a diagnosis.
+                </Text>
+                {onPrakriti ? (
+                  <Pressable
+                    onPress={onPrakriti}
+                    accessibilityRole="button"
+                    style={s.outlineBtn}
+                  >
+                    <Text style={s.outlineBtnText}>Retake the quiz</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            );
           case "notice":
             return (
               <View
@@ -136,6 +266,15 @@ export function Blocks({
                         ? "Replace palm photos"
                         : "Add palm photos"}
                     </Text>
+                  </Pressable>
+                ) : null}
+                {b.kind === "needs-prakriti" && onPrakriti ? (
+                  <Pressable
+                    onPress={onPrakriti}
+                    accessibilityRole="button"
+                    style={s.noticeBtn}
+                  >
+                    <Text style={s.noticeBtnText}>Take the dosha quiz</Text>
                   </Pressable>
                 ) : null}
                 {b.kind === "limit" && onPremium ? (
@@ -297,6 +436,26 @@ const styles = (c: Colors) =>
       justifyContent: "center",
     },
     noticeBtnText: { color: c.onPrimary, fontFamily: font.bold, fontSize: 15 },
+    outlineBtn: {
+      alignSelf: "flex-start",
+      borderWidth: 1,
+      borderColor: c.line,
+      borderRadius: 999,
+      paddingHorizontal: 16,
+      minHeight: 42,
+      justifyContent: "center",
+    },
+    outlineBtnText: { color: c.text, fontFamily: font.bold, fontSize: 14 },
+    facts: { gap: 0 },
+    factRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: c.line,
+      minHeight: 40,
+    },
     chartRow: {
       flexDirection: "row",
       gap: 8,
