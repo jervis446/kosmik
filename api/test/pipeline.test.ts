@@ -463,3 +463,13 @@ test('ayurveda: diet for my prakriti goes to the model with the quiz result, nev
   assert.equal(f.cacheRows.length, 0);
   assert.equal(r.remaining, 10);
 });
+
+test('ayurveda: a herb for a health problem or a dose gets no advice, the herb card, and is not counted', async () => {
+  const f = new Fakes();
+  const r = await ask(f.deps(), { question: 'Can tulsi help with cold and cough?', lang: 'en', identity: user });
+  assert.equal(r.layer, 'direct');
+  assert.match(r.blocks[0].type === 'text' ? r.blocks[0].text : '', /doctor or a qualified Ayurvedic practitioner/);
+  assert.ok(r.blocks.some((b) => b.type === 'herb' && b.key === 'tulsi'));
+  assert.equal(f.aiCalls, 0);
+  assert.equal(r.remaining, 11);
+});

@@ -20,6 +20,8 @@ export type Intent =
   | { type: 'herb-list'; dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: 'Ushna' | 'Sheeta' }
   /** The person's own prakriti: show it, or (quiz) open the quiz. */
   | { type: 'prakriti'; quiz: boolean }
+  /** A herb for a health problem, or a dose: Kosmik doesn't advise; it shows the herb card if one is named. */
+  | { type: 'herb-health'; key?: string }
   /** Diet, routine or herbs for the person's own prakriti: an AI answer from their quiz result. */
   | { type: 'prakriti-advice' };
 
@@ -87,6 +89,10 @@ const HERB_WORD = /\b(herbs?|herbal|jadi ?butis?|jadibuti|jadiyan|plants?|dravya
 const HERB_CONTEXT =
   /\b(herbs?|herbal|jadi|buti|ayurved|ayurveda|ayurvedic|rasa|virya|vipaka|guna|dosha|properties|plant|what is|whats|kya hai|kya hota|uses|used|benefits|fayde|about|tell me|meaning)\b|आयुर्वेद/;
 
+/** Health problems, cures and doses: never answered with herb advice. */
+const HEALTH =
+  /\b(cures?|curing|treat|treats|treatment|heal|heals|healing|remedy|remedies|medicine|medicines|dose|doses|dosage|how much|how many|mg|tablet|tablets|capsule|capsules|disease|diseases|diabetes|diabetic|sugar|bp|blood pressure|cancer|thyroid|pcos|pcod|cholesterol|infection|fever|cold|cough|asthma|arthritis|pain|piles|acidity|constipation|migraine|obesity|weight loss|hair fall|acne|pregnan\w*|ilaj|ilaaj|dawa|dawai|davai|bimari|beemari|rog)\b|इलाज|दवा|बीमारी|रोग/;
+
 /** Herb names, longest first within each phrase length, so "shigru patra" wins over "shigru". */
 const HERB_NAMES = new Map<string, string>();
 const HERB_SYNONYMS = new Map<string, string>();
@@ -112,6 +118,8 @@ function ayurvedaIntent(text: string): Intent | undefined {
     if (ADVICE.test(text)) return { type: 'prakriti-advice' };
     return { type: 'prakriti', quiz: QUIZ.test(text) };
   }
+  const named = findHerb(text, true);
+  if (HEALTH.test(text) && (named || HERB_WORD.test(text) || /\b(ayurved\w*)\b|आयुर्वेद/.test(text))) return named ? { type: 'herb-health', key: named } : { type: 'herb-health' };
   const dosha = doshaIn(text);
   const virya = /\b(cooling|cool|thanda|thandi|sheeta|sheet)\b/.test(text) ? 'Sheeta' : /\b(warming|heating|hot|garam|ushna)\b/.test(text) ? 'Ushna' : undefined;
   if (HERB_WORD.test(text) && (dosha || virya)) {

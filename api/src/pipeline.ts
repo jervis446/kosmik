@@ -114,6 +114,11 @@ const T = {
     hi: 'यह जड़ी-बूटी अभी Kosmik की लाइब्रेरी में नहीं है। कोई और नाम आज़माएँ, या पूछें कि कौन सी जड़ी-बूटियाँ वात, पित्त या कफ को संतुलित करती हैं।',
     hinglish: 'Yeh jadi-buti abhi Kosmik ki library mein nahi hai. Koi aur naam try kijiye, ya poochhiye ki kaun si herbs Vata, Pitta ya Kapha balance karti hain.',
   },
+  herbHealth: {
+    en: 'Kosmik shares Ayurveda as traditional knowledge, so it can’t say whether a herb helps a health problem, or how much to take. Please ask a doctor or a qualified Ayurvedic practitioner (vaidya), and don’t stop any medicine you’ve been prescribed.',
+    hi: 'Kosmik आयुर्वेद को पारंपरिक ज्ञान के रूप में बताता है, इसलिए यह नहीं बता सकता कि कोई जड़ी-बूटी किसी स्वास्थ्य समस्या में मदद करेगी या कितनी लेनी है। कृपया डॉक्टर या योग्य वैद्य से पूछें, और डॉक्टर की दी हुई कोई दवा बंद न करें।',
+    hinglish: 'Kosmik Ayurveda ko traditional knowledge ki tarah batata hai, isliye yeh nahi bata sakta ki koi jadi-buti kisi health problem mein madad karegi ya kitni leni hai. Please doctor ya qualified vaidya se poochhiye, aur doctor ki di hui koi dawai band mat kijiye.',
+  },
   herbList: {
     en: 'Herbs Ayurveda describes this way. Tap one to learn more.',
     hi: 'आयुर्वेद इन जड़ी-बूटियों को ऐसा बताता है। किसी एक पर टैप करके और जानें।',
@@ -399,6 +404,10 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number)
       return h
         ? { blocks: [{ type: 'text', text: T.herbIntro[lang] }, herbBlock(h)], counts: true }
         : { blocks: [{ type: 'text', text: T.herbMissing[lang] }], counts: false };
+    }
+    case 'herb-health': {
+      const h = intent.key ? await deps.ayurveda.herb(intent.key) : null;
+      return { blocks: [{ type: 'text', text: T.herbHealth[lang] }, ...(h ? [herbBlock(h)] : [])], counts: false };
     }
     case 'herb-list': {
       const { herbs, total } = await deps.ayurveda.findHerbs(intent, HERB_LIST);
