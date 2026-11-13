@@ -3,49 +3,11 @@
  * on, through a small D1-shaped adapter.
  */
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 
 import { purgeExpired } from '../src/retention.ts';
 import { D1AnswerCache } from '../src/store.ts';
-
-type Stmt = { sql: string; args: SQLInputValue[] };
-
-function d1(): { db: D1Database; raw: DatabaseSync } {
-  const raw = new DatabaseSync(':memory:');
-  raw.exec('PRAGMA foreign_keys = ON');
-  const dir = new URL('../migrations/', import.meta.url);
-  for (const f of readdirSync(dir).sort()) raw.exec(readFileSync(new URL(f, dir), 'utf8'));
-
-  const toArg = (v: unknown): SQLInputValue => (v instanceof ArrayBuffer ? new Uint8Array(v) : (v as SQLInputValue));
-  const run = (s: Stmt) => ({ meta: { changes: Number(raw.prepare(s.sql).run(...s.args).changes) } });
-  const make = (sql: string, args: SQLInputValue[] = []) => {
-    const s: Stmt = { sql, args };
-    return {
-      ...s,
-      bind: (...a: unknown[]) => make(sql, a.map(toArg)),
-      run: async () => run(s),
-      all: async () => ({ results: raw.prepare(sql).all(...args) }),
-      first: async () => raw.prepare(sql).get(...args) ?? null,
-    };
-  };
-  const db = {
-    prepare: (sql: string) => make(sql),
-    batch: async (stmts: Stmt[]) => {
-      raw.exec('BEGIN');
-      try {
-        const out = stmts.map(run);
-        raw.exec('COMMIT');
-        return out;
-      } catch (e) {
-        raw.exec('ROLLBACK');
-        throw e;
-      }
-    },
-  };
-  return { db: db as unknown as D1Database, raw };
-}
+import { d1 } from './d1.ts';
 
 const entry = (over: Partial<Parameters<D1AnswerCache['put']>[0]> = {}) => ({
   lang: 'en',

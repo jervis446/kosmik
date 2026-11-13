@@ -8,9 +8,11 @@ import { type Colors, font, useTheme } from "../lib/theme";
 export function Blocks({
   blocks,
   onSignIn,
+  onPremium,
 }: {
   blocks: Block[];
   onSignIn?: () => void;
+  onPremium?: () => void;
 }) {
   const { colors } = useTheme();
   const s = styles(colors);
@@ -65,6 +67,15 @@ export function Blocks({
                     style={s.noticeBtn}
                   >
                     <Text style={s.noticeBtnText}>Sign in</Text>
+                  </Pressable>
+                ) : null}
+                {b.kind === "limit" && onPremium ? (
+                  <Pressable
+                    onPress={onPremium}
+                    accessibilityRole="button"
+                    style={s.noticeBtn}
+                  >
+                    <Text style={s.noticeBtnText}>Go Premium</Text>
                   </Pressable>
                 ) : null}
               </View>

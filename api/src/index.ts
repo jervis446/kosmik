@@ -6,11 +6,16 @@
  *   DELETE /api/conversations/:id delete one of your conversations
  *   POST /api/feedback            👍 / 👎 on an answer
  *   GET  /api/verse-of-the-day    the day's verse
+ *   GET  /api/me                  your plan: Premium end date, plans on sale
+ *   POST /api/pay                 start a Premium payment (Noha Pay, UPI); see payments.ts
+ *   GET  /api/pay/:id             a payment's status
+ *   POST /api/pay/webhook         Noha Pay confirms a payment
  *   GET  /api/health
  * Everything else is the web app (static files, single-page fallback).
  */
 import { GeminiAi } from './ai.ts';
 import { guestSubject, isPremium, Unauthorized, userFromRequest } from './auth.ts';
+import { handleWebhook, PaymentError, paymentsEnabled, paymentStatus, PLANS, premiumUntil, startPayment } from './payments.ts';
 import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { purgeExpired } from './retention.ts';
 import { D1AnswerCache, D1History, D1Library, D1Usage, MemoryVectorSearch, VectorizeSearch } from './store.ts';
@@ -65,6 +70,14 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
   const now = Date.now();
 
   if (path === '/api/health') return json(req, env, { ok: true });
+
+  // The gateway signs its notifications; they are not rate limited per IP like people are.
+  if (path === '/api/pay/webhook' && req.method === 'POST') {
+    const body = await req.text();
+    if (body.length > MAX_BODY) return error(req, env, 'Request too large.', 413);
+    const result = await handleWebhook(env, env.DB, req.headers, body, now);
+    return json(req, env, result.body, result.status);
+  }
 
   if (env.RATE_LIMITER && req.method !== 'GET') {
     const ip = req.headers.get('cf-connecting-ip') ?? 'unknown';
@@ -158,6 +171,28 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
     return json(req, env, { saved: true });
   }
 
+  if (path === '/api/me' && req.method === 'GET') {
+    const userId = await requireUser(req, env);
+    return json(req, env, {
+      premiumUntil: await premiumUntil(env.DB, userId, now),
+      paymentsEnabled: paymentsEnabled(env),
+      plans: Object.entries(PLANS).map(([id, p]) => ({ id, ...p })),
+    });
+  }
+
+  if (path === '/api/pay' && req.method === 'POST') {
+    const userId = await requireUser(req, env);
+    const body = await readJson(req);
+    return json(req, env, await startPayment(env, env.DB, userId, body.plan, url.origin, now));
+  }
+
+  const payMatch = /^\/api\/pay\/([0-9a-f-]{36})$/.exec(path);
+  if (payMatch && req.method === 'GET') {
+    const userId = await requireUser(req, env);
+    const status = await paymentStatus(env.DB, userId, payMatch[1], now);
+    return status ? json(req, env, status) : error(req, env, 'Payment not found.', 404);
+  }
+
   if (path === '/api/verse-of-the-day' && req.method === 'GET') {
     const verse = await verseOfTheDay(new D1Library(env.DB), now);
     return verse ? json(req, env, { verse }) : error(req, env, 'No verses loaded.', 503);
@@ -178,6 +213,7 @@ export default {
     } catch (e) {
       if (e instanceof BadQuestion) return error(req, env, e.message, 400);
       if (e instanceof Unauthorized) return error(req, env, e.message, 401);
+      if (e instanceof PaymentError) return error(req, env, e.message, e.status);
       console.error('api error', (e as Error).message);
       return error(req, env, 'Something went wrong. Please try again.', 500);
     }

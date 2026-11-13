@@ -140,6 +140,7 @@ export function Conversation({
   };
 
   const goSignIn = () => router.push("/sign-in");
+  const goPremium = () => router.push("/premium");
 
   return (
     <KeyboardAvoidingView
@@ -184,7 +185,11 @@ export function Conversation({
             </View>
           ) : (
             <View key={t.id} style={{ gap: 8 }} testID="answer">
-              <Blocks blocks={t.blocks} onSignIn={goSignIn} />
+              <Blocks
+                blocks={t.blocks}
+                onSignIn={goSignIn}
+                onPremium={goPremium}
+              />
               <View style={s.metaRow}>
                 {t.layer && LAYER_LABEL[t.layer] ? (
                   <Text

@@ -1,9 +1,10 @@
 import { Link, router } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Header } from "../components/Header";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { font, type ThemePref, useTheme } from "../lib/theme";
 
@@ -11,8 +12,22 @@ export default function Account() {
   const { session, ready, signOut } = useAuth();
   const { colors, pref, setPref } = useTheme();
 
+  const [premiumUntil, setPremiumUntil] = useState<number | null | undefined>();
+
   useEffect(() => {
-    if (ready && !session) router.replace("/sign-in");
+    if (!ready) return;
+    if (!session) {
+      router.replace("/sign-in");
+      return;
+    }
+    let stopped = false;
+    api
+      .me()
+      .then((m) => !stopped && setPremiumUntil(m.premiumUntil))
+      .catch(() => !stopped && setPremiumUntil(null));
+    return () => {
+      stopped = true;
+    };
   }, [ready, session]);
 
   const row = {
@@ -85,17 +100,40 @@ export default function Account() {
             ))}
           </View>
         </View>
-        <Text
-          style={{
-            color: colors.muted,
-            fontFamily: font.body,
-            fontSize: 15,
-            lineHeight: 22,
-          }}
-        >
-          Starter: 11 questions a week, refilled every Monday. Premium
-          (unlimited) is coming soon at ₹51 a week or ₹101 a month.
-        </Text>
+        <View style={{ gap: 8 }}>
+          <Text style={row}>Plan</Text>
+          <Text
+            style={{
+              color: colors.muted,
+              fontFamily: font.body,
+              fontSize: 15,
+              lineHeight: 22,
+            }}
+            testID="plan"
+          >
+            {premiumUntil === undefined
+              ? "…"
+              : premiumUntil
+                ? `Premium, unlimited questions until ${new Date(premiumUntil).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}.`
+                : "Starter: 11 questions a week, refilled every Monday."}
+          </Text>
+          <Pressable
+            onPress={() => router.push("/premium")}
+            style={[
+              btn,
+              {
+                alignSelf: "flex-start",
+                backgroundColor: colors.primarySoft,
+                borderColor: colors.primary,
+              },
+            ]}
+            accessibilityRole="button"
+          >
+            <Text style={{ color: colors.text, fontFamily: font.bold }}>
+              {premiumUntil ? "Add more Premium days" : "Get Premium"}
+            </Text>
+          </Pressable>
+        </View>
         <View style={{ flexDirection: "row", gap: 16, flexWrap: "wrap" }}>
           <Link
             href="/privacy"

@@ -69,6 +69,24 @@ export type StoredMessage = {
   feedback: 1 | -1 | null;
 };
 
+export type PlanId = "week" | "month";
+export type Plan = {
+  id: PlanId;
+  name: string;
+  amountPaise: number;
+  days: number;
+};
+export type Me = {
+  premiumUntil: number | null;
+  paymentsEnabled: boolean;
+  plans: Plan[];
+};
+export type PaymentState = {
+  status: "pending" | "paid" | "failed" | "expired" | "cancelled";
+  plan: PlanId;
+  premiumUntil: number | null;
+};
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -125,6 +143,13 @@ export const api = {
     call<{ deleted: boolean }>(`/api/conversations/${id}`, {
       method: "DELETE",
     }),
+  me: () => call<Me>("/api/me"),
+  pay: (plan: PlanId) =>
+    call<{ orderId: string; checkoutUrl: string }>("/api/pay", {
+      method: "POST",
+      body: JSON.stringify({ plan }),
+    }),
+  payment: (id: string) => call<PaymentState>(`/api/pay/${id}`),
   feedback: (messageId: string, value: 1 | -1) =>
     call<{ saved: boolean }>("/api/feedback", {
       method: "POST",

@@ -50,9 +50,31 @@ A daily Cron Trigger (`src/retention.ts`, 03:00 India time) deletes what has exp
 |---|---|
 | Guest | 3 questions a day |
 | Starter (free Asanoha account) | 11 questions a week, refills Monday 00:00 India time |
-| Premium | Unlimited (₹51/week or ₹101/month; payments not built yet, the `premium` table is ready) |
+| Premium | Unlimited for 7 days (₹51) or 30 days (₹101), paid by UPI through Noha Pay |
 
 Helpline and "coming soon" notices don't count. Guests are identified by a daily-salted one-way hash of their IP address, never the address itself.
+
+## Payments (Noha Pay)
+
+Premium is a one-time UPI payment through Noha Pay, Asanoha's UPI gateway (`api/src/payments.ts`). Nobody in between holds the money: the customer pays straight into the merchant's UPI account.
+
+1. `POST /api/pay {plan}` (signed in) stores a pending order in `payments` and asks the gateway for a checkout page (`POST {NOHA_GATEWAY_URL}/api/v1/payments`, header `x-merchant-id`).
+2. The customer pays by UPI, enters the UTR, and returns to `/premium?order=<id>`, which waits for confirmation.
+3. The merchant matches the amount and UTR against PhonePe or the bank statement and confirms in the gateway admin. The gateway calls `POST /api/pay/webhook`, signed with HMAC-SHA256 (`x-gateway-signature: sha256=<hex>`, `x-gateway-timestamp`). Kosmik checks the signature, refuses deliveries older than 15 minutes, applies only the exact amount, and extends `premium.until` once per order, from the current end date if Premium is still on.
+
+Payments stay off ("Premium payments open soon") until all three secrets are set on the Worker:
+```bash
+cd api && npx wrangler secret put NOHA_GATEWAY_URL
+```
+```bash
+cd api && npx wrangler secret put NOHA_MERCHANT_ID
+```
+```bash
+cd api && npx wrangler secret put NOHA_WEBHOOK_SECRET
+```
+Create a Kosmik merchant on the gateway with the payee UPI ID and the webhook URL `https://<kosmik host>/api/pay/webhook`. The payee is currently the test UPI ID used by People Pitchers and Wearday; switch to a business UPI ID before real customers.
+
+On iOS and Android builds the Premium page doesn't take payment (app store billing rules); it points to the website.
 
 ## Library
 

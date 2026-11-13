@@ -55,6 +55,10 @@ export interface Env {
   REASONING_EFFORT?: string;
   /** Local development only: data/scripts/ai-relay.ts. Never set in production. */
   GEMINI_BASE_URL?: string;
+  /** Noha Pay (UPI gateway). Payments stay off until all three are set. */
+  NOHA_GATEWAY_URL?: string;
+  NOHA_MERCHANT_ID?: string;
+  NOHA_WEBHOOK_SECRET?: string;
   /** Comma-separated origins allowed to call the API from another origin (local development). */
   ALLOWED_ORIGINS?: string;
 }
