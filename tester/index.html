@@ -139,7 +139,7 @@ footer { color: var(--muted); font-size: 13px; padding-block: 0 40px; }
     <div class="toast" id="toast" role="status"></div>
   </section>
 </main>
-<footer class="wrap">Kosmik by Asanoha. Operated by Shri Krishna Enterprises. Test plan for build 7211586, 13 November 2026.</footer>
+<footer class="wrap">Kosmik by Asanoha. Operated by Shri Krishna Enterprises. Test plan updated 13 November 2026.</footer>
 
 <script>
 const SITE = "https://kosmik.asanoha.co.in";
@@ -154,6 +154,7 @@ const AREAS = [
   { name: "Chat and history", intro: "Signed in, on the chat page.", tests: [
     ["C1", "Empty chat", ["Look at the new-chat screen."], "“Namaste. What’s on your mind?” and five short hints (Bhagavad Gita, Tarot, Your kundli, Palm reading, Ayurveda). No topic buttons."],
     ["C2", "Menu = chat history", ["Tap ☰."], "New chat, your chats (Today / Previous 7 days / Older), and your email at the bottom. No Explore section."],
+    ["C4", "Follow-up questions", ["In one chat ask «What does the Gita say about anger?», then «tell me more», then «ise simple hindi mein samjhao». In another chat ask «Saturn in 7th house», then «what about Rahu?»."], "Each follow-up continues the same topic: new points instead of a repeat, the Hindi one in Hindi, and Rahu shown in the 7th house. Reopen the chat later from the menu and ask «aur batao»: it still remembers."],
     ["C3", "Reopen and delete", ["Tap a chat; then tap ✕ next to one and Delete."], "The chat opens as you left it; a deleted chat disappears and stays gone after reload."],
   ]},
   { name: "Kosmik works out what you mean", intro: "Type these as questions; no buttons needed.", tests: [
