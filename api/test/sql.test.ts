@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { purgeExpired } from '../src/retention.ts';
-import { D1AnswerCache } from '../src/store.ts';
+import { D1AnswerCache, D1History } from '../src/store.ts';
 import { d1 } from './d1.ts';
 
 const entry = (over: Partial<Parameters<D1AnswerCache['put']>[0]> = {}) => ({
@@ -75,4 +75,14 @@ test('daily clean-up removes old counts, old chats with their messages and feedb
   assert.deepEqual(raw.prepare('SELECT question FROM answer_cache ORDER BY id').all().map((r) => r.question), ['reviewed', 'popular']);
 
   assert.deepEqual(await purgeExpired(db, now), { usage: 0, chats: 0, messages: 0, cachedAnswers: 0 }, 'running twice is harmless');
+});
+
+test('history: recent messages come oldest first, and only from your own chat', async () => {
+  const { db } = d1();
+  const history = new D1History(db);
+  const first = await history.record({ userId: 'u1', question: 'Q1', blocks: [{ type: 'text', text: 'A1' }], layer: 'ai', cacheId: null, now: 1000 });
+  await history.record({ userId: 'u1', conversationId: first.conversationId, question: 'Q2', blocks: [{ type: 'text', text: 'A2' }], layer: 'ai', cacheId: null, now: 2000 });
+  const recent = await history.recent('u1', first.conversationId, 3);
+  assert.deepEqual(recent.map((m) => (m.role === 'user' ? m.content : (m.blocks?.[0] as { text: string }).text)), ['A1', 'Q2', 'A2']);
+  assert.deepEqual(await history.recent('someone-else', first.conversationId, 6), []);
 });

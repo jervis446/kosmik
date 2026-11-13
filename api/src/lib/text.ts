@@ -25,6 +25,15 @@ const HINGLISH_WORDS = new Set([
   'hota', 'hoti', 'karna', 'karu', 'karoon', 'kar', 'batao', 'acha', 'accha', 'bhi', 'aur', 'ko', 'se', 'mein', 'liye', 'wala', 'wali', 'konsa', 'kaunsa',
 ]);
 
+/** A language the person asks for by name ("hindi mein samjhao", "in English please"), if any. */
+export function requestedLang(text: string): Lang | undefined {
+  const t = text.toLowerCase();
+  if (/\bhinglish\b/.test(t)) return 'hinglish';
+  if (/\b(in|into)\s+(simple\s+|easy\s+)?hindi\b|\bhindi\s+(mein|me|mai|main)\b|हिंदी में|हिन्दी में/.test(t)) return 'hi';
+  if (/\b(in|into)\s+(simple\s+|easy\s+|plain\s+)?english\b|\benglish\s+(mein|me|mai|main)\b/.test(t)) return 'en';
+  return undefined;
+}
+
 /** Devanagari → Hindi; Latin with several common Hindi words → Hinglish; otherwise English. */
 export function detectLang(text: string): Lang {
   const letters = [...text].filter((c) => /\p{L}/u.test(c));

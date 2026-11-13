@@ -16,7 +16,9 @@ export interface AiClient {
   readonly model: string;
   embed(text: string): Promise<number[]>;
   /** facts: labelled facts about the person (their calculated CHART, or their PRAKRITI), when the question is about them. */
-  answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter?: boolean, facts?: string): Promise<Grounded>;
+  answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter?: boolean, facts?: string, conversation?: string): Promise<Grounded>;
+  /** Turns a follow-up ("tell me more") into a question that stands on its own, using the conversation so far. */
+  standalone(question: string, conversation: string): Promise<string>;
   readPalm(images: PalmImage[], lang: Lang, opts?: { question?: string; stricter?: boolean }): Promise<PalmReading>;
 }
 
@@ -77,9 +79,29 @@ Rules, always:
 - If a CHART is given, it was calculated from this person's birth details: answer about their chart using only the CHART facts and SOURCES, say "your chart", set "personal" to false. Describe tendencies, never events, dates or timing (dashas are not calculated). Cite the SOURCES you used.
 - Ayurveda: describe herbs, doshas and daily routine as traditional knowledge, from SOURCES only. Never say a herb cures, treats or prevents anything, never give doses or home preparations, and never suggest changing or stopping medicine. For any health problem, suggest seeing a doctor or a qualified Ayurvedic practitioner (vaidya).
 - If a PRAKRITI is given, it is the person's own dosha self-assessment: tailor diet and routine suggestions to it, say "your prakriti", set "personal" to false, and cite the SOURCES you used.
+- If CONVERSATION SO FAR is given, it is the earlier part of this chat: use it to understand the QUESTION and continue naturally, without repeating what Kosmik already said, but take facts only from SOURCES, CHART or PRAKRITI.
 - If the question has nothing to do with spirituality, astrology, tarot, Ayurveda or scriptures, set "off_topic" to true and gently say what you can help with.
 - Keep "answer" under 140 words, short paragraphs, no headings, emojis rarely. Don't write source ids like "BG 2.47" in the answer text: cited verses are shown as cards below it. You may say "the Gita says".
 Reply with JSON only: {"answer": "...", "cited": ["..."], "personal": false, "off_topic": false}.`;
+
+export const STANDALONE_PROMPT = `You help Kosmik, a spiritual guide app, understand follow-up messages in a chat.
+Rewrite the LATEST MESSAGE as one question that makes sense on its own, using the conversation only to fill in what "it", "that", "more", "aur batao" and similar words refer to.
+- Keep the person's language and wording (English, Hindi or Hinglish) and their point of view ("my", "mera").
+- Do not answer it, and do not add facts, names or details that are not in the conversation.
+- If the message already stands on its own, return it unchanged.
+Reply with JSON only: {"question": "..."}.`;
+
+/** The rewritten question, or the original when the model's reply is unusable. */
+export function parseStandalone(output: string | undefined, original: string): string {
+  try {
+    const raw = output ?? '';
+    const q = (JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as { question?: unknown }).question;
+    if (typeof q === 'string' && q.trim().length >= 2 && q.trim().length <= 500) return q.trim();
+  } catch {
+    // fall through
+  }
+  return original;
+}
 
 const SCHEMA = {
   type: 'object',
@@ -98,6 +120,12 @@ export function buildSources(verses: Verse[], meanings: Meaning[]): string {
   return [...v, ...m].join('\n') || '(none)';
 }
 
+/** Removes stray number runs the model sometimes leaves at the end of a line ("… zaroori hai. 1 2 3"). */
+export const cleanAnswer = (text: string) =>
+  text
+    .replace(/[ \t]+\d{1,4}(?:[ .\-/]\d{1,4}){2,}[ \t]*(?=\n|$)/g, '')
+    .trim();
+
 /** Model output can be an object, a JSON string, or JSON wrapped in prose. */
 export function parseGrounded(output: unknown): Grounded | null {
   const raw = (output as { response?: unknown })?.response ?? output;
@@ -112,7 +140,7 @@ export function parseGrounded(output: unknown): Grounded | null {
   }
   if (!obj || typeof obj.answer !== 'string' || !obj.answer.trim()) return null;
   return {
-    answer: obj.answer.trim(),
+    answer: cleanAnswer(obj.answer),
     cited: Array.isArray(obj.cited) ? obj.cited.filter((c): c is string => typeof c === 'string') : [],
     personal: obj.personal === true,
     offTopic: obj.off_topic === true,
@@ -170,8 +198,8 @@ export class GeminiAi implements AiClient {
     return v;
   }
 
-  async answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter = false, facts?: string): Promise<Grounded> {
-    const user = `${LANGUAGE[lang]}\n\n${facts ? `${facts}\n\n` : ''}SOURCES:\n${buildSources(sources.verses, sources.meanings)}\n\nQUESTION: ${question}${
+  async answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter = false, facts?: string, conversation?: string): Promise<Grounded> {
+    const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}${facts ? `${facts}\n\n` : ''}SOURCES:\n${buildSources(sources.verses, sources.meanings)}\n\nQUESTION: ${question}${
       stricter ? '\n\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''
     }`;
     const out = (await this.post('/chat/completions', {
@@ -188,6 +216,21 @@ export class GeminiAi implements AiClient {
     const parsed = parseGrounded(out.choices?.[0]?.message?.content);
     if (!parsed) throw new Error('The model returned no usable answer');
     return parsed;
+  }
+
+  async standalone(question: string, conversation: string): Promise<string> {
+    const out = (await this.post('/chat/completions', {
+      model: this.model,
+      messages: [
+        { role: 'system', content: STANDALONE_PROMPT },
+        { role: 'user', content: `CONVERSATION SO FAR:\n${conversation}\n\nLATEST MESSAGE: ${question}` },
+      ],
+      response_format: { type: 'json_object' },
+      reasoning_effort: this.reasoningEffort,
+      max_tokens: 200,
+      temperature: 0,
+    })) as { choices?: { message?: { content?: string } }[] };
+    return parseStandalone(out.choices?.[0]?.message?.content, question);
   }
 
   async readPalm(images: PalmImage[], lang: Lang, opts: { question?: string; stricter?: boolean } = {}): Promise<PalmReading> {

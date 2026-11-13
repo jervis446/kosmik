@@ -8,9 +8,10 @@
  */
 import type { AiClient } from './ai.ts';
 import { matchIntent, type Intent } from './lib/intents.ts';
+import { CONTEXT_MESSAGES, describeConversation, isFollowUp } from './lib/conversation.ts';
 import { planFor, type Plan } from './lib/limits.ts';
 import { contentProblems, HELPLINE, isCrisis } from './lib/safety.ts';
-import { detectLang, type Lang, LANGS, normalizeQuestion, sha256 } from './lib/text.ts';
+import { detectLang, type Lang, LANGS, normalizeQuestion, requestedLang, sha256 } from './lib/text.ts';
 import { GRAHAS, ordinal, RASHIS, NAKSHATRAS, TAROT } from './lib/catalog.ts';
 import { calculateChart, type Chart, describeChart } from './lib/chart.ts';
 import { type Profile, type Profiles, toBirth } from './profiles.ts';
@@ -161,7 +162,7 @@ const verseBlock = (v: Verse): Block => ({ type: 'verse', ref: v.ref, sanskrit: 
 type Turn = { plan: Plan; used: number; finish: (layer: Layer, blocks: Block[], opts: { count: boolean; cacheId?: number | null }) => Promise<AskResult> };
 
 /** Limits and history shared by every kind of question (text or palm photo). */
-async function startTurn(deps: Deps, identity: Identity, conversationId: string | null | undefined, question: string, lang: Lang, now: number): Promise<Turn> {
+async function startTurn(deps: Deps, identity: Identity, conversationId: string | null | undefined, question: string, langOf: () => Lang, now: number): Promise<Turn> {
   const plan = planFor(identity.kind === 'guest' ? 'guest' : identity.premium ? 'premium' : 'starter', now);
   const subject = identity.kind === 'guest' ? identity.subject : `user:${identity.id}`;
   const used = plan.limit === null ? 0 : await deps.usage.count(subject, plan.period);
@@ -172,7 +173,7 @@ async function startTurn(deps: Deps, identity: Identity, conversationId: string 
     if (identity.kind === 'user' && layer !== 'limit') {
       ids = await deps.history.record({ userId: identity.id, conversationId, question, blocks, layer, cacheId: opts.cacheId ?? null, now });
     }
-    return { ...ids, layer, lang, blocks, remaining: plan.limit === null ? null : Math.max(0, plan.limit - total) };
+    return { ...ids, layer, lang: langOf(), blocks, remaining: plan.limit === null ? null : Math.max(0, plan.limit - total) };
   };
   return { plan, used, finish };
 }
@@ -190,8 +191,9 @@ export async function ask(
   const question = input.question.replace(/\s+/g, ' ').trim();
   if (question.length < 2) throw new BadQuestion('Ask a question to get started.');
   if (question.length > MAX_QUESTION) throw new BadQuestion(`Questions can be up to ${MAX_QUESTION} characters.`);
-  const lang: Lang = LANGS.includes(input.lang as Lang) ? (input.lang as Lang) : detectLang(question);
-  const turn = await startTurn(deps, input.identity, input.conversationId, question, lang, now);
+  const chosen = LANGS.includes(input.lang as Lang) ? (input.lang as Lang) : undefined;
+  let lang: Lang = chosen ?? requestedLang(question) ?? detectLang(question);
+  const turn = await startTurn(deps, input.identity, input.conversationId, question, () => lang, now);
   const { finish } = turn;
   // The AI layer failing never costs a question: say so politely instead.
   const busy = (err: unknown) => {
@@ -201,7 +203,7 @@ export async function ask(
   const chartOutcome = async (profile: Profile) => {
     let blocks: Block[];
     try {
-      blocks = await chartAnswer(deps, question, lang, profile);
+      blocks = await chartAnswer(deps, q, lang, profile, conversation);
     } catch (err) {
       return busy(err);
     }
@@ -218,8 +220,35 @@ export async function ask(
 
   if (limitReached(turn)) return finish('limit', limitBlock(turn, lang), { count: false });
 
-  const intent = matchIntent(question);
   const userId = input.identity.kind === 'user' ? input.identity.id : null;
+  const ownIntent = matchIntent(question);
+
+  // Memory within a chat: a follow-up ("tell me more", "aur batao", "and Rahu?") is rewritten as a
+  // question that stands on its own, so the libraries and the cache work as usual, and the model
+  // sees the earlier turns. The original wording is what goes into the history.
+  let q = question;
+  let conversation: string | undefined;
+  if (userId && input.conversationId && isFollowUp(question, !!ownIntent)) {
+    const past = await deps.history.recent(userId, input.conversationId, CONTEXT_MESSAGES);
+    if (past.length) {
+      conversation = describeConversation(past);
+      // "tell me more" carries no language of its own: keep the one the chat is in.
+      const lastAsked = past.filter((m) => m.role === 'user').at(-1)?.content;
+      if (!chosen && !requestedLang(question) && lastAsked && normalizeQuestion(question).split(' ').length <= 4) lang = detectLang(lastAsked);
+      try {
+        q = await deps.ai.standalone(question, conversation);
+      } catch (err) {
+        console.error('follow-up rewrite failed', err instanceof Error ? err.message : err);
+      }
+      if (isCrisis(q)) {
+        return finish('safety', [
+          { type: 'text', text: T.crisis[lang] },
+          { type: 'notice', kind: 'helpline', text: `${HELPLINE.name}: ${HELPLINE.number}` },
+        ], { count: false });
+      }
+    }
+  }
+  const intent = q === question ? ownIntent : matchIntent(q);
 
   // Palm questions read the person's saved palm photos.
   if (intent?.type === 'palm') {
@@ -227,7 +256,7 @@ export async function ask(
     if (!photos.length) return finish('direct', [{ type: 'notice', kind: 'needs-palm', text: T.needsPalm[lang] }], { count: false });
     let blocks: Block[];
     try {
-      blocks = await palmAnswer(deps, question, lang, photos);
+      blocks = await palmAnswer(deps, q, lang, photos);
     } catch (err) {
       return busy(err);
     }
@@ -250,7 +279,7 @@ export async function ask(
     if (intent.type === 'prakriti') return finish('direct', await prakritiAnswer(deps, prakriti, lang), { count: false });
     let blocks: Block[];
     try {
-      blocks = await prakritiAdvice(deps, question, lang, prakriti);
+      blocks = await prakritiAdvice(deps, q, lang, prakriti, conversation);
     } catch (err) {
       return busy(err);
     }
@@ -264,9 +293,10 @@ export async function ask(
   }
 
   // 2. The same question, word for word (after normalising).
-  const normalized = normalizeQuestion(question);
+  const normalized = normalizeQuestion(q);
   const hash = await sha256(normalized);
-  const exact = await deps.cache.exact(lang, hash);
+  // A follow-up wants something beyond what this chat has already shown, so saved answers are skipped.
+  const exact = conversation ? null : await deps.cache.exact(lang, hash);
   if (exact && (await stillCurrent(deps, exact))) {
     await deps.cache.hit(exact.id);
     return finish('exact', exact.blocks, { count: true, cacheId: exact.id });
@@ -297,8 +327,8 @@ export async function ask(
 
   async function semanticOrGenerated(): Promise<Outcome> {
     // 3. A question with the same meaning.
-    const embedding = await deps.ai.embed(question);
-    const [similar] = await deps.vectors.search(`cache:${lang}`, embedding, 1, SAME_MEANING);
+    const embedding = await deps.ai.embed(q);
+    const [similar] = conversation ? [] : await deps.vectors.search(`cache:${lang}`, embedding, 1, SAME_MEANING);
     if (similar) {
       const entry = await deps.cache.byId(Number(similar.id));
       if (entry && (await stillCurrent(deps, entry))) return { layer: 'semantic', blocks: entry.blocks, count: true, cacheId: entry.id };
@@ -311,8 +341,8 @@ export async function ask(
     ]);
     const [verses, meanings] = await Promise.all([deps.library.verses(verseHits.map((h) => h.id)), deps.library.meanings(meaningHits.map((h) => h.id))]);
 
-    let grounded = await deps.ai.answer(question, lang, { verses, meanings });
-    if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses, meanings }, true);
+    let grounded = await deps.ai.answer(q, lang, { verses, meanings }, false, undefined, conversation);
+    if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(q, lang, { verses, meanings }, true, undefined, conversation);
     if (contentProblems(grounded.answer).length) {
       return { layer: 'ai', blocks: [{ type: 'text', text: T.unsure[lang] }], count: false, cacheId: null };
     }
@@ -331,7 +361,8 @@ export async function ask(
     ];
     if (grounded.personal) blocks.push({ type: 'notice', kind: 'needs-details', text: T.needsDetails[lang] });
 
-    if (!cacheable(question, grounded.personal)) return { layer: 'ai', blocks, count: true, cacheId: null, personal: grounded.personal };
+    // An answer written with the earlier turns in view is for this chat only.
+    if (conversation || !cacheable(q, grounded.personal)) return { layer: 'ai', blocks, count: true, cacheId: null, personal: grounded.personal };
     const sourcesHash = await sourcesFingerprint(
       verses.filter((v) => sources.includes(v.ref)),
       meanings.filter((m) => sources.includes(`${m.kind}/${m.key}`)),
@@ -514,12 +545,12 @@ export function chartBlock(chart: Chart): Block {
 }
 
 /** Answers a question about the person's own chart, calculated from their saved birth details. */
-async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile): Promise<Block[]> {
+async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile, conversation?: string): Promise<Block[]> {
   const chart = calculateChart(toBirth(profile));
   const meanings = await deps.library.meanings(chartSources(chart, question));
   const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses):\n${describeChart(chart)}`;
-  let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts);
-  if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts);
+  let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts, conversation);
+  if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts, conversation);
   if (contentProblems(grounded.answer).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
   const cited = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 3);
   return [
@@ -570,13 +601,13 @@ async function prakritiAnswer(deps: Deps, p: Prakriti, lang: Lang): Promise<Bloc
 }
 
 /** Diet, routine or herb questions about the person's own prakriti, answered from their quiz result. */
-async function prakritiAdvice(deps: Deps, question: string, lang: Lang, p: Prakriti): Promise<Block[]> {
+async function prakritiAdvice(deps: Deps, question: string, lang: Lang, p: Prakriti, conversation?: string): Promise<Block[]> {
   const lead = dominant(p).slice(0, 2);
   const { herbs } = await deps.ayurveda.findHerbs({ dosha: lead[0], effect: 'pacify' }, 4);
   const meanings = await deps.library.meanings([...lead.flatMap((d) => [`dosha/${d}`, `prakriti-care/${d}`]), ...herbs.map((h) => `herb/${h.key}`)]);
   const facts = `PRAKRITI (the person's own dosha self-assessment quiz): Vata ${p.vata}%, Pitta ${p.pitta}%, Kapha ${p.kapha}% (${prakritiLabel(p)}).`;
-  let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts);
-  if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts);
+  let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts, conversation);
+  if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts, conversation);
   if (contentProblems(grounded.answer).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
   const cited = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 3);
   return [{ type: 'text', text: grounded.answer }, prakritiBlock(p), ...(await meaningBlocks(deps, cited))];

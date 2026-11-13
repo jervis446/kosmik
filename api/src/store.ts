@@ -32,8 +32,12 @@ export interface Usage {
   increment(subject: string, period: string): Promise<void>;
 }
 
+export type PastMessage = { role: 'user' | 'assistant'; content: string; blocks: Block[] | null };
+
 export interface History {
   record(e: { userId: string; conversationId?: string | null; question: string; blocks: Block[]; layer: string; cacheId: number | null; now: number }): Promise<{ conversationId: string; messageId: string }>;
+  /** The latest messages of one of this person's conversations, oldest first. */
+  recent(userId: string, conversationId: string, limit: number): Promise<PastMessage[]>;
 }
 
 type VerseRow = { ref: string; chapter: number; verse: number; sanskrit: string; iast: string; translation: string; translator: string };
@@ -194,6 +198,16 @@ export class D1History implements History {
   private readonly db: D1Database;
   constructor(db: D1Database) {
     this.db = db;
+  }
+  async recent(userId: string, conversationId: string, limit: number): Promise<PastMessage[]> {
+    const { results } = await this.db
+      .prepare(
+        `SELECT m.role, m.content, m.blocks FROM messages m JOIN conversations c ON c.id = m.conversation_id
+         WHERE m.conversation_id = ? AND c.user_id = ? ORDER BY m.created_at DESC, m.rowid DESC LIMIT ?`,
+      )
+      .bind(conversationId, userId, limit)
+      .all<{ role: 'user' | 'assistant'; content: string; blocks: string | null }>();
+    return results.reverse().map((r) => ({ role: r.role, content: r.content, blocks: r.blocks ? (JSON.parse(r.blocks) as Block[]) : null }));
   }
   async record(e: Parameters<History['record']>[0]) {
     let conversationId = e.conversationId ?? null;

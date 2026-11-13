@@ -5,7 +5,7 @@ import type { AiClient, Grounded, PalmReading } from '../src/ai.ts';
 import { ask, BadQuestion, chartSources, type Deps, type Identity } from '../src/pipeline.ts';
 import type { PalmPhoto, Profile } from '../src/profiles.ts';
 import { calculateChart } from '../src/lib/chart.ts';
-import type { AnswerCache, History, Library, Namespace, Usage, VectorSearch } from '../src/store.ts';
+import type { AnswerCache, History, Library, Namespace, PastMessage, Usage, VectorSearch } from '../src/store.ts';
 import { topK } from '../src/lib/vectors.ts';
 import type { Block, Meaning, Verse } from '../src/types.ts';
 import type { Herb, Prakriti } from '../src/ayurveda.ts';
@@ -54,6 +54,11 @@ class Fakes {
   photos: PalmPhoto[] = [];
   chartsSeen: string[] = [];
   prakriti: Prakriti | null = null;
+  past: PastMessage[] = [];
+  rewriteTo: string | null = null;
+  rewriteFails = false;
+  standaloneCalls: { question: string; conversation: string }[] = [];
+  conversationsSeen: (string | undefined)[] = [];
 
   deps(now = Date.parse('2026-11-12T10:00:00Z')): Deps {
     const library: Library = {
@@ -95,6 +100,7 @@ class Fakes {
         this.history.push({ userId: e.userId, question: e.question, layer: e.layer });
         return { conversationId: e.conversationId ?? 'conv-1', messageId: `msg-${this.history.length}` };
       },
+      recent: async (userId, _conversationId, limit) => (userId === 'u1' ? this.past.slice(-limit) : []),
     };
     const ai: AiClient = {
       model: 'test-model',
@@ -102,8 +108,14 @@ class Fakes {
         this.embedCalls++;
         return embedText(t);
       },
-      answer: async (_q, _lang, sources, _stricter, chart) => {
+      standalone: async (question, conversation) => {
+        this.standaloneCalls.push({ question, conversation });
+        if (this.rewriteFails) throw new Error('model down');
+        return this.rewriteTo ?? question;
+      },
+      answer: async (_q, _lang, sources, _stricter, chart, conversation) => {
         this.aiCalls++;
+        this.conversationsSeen.push(conversation);
         if (chart) this.chartsSeen.push(chart);
         const scripted = this.reply.answers?.shift();
         return {
@@ -472,4 +484,65 @@ test('ayurveda: a herb for a health problem or a dose gets no advice, the herb c
   assert.ok(r.blocks.some((b) => b.type === 'herb' && b.key === 'tulsi'));
   assert.equal(f.aiCalls, 0);
   assert.equal(r.remaining, 11);
+});
+
+const angerChat: PastMessage[] = [
+  { role: 'user', content: 'What does the Gita say about anger?', blocks: null },
+  { role: 'assistant', content: '', blocks: [{ type: 'text', text: 'The Gita sees anger as born of desire.' }] },
+];
+
+test('memory: a follow-up is rewritten with the chat so far, answered with it in view, and not cached', async () => {
+  const f = new Fakes();
+  f.past = angerChat;
+  f.rewriteTo = 'How can I calm my mind when anger comes, as the Gita teaches?';
+  const r = await ask(f.deps(), { question: 'tell me more', lang: 'en', identity: user, conversationId: 'conv-1' });
+  assert.equal(r.layer, 'ai');
+  assert.equal(f.standaloneCalls.length, 1);
+  assert.match(f.standaloneCalls[0].conversation, /^Person: What does the Gita say about anger\?\nKosmik: The Gita sees anger as born of desire\.$/);
+  assert.match(f.conversationsSeen[0] ?? '', /born of desire/);
+  assert.equal(f.cacheRows.length, 0, 'an answer that leans on this chat is not shared');
+  assert.equal(f.history.at(-1)?.question, 'tell me more', 'history keeps what the person typed');
+});
+
+test('memory: a follow-up never gets a saved answer back, even when it means the same as one', async () => {
+  const f = new Fakes();
+  await ask(f.deps(), { question: 'What does the Gita say about worry over results of work?', lang: 'en', identity: user });
+  assert.equal(f.cacheRows.length, 1);
+  f.past = [{ role: 'user', content: 'What does the Gita say about worry over results of work?', blocks: null }];
+  f.rewriteTo = 'What does the Gita say about worry over results of work?';
+  const r = await ask(f.deps(), { question: 'tell me more', lang: 'en', identity: user, conversationId: 'conv-1' });
+  assert.equal(r.layer, 'ai');
+  assert.equal(f.aiCalls, 2);
+});
+
+test('memory: a follow-up that becomes a library question is answered from the library', async () => {
+  const f = new Fakes();
+  f.past = [{ role: 'user', content: 'Saturn in my 7th house', blocks: null }];
+  f.rewriteTo = 'Saturn in 7th house';
+  const r = await ask(f.deps(), { question: 'what does that mean?', lang: 'en', identity: user, conversationId: 'conv-1' });
+  assert.equal(r.layer, 'direct');
+  assert.ok(r.blocks.some((b) => b.type === 'meaning' && b.key === 'saturn:7'));
+  assert.equal(f.aiCalls, 0);
+});
+
+test('memory: questions that stand alone, new chats, and a failed rewrite all work as before', async () => {
+  const f = new Fakes();
+  f.past = angerChat;
+  await ask(f.deps(), { question: 'Gita 2.47', lang: 'en', identity: user, conversationId: 'conv-1' });
+  await ask(f.deps(), { question: 'tell me more', lang: 'en', identity: user });
+  assert.equal(f.standaloneCalls.length, 0, 'no rewrite for a clear question or without a chat');
+
+  f.rewriteFails = true;
+  const r = await ask(f.deps(), { question: 'tell me more', lang: 'en', identity: user, conversationId: 'conv-1' });
+  assert.equal(f.standaloneCalls.length, 1);
+  assert.notEqual(r.blocks[0].type === 'notice' && r.blocks[0].kind, 'busy', 'the original question is still answered');
+});
+
+test('memory: a follow-up that turns out to be about self-harm gets the helpline', async () => {
+  const f = new Fakes();
+  f.past = angerChat;
+  f.rewriteTo = 'I want to end my life because of this anger';
+  const r = await ask(f.deps(), { question: 'should i just end it', lang: 'en', identity: user, conversationId: 'conv-1' });
+  assert.equal(r.layer, 'safety');
+  assert.ok(r.blocks.some((b) => b.type === 'notice' && b.kind === 'helpline'));
 });

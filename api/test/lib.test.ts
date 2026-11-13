@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { describeConversation, isFollowUp } from '../src/lib/conversation.ts';
+import { requestedLang } from '../src/lib/text.ts';
+import { cleanAnswer } from '../src/ai.ts';
+
 import { libraryEntries } from '../src/lib/catalog.ts';
 import { toIAST } from '../src/lib/iast.ts';
 import { matchIntent } from '../src/lib/intents.ts';
@@ -108,4 +112,32 @@ test('wrangler.jsonc parses after stripping comments, keeping // inside strings'
   const config = JSON.parse(stripJsonComments(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8')));
   assert.equal(config.name, 'kosmik');
   assert.ok(config.assets && config.triggers.crons.length);
+});
+
+test('conversation: follow-ups are spotted; clear questions are not', () => {
+  assert.equal(isFollowUp('tell me more', false), true);
+  assert.equal(isFollowUp('aur batao', false), true);
+  assert.equal(isFollowUp('why?', false), true);
+  assert.equal(isFollowUp('and Rahu?', false), true);
+  assert.equal(isFollowUp('Explain that verse more simply', false), true);
+  assert.equal(isFollowUp('Gita 2.47', true), false);
+  assert.equal(isFollowUp('What does the Gita teach about patience in hard times at work?', false), false);
+});
+
+test('conversation: earlier turns become a short transcript', () => {
+  const text = describeConversation([
+    { role: 'user', content: 'Pull 3 tarot cards', blocks: null },
+    { role: 'assistant', content: '', blocks: [{ type: 'tarot', cards: [{ key: 'star', name: 'The Star', reversed: false, position: 'Past', meaning: '' }] }] },
+    { role: 'assistant', content: '', blocks: [{ type: 'notice', kind: 'helpline', text: 'Tele-MANAS: 14416' }] },
+  ]);
+  assert.equal(text, 'Person: Pull 3 tarot cards\nKosmik: [Tarot: Past: The Star]');
+});
+
+test('language asked for by name wins; stray number runs are cleaned from answers', () => {
+  assert.equal(requestedLang('ise simple hindi mein samjhao'), 'hi');
+  assert.equal(requestedLang('explain in English please'), 'en');
+  assert.equal(requestedLang('hinglish mein batao'), 'hinglish');
+  assert.equal(requestedLang('what does the gita say about anger'), undefined);
+  assert.equal(cleanAnswer('Gussa control karna zaroori hai. 1 2 3\n\nAgla para. 01.12.2026'), 'Gussa control karna zaroori hai.\n\nAgla para.');
+  assert.equal(cleanAnswer('The Gita (2.47) says act without attachment.'), 'The Gita (2.47) says act without attachment.');
 });
