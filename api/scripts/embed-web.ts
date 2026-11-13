@@ -93,7 +93,7 @@ ${entries.join('\n')}
 function serve(req: Request, path: string): Response | null {
   // The landing page is the front door; the app lives at /chat.
   // Folders with an index.html (e.g. /tester) are served as pages of their own.
-  const file = path === '/' ? FILES['/landing.html'] : (FILES[path] ?? FILES[path.replace(/\/?$/, '/index.html')]);
+  const file = path === '/' ? FILES['/landing.html'] : (FILES[path] ?? FILES[path.replace(/\\/?$/, '/index.html')]);
   // Single-page app: routes without a file extension get index.html.
   const hit = file ?? (/\\.[a-z0-9]+$/i.test(path) ? undefined : FILES['/index.html']);
   if (!hit) return null;
