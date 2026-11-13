@@ -1,6 +1,6 @@
 import { Redirect } from "expo-router";
 
-/** Chats now live in the sidebar; old links to /history land on the home screen. */
+/** Chats live in the sidebar; old links to /history open the chat. */
 export default function History() {
-  return <Redirect href="/" />;
+  return <Redirect href="/chat" />;
 }

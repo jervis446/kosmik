@@ -11,7 +11,6 @@ import {
 
 import type { ConversationSummary } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { MODES } from "../lib/modes";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
 
@@ -80,21 +79,6 @@ export function Sidebar() {
         style={{ flex: 1 }}
         contentContainerStyle={{ gap: 2, paddingBottom: 12 }}
       >
-        <Text style={s.section}>Explore</Text>
-        {MODES.map((m) => (
-          <Pressable
-            key={m.key}
-            onPress={() => shell.newChat(m.key)}
-            style={s.row}
-            accessibilityRole="button"
-          >
-            <Text style={s.glyph}>{m.glyph}</Text>
-            <Text style={s.rowText} numberOfLines={1}>
-              {m.label}
-            </Text>
-          </Pressable>
-        ))}
-
         {session ? (
           shell.chats === null ? (
             <ActivityIndicator style={{ marginTop: 16 }} color={colors.muted} />

@@ -13,5 +13,8 @@
     "@types/node": "^22.20.5",
     "typescript": "~6.0.3",
     "wrangler": "4.158.0"
+  },
+  "dependencies": {
+    "astronomy-engine": "2.1.19"
   }
 }

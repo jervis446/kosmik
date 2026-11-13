@@ -7,7 +7,8 @@ export type Block =
   | { type: 'meaning'; kind: string; key: string; title: string; body: string; reviewed: boolean }
   | { type: 'tarot'; cards: { key: string; name: string; reversed: boolean; position: string; meaning: string }[] }
   | { type: 'palm'; lines: { name: string; reading: string }[] }
-  | { type: 'notice'; kind: 'helpline' | 'needs-chart' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake'; text: string };
+  | { type: 'chart'; lagna: string | null; moon: string; nakshatra: string; rows: { graha: string; rashi: string; house: string | null; retrograde: boolean }[] }
+  | { type: 'notice'; kind: 'helpline' | 'needs-chart' | 'needs-details' | 'needs-palm' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake'; text: string };
 
 /** Which layer answered: no AI, exact repeat, same meaning, or a new AI answer. */
 export type Layer = 'direct' | 'exact' | 'semantic' | 'ai' | 'safety' | 'limit';
@@ -62,6 +63,8 @@ export interface Env {
   /** Authenticates checkout requests and, unless NOHA_WEBHOOK_SECRET is set, signs webhooks. */
   NOHA_MERCHANT_KEY?: string;
   NOHA_WEBHOOK_SECRET?: string;
+  /** Birth place search; local development can point this at the relay. */
+  NOMINATIM_URL?: string;
   /** Comma-separated origins allowed to call the API from another origin (local development). */
   ALLOWED_ORIGINS?: string;
 }

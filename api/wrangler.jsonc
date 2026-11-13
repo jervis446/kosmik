@@ -5,12 +5,13 @@
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
 
-  // The web app (Expo web export) is served by this Worker; /api/* runs the code.
+  // The web app (Expo web export) is served by this Worker; /api/* runs the code and / is the
+  // landing page (app/public/landing.html). The app itself lives at /chat.
   "assets": {
     "directory": "../app/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/"]
   },
 
   // Production database (created with: npx wrangler d1 create kosmik --location apac)

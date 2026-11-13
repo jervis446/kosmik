@@ -9,12 +9,14 @@ export function Blocks({
   blocks,
   onSignIn,
   onPremium,
-  onRetake,
+  onDetails,
+  onPalm,
 }: {
   blocks: Block[];
   onSignIn?: () => void;
   onPremium?: () => void;
-  onRetake?: () => void;
+  onDetails?: () => void;
+  onPalm?: () => void;
 }) {
   const { colors } = useTheme();
   const s = styles(colors);
@@ -44,6 +46,35 @@ export function Blocks({
             );
           case "tarot":
             return <TarotSpread key={i} cards={b.cards} />;
+          case "chart":
+            return (
+              <View key={i} style={s.card} testID="chart">
+                <Text style={s.title}>☉ Your birth chart</Text>
+                <Text style={s.small}>
+                  Lagna: {b.lagna ?? "unknown (no birth time)"} · Moon: {b.moon}{" "}
+                  · Nakshatra: {b.nakshatra}
+                </Text>
+                <View style={{ gap: 4 }}>
+                  {b.rows.map((r) => (
+                    <View key={r.graha} style={s.chartRow}>
+                      <Text style={[s.chartCell, { flex: 1.3 }]}>
+                        {r.graha}
+                      </Text>
+                      <Text style={[s.chartCell, { flex: 1.5 }]}>
+                        {r.rashi}
+                        {r.retrograde ? " ℞" : ""}
+                      </Text>
+                      {r.house ? (
+                        <Text style={[s.chartCell, s.house]}>{r.house}</Text>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+                <Text style={s.small}>
+                  Sidereal (Lahiri), whole-sign houses. ℞ = retrograde.
+                </Text>
+              </View>
+            );
           case "palm":
             return (
               <View key={i} style={s.card} testID="palm-reading">
@@ -85,13 +116,26 @@ export function Blocks({
                     <Text style={s.noticeBtnText}>Sign in</Text>
                   </Pressable>
                 ) : null}
-                {b.kind === "retake" && onRetake ? (
+                {b.kind === "needs-details" && onDetails ? (
                   <Pressable
-                    onPress={onRetake}
+                    onPress={onDetails}
                     accessibilityRole="button"
                     style={s.noticeBtn}
                   >
-                    <Text style={s.noticeBtnText}>Try another photo</Text>
+                    <Text style={s.noticeBtnText}>Add birth details</Text>
+                  </Pressable>
+                ) : null}
+                {(b.kind === "needs-palm" || b.kind === "retake") && onPalm ? (
+                  <Pressable
+                    onPress={onPalm}
+                    accessibilityRole="button"
+                    style={s.noticeBtn}
+                  >
+                    <Text style={s.noticeBtnText}>
+                      {b.kind === "retake"
+                        ? "Replace palm photos"
+                        : "Add palm photos"}
+                    </Text>
                   </Pressable>
                 ) : null}
                 {b.kind === "limit" && onPremium ? (
@@ -253,6 +297,15 @@ const styles = (c: Colors) =>
       justifyContent: "center",
     },
     noticeBtnText: { color: c.onPrimary, fontFamily: font.bold, fontSize: 15 },
+    chartRow: {
+      flexDirection: "row",
+      gap: 8,
+      paddingVertical: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: c.line,
+    },
+    chartCell: { color: c.text, fontFamily: font.medium, fontSize: 14 },
+    house: { color: c.muted, minWidth: 40, textAlign: "right" },
     tarot: {
       flex: 1,
       aspectRatio: 2 / 3.1,

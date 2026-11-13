@@ -11,7 +11,9 @@ import { matchIntent, type Intent } from './lib/intents.ts';
 import { planFor, type Plan } from './lib/limits.ts';
 import { contentProblems, HELPLINE, isCrisis } from './lib/safety.ts';
 import { detectLang, type Lang, LANGS, normalizeQuestion, sha256 } from './lib/text.ts';
-import { TAROT } from './lib/catalog.ts';
+import { GRAHAS, ordinal, RASHIS, NAKSHATRAS, TAROT } from './lib/catalog.ts';
+import { calculateChart, type Chart, describeChart } from './lib/chart.ts';
+import { type Profile, type Profiles, toBirth } from './profiles.ts';
 import type { AnswerCache, History, Library, Usage, VectorSearch } from './store.ts';
 import type { AskResult, Block, CacheEntry, Layer, Meaning, Verse } from './types.ts';
 
@@ -34,6 +36,7 @@ export type Deps = {
   usage: Usage;
   history: History;
   ai: AiClient;
+  profiles: Profiles;
   now?: () => number;
   random?: (n: number) => number;
 };
@@ -81,16 +84,27 @@ const T = {
     hi: 'Kosmik अभी बहुत व्यस्त है और नया जवाब नहीं लिख पाया। यह सवाल गिना नहीं गया। थोड़ी देर बाद फिर कोशिश करें, या किसी श्लोक, राशि, नक्षत्र या टैरो कार्ड के बारे में पूछें।',
     hinglish: 'Kosmik abhi bahut busy hai aur naya jawaab nahi likh paaya. Yeh sawaal count nahi hua. Thodi der baad phir try kijiye, ya kisi shlok, rashi, nakshatra ya tarot card ke baare mein poochhiye.',
   },
+  needsDetails: {
+    en: 'To read your own chart, Kosmik needs your date, time and place of birth. Add them once and every chart question uses them. This question wasn’t counted.',
+    hi: 'आपकी अपनी कुंडली पढ़ने के लिए Kosmik को जन्म की तारीख, समय और स्थान चाहिए। एक बार जोड़ें, फिर हर कुंडली सवाल में काम आएगा। यह सवाल गिना नहीं गया।',
+    hinglish: 'Aapki apni kundli padhne ke liye Kosmik ko janam ki date, time aur jagah chahiye. Ek baar add kijiye, phir har kundli sawaal mein kaam aayega. Yeh sawaal count nahi hua.',
+  },
+  needsPalm: {
+    en: 'To read your palm, Kosmik needs photos of both palms. Add them once and every palm question uses them. This question wasn’t counted.',
+    hi: 'आपकी हथेली पढ़ने के लिए Kosmik को दोनों हथेलियों की फ़ोटो चाहिए। एक बार जोड़ें, फिर हर हस्तरेखा सवाल में काम आएगी। यह सवाल गिना नहीं गया।',
+    hinglish: 'Aapki hatheli padhne ke liye Kosmik ko dono hatheliyon ki photo chahiye. Ek baar add kijiye, phir har palm sawaal mein kaam aayegi. Yeh sawaal count nahi hua.',
+  },
+  chartIntro: { en: 'From your birth chart:', hi: 'आपकी जन्म कुंडली से:', hinglish: 'Aapki janam kundli se:' },
   palmIntro: { en: 'Your palm, as palmistry reads it:', hi: 'हस्तरेखा शास्त्र के अनुसार आपकी हथेली:', hinglish: 'Hast rekha ke hisaab se aapki hatheli:' },
   palmRetake: {
-    en: 'I couldn’t see the lines clearly enough to read this photo. It wasn’t counted.',
-    hi: 'इस फ़ोटो में रेखाएँ साफ़ नहीं दिखीं, इसलिए पढ़ नहीं पाया। यह गिना नहीं गया।',
-    hinglish: 'Is photo mein lines saaf nahi dikhi, isliye padh nahi paaya. Yeh count nahi hua.',
+    en: 'I couldn’t see the lines clearly enough in your saved palm photos. Please replace them. This question wasn’t counted.',
+    hi: 'आपकी सहेजी गई फ़ोटो में रेखाएँ साफ़ नहीं दिखीं। कृपया फ़ोटो बदलें। यह सवाल गिना नहीं गया।',
+    hinglish: 'Aapki saved photos mein lines saaf nahi dikhi. Please photos badaliye. Yeh sawaal count nahi hua.',
   },
   palmNote: {
-    en: 'Palmistry is for reflection, not prediction. Your photo was read once and not stored.',
-    hi: 'हस्तरेखा आत्मचिंतन के लिए है, भविष्यवाणी के लिए नहीं। आपकी फ़ोटो एक बार पढ़ी गई और सहेजी नहीं गई।',
-    hinglish: 'Palmistry reflection ke liye hai, prediction ke liye nahi. Aapki photo ek baar padhi gayi aur save nahi hui.',
+    en: 'Palmistry is for reflection, not prediction.',
+    hi: 'हस्तरेखा आत्मचिंतन के लिए है, भविष्यवाणी के लिए नहीं।',
+    hinglish: 'Palmistry reflection ke liye hai, prediction ke liye nahi.',
   },
   unsure: {
     en: 'I couldn’t put together a reliable answer to that one. Try asking it a little differently.',
@@ -135,49 +149,6 @@ const limitBlock = (turn: Turn, lang: Lang): Block[] => [
   { type: 'notice', kind: turn.plan.kind === 'guest' ? 'sign-in' : 'limit', text: turn.plan.kind === 'guest' ? T.limitGuest[lang] : T.limitStarter[lang] },
 ];
 
-/** Largest palm photo accepted, after the app resizes it (about 1.5 MB of JPEG). */
-export const MAX_PALM_BASE64 = 2_000_000;
-const PALM_MIME = ['image/jpeg', 'image/png', 'image/webp'];
-
-/** Reads a palm photo. The photo is sent to the model once and never stored. */
-export async function readPalm(
-  deps: Deps,
-  input: { image: unknown; mime: unknown; lang?: string; identity: Identity; conversationId?: string | null },
-): Promise<AskResult> {
-  const now = deps.now?.() ?? Date.now();
-  const mime = typeof input.mime === 'string' ? input.mime.toLowerCase() : '';
-  if (!PALM_MIME.includes(mime)) throw new BadQuestion('Send a JPEG, PNG or WebP photo of your palm.');
-  if (typeof input.image !== 'string' || input.image.length < 1000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(input.image)) throw new BadQuestion('That photo couldn’t be read. Please try another.');
-  if (input.image.length > MAX_PALM_BASE64) throw new BadQuestion('That photo is too large. Please try a smaller one.');
-  const lang: Lang = LANGS.includes(input.lang as Lang) ? (input.lang as Lang) : 'en';
-  const turn = await startTurn(deps, input.identity, input.conversationId, 'Palm reading (photo)', lang, now);
-  if (limitReached(turn)) return turn.finish('limit', limitBlock(turn, lang), { count: false });
-
-  const image = { data: input.image, mime };
-  const safe = (r: { overview: string; lines: { reading: string }[] }) => ![r.overview, ...r.lines.map((l) => l.reading)].some((t) => contentProblems(t).length);
-  let reading;
-  try {
-    reading = await deps.ai.readPalm(image, lang);
-    if (reading.isPalm && !safe(reading)) reading = await deps.ai.readPalm(image, lang, true);
-  } catch (err) {
-    console.error('palm reading failed', err instanceof Error ? err.message : err);
-    return turn.finish('ai', [{ type: 'notice', kind: 'busy', text: T.busy[lang] }], { count: false });
-  }
-  if (!reading.isPalm) {
-    return turn.finish('ai', [{ type: 'notice', kind: 'retake', text: `${T.palmRetake[lang]} ${reading.overview}` }], { count: false });
-  }
-  if (!safe(reading)) return turn.finish('ai', [{ type: 'text', text: T.unsure[lang] }], { count: false });
-  return turn.finish(
-    'ai',
-    [
-      { type: 'text', text: `${T.palmIntro[lang]} ${reading.overview}` },
-      { type: 'palm', lines: reading.lines },
-      { type: 'text', text: T.palmNote[lang] },
-    ],
-    { count: true },
-  );
-}
-
 export async function ask(
   deps: Deps,
   input: { question: string; lang?: string; identity: Identity; conversationId?: string | null },
@@ -189,6 +160,20 @@ export async function ask(
   const lang: Lang = LANGS.includes(input.lang as Lang) ? (input.lang as Lang) : detectLang(question);
   const turn = await startTurn(deps, input.identity, input.conversationId, question, lang, now);
   const { finish } = turn;
+  // The AI layer failing never costs a question: say so politely instead.
+  const busy = (err: unknown) => {
+    console.error('ai layer failed', err instanceof Error ? err.message : err);
+    return finish('ai', [{ type: 'notice', kind: 'busy', text: T.busy[lang] }], { count: false });
+  };
+  const chartOutcome = async (profile: Profile) => {
+    let blocks: Block[];
+    try {
+      blocks = await chartAnswer(deps, question, lang, profile);
+    } catch (err) {
+      return busy(err);
+    }
+    return finish('ai', blocks, { count: blocks[0]?.type !== 'notice' });
+  };
 
   // Someone in distress gets a person to talk to, before anything else and free of charge.
   if (isCrisis(question)) {
@@ -200,8 +185,30 @@ export async function ask(
 
   if (limitReached(turn)) return finish('limit', limitBlock(turn, lang), { count: false });
 
-  // 1. Direct answers from the libraries.
   const intent = matchIntent(question);
+  const userId = input.identity.kind === 'user' ? input.identity.id : null;
+
+  // Palm questions read the person's saved palm photos.
+  if (intent?.type === 'palm') {
+    const photos = userId ? await deps.profiles.palms(userId) : [];
+    if (!photos.length) return finish('direct', [{ type: 'notice', kind: 'needs-palm', text: T.needsPalm[lang] }], { count: false });
+    let blocks: Block[];
+    try {
+      blocks = await palmAnswer(deps, question, lang, photos);
+    } catch (err) {
+      return busy(err);
+    }
+    return finish('ai', blocks, { count: blocks[0]?.type !== 'notice' });
+  }
+
+  // Questions about the person's own chart use their saved birth details.
+  if (intent?.type === 'needs-chart') {
+    const profile = userId ? await deps.profiles.get(userId) : null;
+    if (!profile) return finish('direct', [{ type: 'notice', kind: 'needs-details', text: T.needsDetails[lang] }], { count: false });
+    return chartOutcome(profile);
+  }
+
+  // 1. Direct answers from the libraries.
   if (intent) {
     const direct = await answerDirect(deps, intent, lang, now);
     if (direct) return finish('direct', direct.blocks, { count: direct.counts });
@@ -225,6 +232,11 @@ export async function ask(
   } catch (err) {
     console.error('ai layer failed', err instanceof Error ? err.message : err);
     outcome = { layer: 'ai', blocks: [{ type: 'notice', kind: 'busy', text: T.busy[lang] }], count: false, cacheId: null };
+  }
+  // The model found the question is about the person: answer from their chart if we have it.
+  if (outcome.personal && userId) {
+    const profile = await deps.profiles.get(userId);
+    if (profile) return chartOutcome(profile);
   }
   if (outcome.cache) {
     const { blocks, embedding, sources, sourcesHash } = outcome.cache;
@@ -268,9 +280,9 @@ export async function ask(
       ...citedVerses.map(verseBlock),
       ...citedMeanings.map((m): Block => ({ type: 'meaning', ...m })),
     ];
-    if (grounded.personal) blocks.push({ type: 'notice', kind: 'needs-chart', text: T.needsChart[lang] });
+    if (grounded.personal) blocks.push({ type: 'notice', kind: 'needs-details', text: T.needsDetails[lang] });
 
-    if (!cacheable(question, grounded.personal)) return { layer: 'ai', blocks, count: true, cacheId: null };
+    if (!cacheable(question, grounded.personal)) return { layer: 'ai', blocks, count: true, cacheId: null, personal: grounded.personal };
     const sourcesHash = await sourcesFingerprint(
       verses.filter((v) => sources.includes(v.ref)),
       meanings.filter((m) => sources.includes(`${m.kind}/${m.key}`)),
@@ -284,6 +296,8 @@ type Outcome = {
   blocks: Block[];
   count: boolean;
   cacheId: number | null;
+  /** The model says this needs the person's own chart. */
+  personal?: boolean;
   /** Set when a fresh answer should be stored in the shared cache. */
   cache?: { blocks: Block[]; sources: string[]; sourcesHash: string; embedding: number[] };
 };
@@ -337,7 +351,8 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number)
       return { blocks: [{ type: 'text', text: intro }, { type: 'meaning', ...m }], counts: true };
     }
     case 'needs-chart':
-      return { blocks: [{ type: 'notice', kind: 'needs-chart', text: T.needsChart[lang] }], counts: false };
+    case 'palm':
+      return null; // handled in ask(): they need the person's saved details
     case 'daily-horoscope':
       return { blocks: [{ type: 'notice', kind: 'coming-soon', text: T.horoscope[lang] }], counts: false };
   }
@@ -370,4 +385,89 @@ async function drawTarot(deps: Deps, count: 1 | 3): Promise<Block> {
     cards.push({ key: card.key, name: card.name, reversed, position, meaning: meaning?.body ?? '' });
   }
   return { type: 'tarot', cards };
+}
+
+/** Houses a question is about, so the right placement meanings are given to the model. */
+const TOPIC_HOUSES: [RegExp, number[]][] = [
+  [/\b(marriage|marry|shaadi|shadi|vivah|spouse|partner|husband|wife|pati|patni|relationship|love|pyaar)\b|शादी|विवाह/, [7]],
+  [/\b(career|job|naukri|work|business|profession|promotion|kaam)\b|नौकरी|करियर/, [10, 6]],
+  [/\b(money|paisa|paise|wealth|finance|dhan|income|savings)\b|धन|पैसा/, [2, 11]],
+  [/\b(education|study|studies|padhai|exam|college|learning)\b|पढ़ाई/, [4, 5]],
+  [/\b(child|children|kids|baby|bachche|bacche|santan)\b|संतान/, [5]],
+  [/\b(family|parents|mother|father|maa|papa|home|ghar)\b|परिवार/, [4, 2]],
+  [/\b(friends|social|gains)\b/, [11]],
+];
+
+/** Picks the library meanings that explain this person's chart for this question (at most six). */
+export function chartSources(chart: Chart, question: string): string[] {
+  const q = question.toLowerCase();
+  const ids: string[] = [];
+  const add = (id: string) => !ids.includes(id) && ids.push(id);
+  const at = (g: string) => chart.grahas.find((p) => p.graha === g)!;
+  for (const g of GRAHAS) {
+    if (g.aliases.some((a) => new RegExp(`(^|[^\\p{L}])${a}($|[^\\p{L}])`, 'u').test(q))) {
+      const p = at(g.key);
+      add(p.house ? `graha-house/${g.key}:${p.house}` : `graha-rashi/${g.key}:${p.rashi}`);
+    }
+  }
+  const houses = TOPIC_HOUSES.filter(([re]) => re.test(q)).flatMap(([, h]) => h);
+  for (const h of houses) for (const p of chart.grahas.filter((x) => x.house === h)) add(`graha-house/${p.graha}:${h}`);
+  if (chart.lagna) add(`rashi/${chart.lagna.rashi}`);
+  const moon = at('moon');
+  add(`graha-rashi/moon:${moon.rashi}`);
+  add(`nakshatra/${chart.moonNakshatra.key}`);
+  return ids.slice(0, 6);
+}
+
+const nameOf = {
+  rashi: (k: string) => RASHIS.find((r) => r.key === k)!,
+  graha: (k: string) => GRAHAS.find((g) => g.key === k)!,
+};
+
+export function chartBlock(chart: Chart): Block {
+  const r = (k: string) => `${nameOf.rashi(k).name} (${nameOf.rashi(k).english})`;
+  const nak = NAKSHATRAS.find((n) => n.key === chart.moonNakshatra.key)!;
+  return {
+    type: 'chart',
+    lagna: chart.lagna ? r(chart.lagna.rashi) : null,
+    moon: r(chart.grahas.find((p) => p.graha === 'moon')!.rashi),
+    nakshatra: `${nak.name}, pada ${chart.moonNakshatra.pada}`,
+    rows: chart.grahas.map((p) => ({
+      graha: `${nameOf.graha(p.graha).name} (${nameOf.graha(p.graha).english})`,
+      rashi: r(p.rashi),
+      house: p.house ? ordinal(p.house) : null,
+      retrograde: p.retrograde && p.graha !== 'rahu' && p.graha !== 'ketu',
+    })),
+  };
+}
+
+/** Answers a question about the person's own chart, calculated from their saved birth details. */
+async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile): Promise<Block[]> {
+  const chart = calculateChart(toBirth(profile));
+  const meanings = await deps.library.meanings(chartSources(chart, question));
+  const facts = describeChart(chart);
+  let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts);
+  if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts);
+  if (contentProblems(grounded.answer).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
+  const cited = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 3);
+  return [
+    { type: 'text', text: grounded.answer },
+    chartBlock(chart),
+    ...cited.map((m): Block => ({ type: 'meaning', ...m })),
+  ];
+}
+
+/** Reads the person's saved palm photos, with their question in mind. */
+async function palmAnswer(deps: Deps, question: string, lang: Lang, photos: { hand: 'left' | 'right'; mime: string; data: string }[]): Promise<Block[]> {
+  const images = photos.map((p) => ({ data: p.data, mime: p.mime, hand: p.hand }));
+  const safe = (r: { overview: string; lines: { reading: string }[] }) => ![r.overview, ...r.lines.map((l) => l.reading)].some((t) => contentProblems(t).length);
+  let reading = await deps.ai.readPalm(images, lang, { question });
+  if (reading.isPalm && !safe(reading)) reading = await deps.ai.readPalm(images, lang, { question, stricter: true });
+  if (!reading.isPalm) return [{ type: 'notice', kind: 'retake', text: `${T.palmRetake[lang]} ${reading.overview}` }];
+  if (!safe(reading)) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
+  return [
+    { type: 'text', text: `${T.palmIntro[lang]} ${reading.overview}` },
+    { type: 'palm', lines: reading.lines },
+    { type: 'text', text: T.palmNote[lang] },
+  ];
 }

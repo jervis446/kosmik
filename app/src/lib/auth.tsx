@@ -15,6 +15,8 @@ type AuthCtx = {
   /** Emails a 6-digit sign-in code. */
   sendCode: (email: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<void>;
+  /** Web: redirects to Google and back to /chat. */
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -66,6 +68,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           type: "email",
         });
         if (error) throw new Error(friendly(error.message));
+      },
+      async signInWithGoogle() {
+        if (!supabase) throw new Error("Sign-in isn’t set up in this build.");
+        const origin = globalThis.location?.origin;
+        if (!origin)
+          throw new Error(
+            "Google sign-in is available on the website for now.",
+          );
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: `${origin}/chat` },
+        });
+        if (error)
+          throw new Error("Google sign-in didn’t start. Please try again.");
       },
       async signOut() {
         await supabase?.auth.signOut();

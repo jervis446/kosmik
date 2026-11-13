@@ -39,7 +39,7 @@ export function Header({ title, back }: { title?: string; back?: boolean }) {
         <Pressable
           style={s.btn}
           onPress={() =>
-            router.canGoBack() ? router.back() : router.replace("/")
+            router.canGoBack() ? router.back() : router.replace("/chat")
           }
           accessibilityRole="button"
           accessibilityLabel="Back"
@@ -49,7 +49,7 @@ export function Header({ title, back }: { title?: string; back?: boolean }) {
       ) : null}
       <Pressable
         style={{ flex: 1 }}
-        onPress={() => router.push("/")}
+        onPress={() => router.push("/chat")}
         accessibilityRole="link"
         accessibilityLabel="Kosmik home"
       >

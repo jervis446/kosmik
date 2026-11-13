@@ -4,7 +4,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Header } from "../components/Header";
-import { api, type Me } from "../lib/api";
+import { BirthForm, PalmForm, tzLabel } from "../components/DetailsForms";
+import { api, type BirthDetails, type Me } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { GRIEVANCE } from "../lib/legal";
 import { type Colors, font, type ThemePref, useTheme } from "../lib/theme";
@@ -22,6 +23,10 @@ export default function Account() {
   const { colors, pref, setPref } = useTheme();
   const s = styles(colors);
   const [me, setMe] = useState<Me | null | undefined>();
+  const [details, setDetails] = useState<BirthDetails | null | undefined>();
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [palmKey, setPalmKey] = useState(0);
 
   useEffect(() => {
     if (!ready) return;
@@ -34,6 +39,10 @@ export default function Account() {
       .me()
       .then((m) => !stopped && setMe(m))
       .catch(() => !stopped && setMe(null));
+    api
+      .profile()
+      .then((p) => !stopped && setDetails(p.details))
+      .catch(() => !stopped && setDetails(null));
     return () => {
       stopped = true;
     };
@@ -122,6 +131,107 @@ export default function Account() {
           ) : null}
         </View>
 
+        <View style={s.card} testID="my-details">
+          <Text style={s.cardTitle}>My details</Text>
+          <Text style={s.muted}>
+            Used to calculate your kundli and read your palms when you ask. Only
+            you can see them.
+          </Text>
+          <Text style={s.label}>Birth details</Text>
+          {details === undefined ? (
+            <Text style={s.muted}>…</Text>
+          ) : editing || !details ? (
+            <BirthForm
+              initial={details}
+              onSaved={(d) => {
+                setDetails(d);
+                setEditing(false);
+              }}
+            />
+          ) : (
+            <View style={{ gap: 4 }}>
+              {details.name ? (
+                <Text style={s.value}>{details.name}</Text>
+              ) : null}
+              <Text style={s.value}>
+                Born{" "}
+                {new Date(details.birthDate + "T00:00:00Z").toLocaleDateString(
+                  "en-IN",
+                  {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  },
+                )}
+                {details.birthTime
+                  ? ` at ${details.birthTime}`
+                  : ", time unknown"}
+              </Text>
+              <Text style={s.value}>{details.place}</Text>
+              {details.tzOffsetMin !== 330 ? (
+                <Text style={s.small}>{tzLabel(details.tzOffsetMin)}</Text>
+              ) : null}
+              <Pressable
+                onPress={() => setEditing(true)}
+                style={[s.choice, { alignSelf: "flex-start", marginTop: 6 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Edit birth details"
+              >
+                <Text style={s.choiceText}>Edit</Text>
+              </Pressable>
+            </View>
+          )}
+          <Text style={[s.label, { marginTop: 8 }]}>Palm photos</Text>
+          <PalmForm key={palmKey} />
+          {confirmDelete ? (
+            <View style={{ gap: 8 }}>
+              <Text style={s.muted}>
+                Delete your birth details and both palm photos?
+              </Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Pressable
+                  onPress={() =>
+                    api.deleteProfile().then(() => {
+                      setDetails(null);
+                      setEditing(false);
+                      setConfirmDelete(false);
+                      setPalmKey((k) => k + 1);
+                    })
+                  }
+                  style={[s.choice, { borderColor: colors.danger }]}
+                  accessibilityRole="button"
+                >
+                  <Text style={{ color: colors.danger, fontFamily: font.bold }}>
+                    Yes, delete
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setConfirmDelete(false)}
+                  style={s.choice}
+                  accessibilityRole="button"
+                >
+                  <Text style={s.choiceText}>Keep them</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => setConfirmDelete(true)}
+              accessibilityRole="button"
+              style={{
+                alignSelf: "flex-start",
+                minHeight: 40,
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: colors.danger, fontFamily: font.semibold }}>
+                Delete all my details
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
         <View style={s.card}>
           <Text style={s.cardTitle}>Appearance</Text>
           <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
@@ -173,7 +283,13 @@ export default function Account() {
         </View>
 
         <Pressable
-          onPress={() => signOut().then(() => router.replace("/"))}
+          onPress={() =>
+            signOut().then(() =>
+              globalThis.location
+                ? globalThis.location.assign("/")
+                : router.replace("/sign-in"),
+            )
+          }
           style={[
             s.choice,
             { alignSelf: "flex-start", borderColor: colors.danger },
@@ -234,6 +350,13 @@ const styles = (c: Colors) =>
       alignItems: "center",
       justifyContent: "space-between",
       gap: 8,
+    },
+    label: { color: c.text, fontFamily: font.bold, fontSize: 15 },
+    value: {
+      color: c.text,
+      fontFamily: font.medium,
+      fontSize: 15,
+      lineHeight: 22,
     },
     cardTitle: { color: c.text, fontFamily: font.bold, fontSize: 17 },
     badge: {

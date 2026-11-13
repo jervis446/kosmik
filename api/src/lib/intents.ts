@@ -11,6 +11,7 @@ export type Intent =
   | { type: 'tarot-draw'; count: 1 | 3 }
   | { type: 'meaning'; kind: string; key: string }
   | { type: 'needs-chart' }
+  | { type: 'palm' }
   | { type: 'daily-horoscope' };
 
 const ORDINAL_WORDS: Record<string, number> = {
@@ -57,7 +58,10 @@ function tarotCard(text: string): { key: string; reversed: boolean } | undefined
 }
 
 /** Needs the asker's own birth chart: kundli readings, timing predictions, "my future". */
-const PERSONAL = /\b(my|meri|mera|mere|mujhe|mujhko)\b.*\b(kundli|kundali|janam kundli|birth chart|chart|horoscope|lagna|ascendant|dasha|mahadasha|future|bhavishya)\b|\bwhen will (i|my)\b|\bkab (hogi|hoga|milegi|milega)\b|मेरी कुंडली|मेरा भविष्य/;
+/** Palmistry: read from the person's saved palm photos. */
+const PALM = /\b(palm|palms|palmistry|hast ?rekha|hastrekha|life ?line|heart ?line|head ?line|fate ?line|marriage ?line|(haath|hath|hatheli) ki (rekha|rekhayen|lakeer|lakeeren))\b|हस्तरेखा|हथेली|हाथ की रेखा/;
+
+const PERSONAL = /\b(my|meri|mera|mere|mujhe|mujhko)\b.*\b(kundli|kundali|janam kundli|birth chart|chart|horoscope|lagna|ascendant|dasha|mahadasha|future|bhavishya|rashi|raashi|nakshatra|moon sign|sun sign|zodiac|planets|grah|graha|grahon|houses)\b|\bwhen will (i|my)\b|\bkab (hogi|hoga|milegi|milega)\b|मेरी कुंडली|मेरा भविष्य/;
 
 export function matchIntent(question: string): Intent | undefined {
   const text = normalizeQuestion(question);
@@ -91,6 +95,7 @@ export function matchIntent(question: string): Intent | undefined {
   const rashi = findAlias(RASHIS, text);
   if (graha && rashi) return { type: 'meaning', kind: 'graha-rashi', key: `${graha.key}:${rashi.key}` };
 
+  if (PALM.test(text)) return { type: 'palm' };
   if (PERSONAL.test(text)) return { type: 'needs-chart' };
 
   const words = text.split(' ').length;

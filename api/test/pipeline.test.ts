@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { AiClient, Grounded, PalmReading } from '../src/ai.ts';
-import { ask, BadQuestion, type Deps, type Identity, readPalm } from '../src/pipeline.ts';
+import { ask, BadQuestion, chartSources, type Deps, type Identity } from '../src/pipeline.ts';
+import type { PalmPhoto, Profile } from '../src/profiles.ts';
+import { calculateChart } from '../src/lib/chart.ts';
 import type { AnswerCache, History, Library, Namespace, Usage, VectorSearch } from '../src/store.ts';
 import { topK } from '../src/lib/vectors.ts';
 import type { Block, Meaning, Verse } from '../src/types.ts';
@@ -37,6 +39,11 @@ class Fakes {
   reply: Partial<Grounded> & { answers?: string[] } = {};
   palmReplies: PalmReading[] = [];
   palmCalls = 0;
+  palmImages: { hand?: string }[] = [];
+  palmQuestion: string | undefined;
+  profile: Profile | null = null;
+  photos: PalmPhoto[] = [];
+  chartsSeen: string[] = [];
 
   deps(now = Date.parse('2026-11-12T10:00:00Z')): Deps {
     const library: Library = {
@@ -85,8 +92,9 @@ class Fakes {
         this.embedCalls++;
         return embedText(t);
       },
-      answer: async (_q, _lang, sources) => {
+      answer: async (_q, _lang, sources, _stricter, chart) => {
         this.aiCalls++;
+        if (chart) this.chartsSeen.push(chart);
         const scripted = this.reply.answers?.shift();
         return {
           answer: scripted ?? this.reply.answer ?? 'Focus on your effort, not the outcome.',
@@ -95,14 +103,17 @@ class Fakes {
           offTopic: false,
         };
       },
-      readPalm: async () => {
+      readPalm: async (images, _lang, opts) => {
         this.palmCalls++;
+        this.palmImages = images;
+        this.palmQuestion = opts?.question;
         const next = this.palmReplies.shift();
         if (!next) throw new Error('model down');
         return next;
       },
     };
-    return { library, cache, vectors, usage, history, ai, now: () => now, random: () => 0 };
+    const profiles = { get: async () => this.profile, palms: async () => this.photos };
+    return { library, cache, vectors, usage, history, ai, profiles, now: () => now, random: () => 0 };
   }
 }
 
@@ -182,7 +193,14 @@ test('personal answers from the model are flagged and not cached', async () => {
   const f = new Fakes();
   f.reply = { personal: true };
   const r = await ask(f.deps(), { question: 'Will sade sati affect marriage timing?', identity: user });
-  assert.ok(r.blocks.some((b) => b.type === 'notice' && b.kind === 'needs-chart'));
+  assert.ok(r.blocks.some((b) => b.type === 'notice' && b.kind === 'needs-details'));
+  assert.equal(f.cacheRows.length, 0);
+
+  // With birth details saved, the same question is answered from the person's chart instead.
+  f.profile = birth;
+  const withChart = await ask(f.deps(), { question: 'Will sade sati affect marriage timing?', identity: user });
+  assert.ok(withChart.blocks.some((b) => b.type === 'chart'));
+  assert.equal(f.chartsSeen.length, 1);
   assert.equal(f.cacheRows.length, 0);
 });
 
@@ -215,11 +233,11 @@ test('starter accounts get 11 questions a week; premium is unlimited; guests get
   assert.equal(f.history.filter((h) => h.userId === 'guest:abc').length, 0, 'guests have no stored history');
 });
 
-test('notices (needs chart, coming soon) do not use up questions', async () => {
+test('notices (needs details, coming soon) do not use up questions', async () => {
   const f = new Fakes();
   const r = await ask(f.deps(), { question: 'Explain my kundli', identity: user });
   assert.equal(r.remaining, 11);
-  assert.ok(r.blocks.some((b) => b.type === 'notice' && b.kind === 'needs-chart'));
+  assert.ok(r.blocks.some((b) => b.type === 'notice' && b.kind === 'needs-details'));
 });
 
 test('input validation', async () => {
@@ -293,7 +311,6 @@ test('a same-meaning match is not served when its sources changed, nor when it p
   assert.equal(f.cacheRows[0].disabled, true);
 });
 
-const PHOTO = 'A'.repeat(4000);
 const goodPalm: PalmReading = {
   isPalm: true,
   overview: 'A square palm with clear, steady lines.',
@@ -302,55 +319,79 @@ const goodPalm: PalmReading = {
     { name: 'Head line', reading: 'Straight and deep: a practical, focused thinker.' },
   ],
 };
+const bothHands: PalmPhoto[] = [
+  { hand: 'left', mime: 'image/jpeg', data: 'TEZU' },
+  { hand: 'right', mime: 'image/jpeg', data: 'UklHSFQ=' },
+];
+const birth: Profile = { name: 'Asha', birthDate: '1998-03-14', birthTime: '06:45', place: 'Lucknow, Uttar Pradesh, India', lat: 26.85, lon: 80.95, tzOffsetMin: 330 };
 
-test('palm: a clear photo is read, counted, and saved to history without the image', async () => {
+test('palm question without saved photos: asks for them, not counted, no AI call', async () => {
   const f = new Fakes();
-  f.palmReplies = [goodPalm];
-  const r = await readPalm(f.deps(), { image: PHOTO, mime: 'image/jpeg', identity: user });
-  assert.equal(r.layer, 'ai');
-  assert.deepEqual(r.blocks[1], { type: 'palm', lines: goodPalm.lines });
-  assert.match((r.blocks[0] as { text: string }).text, /square palm/);
-  assert.equal(r.remaining, 10);
-  assert.deepEqual(f.history.at(-1), { userId: 'u1', question: 'Palm reading (photo)', layer: 'ai' });
+  const r = await ask(f.deps(), { question: 'Read my palm please', lang: 'en', identity: user });
+  assert.deepEqual(r.blocks.map((b) => b.type === 'notice' && b.kind), ['needs-palm']);
+  assert.equal(r.remaining, 11);
+  assert.equal(f.palmCalls, 0);
 });
 
-test('palm: not a palm, the model down, or unsafe twice: explained and not counted', async () => {
+test('palm question with both hands saved: both photos and the question go to the model, counted', async () => {
   const f = new Fakes();
-  f.palmReplies = [{ isPalm: false, overview: 'This looks like the back of a hand. Show the inside of your palm in good light.', lines: [] }];
-  const notPalm = await readPalm(f.deps(), { image: PHOTO, mime: 'image/png', identity: user });
-  assert.equal(notPalm.blocks[0].type === 'notice' && notPalm.blocks[0].kind, 'retake');
-  assert.match((notPalm.blocks[0] as { text: string }).text, /inside of your palm/);
-  assert.equal(notPalm.remaining, 11);
+  f.photos = bothHands;
+  f.palmReplies = [goodPalm];
+  const r = await ask(f.deps(), { question: 'What does my heart line say?', lang: 'en', identity: user });
+  assert.equal(r.layer, 'ai');
+  assert.deepEqual(r.blocks[1], { type: 'palm', lines: goodPalm.lines });
+  assert.deepEqual(f.palmImages.map((i) => i.hand), ['left', 'right']);
+  assert.equal(f.palmQuestion, 'What does my heart line say?');
+  assert.equal(r.remaining, 10);
+});
 
-  const down = await readPalm(f.deps(), { image: PHOTO, mime: 'image/jpeg', identity: user });
-  assert.equal(down.blocks[0].type === 'notice' && down.blocks[0].kind, 'busy');
-  assert.equal(down.remaining, 11);
+test('palm: unclear photos ask for new ones; unsafe twice or the model down are not counted', async () => {
+  const f = new Fakes();
+  f.photos = bothHands;
+  f.palmReplies = [{ isPalm: false, overview: 'The right-hand photo shows the back of the hand.', lines: [] }];
+  const unclear = await ask(f.deps(), { question: 'read my palm', lang: 'en', identity: user });
+  assert.equal(unclear.blocks[0].type === 'notice' && unclear.blocks[0].kind, 'retake');
+  assert.equal(unclear.remaining, 11);
 
   const scary = { ...goodPalm, lines: [{ name: 'Life line', reading: 'A short life line means you will die young.' }] };
   f.palmReplies = [scary, scary];
-  const unsafe = await readPalm(f.deps(), { image: PHOTO, mime: 'image/jpeg', identity: user });
-  assert.equal(f.palmCalls, 4, 'retried once with stricter instructions');
-  assert.equal(unsafe.blocks[0].type, 'text');
+  const unsafe = await ask(f.deps(), { question: 'hast rekha batao', lang: 'en', identity: user });
   assert.doesNotMatch(JSON.stringify(unsafe.blocks), /die young/);
   assert.equal(unsafe.remaining, 11);
+
+  const down = await ask(f.deps(), { question: 'my palm reading', lang: 'en', identity: user });
+  assert.equal(down.blocks[0].type === 'notice' && down.blocks[0].kind, 'busy');
+  assert.equal(down.remaining, 11);
 });
 
-test('palm: the limit applies and bad uploads are refused before the model is called', async () => {
+test('own-chart question without birth details: asks for them, not counted', async () => {
   const f = new Fakes();
-  const guest: Identity = { kind: 'guest', subject: 'guest:x' };
-  f.palmReplies = [goodPalm, goodPalm, goodPalm];
-  for (let i = 0; i < 3; i++) await readPalm(f.deps(), { image: PHOTO, mime: 'image/jpeg', identity: guest });
-  const fourth = await readPalm(f.deps(), { image: PHOTO, mime: 'image/jpeg', identity: guest });
-  assert.equal(fourth.layer, 'limit');
-  assert.equal(f.palmCalls, 3);
+  const r = await ask(f.deps(), { question: 'What does my kundli say about career?', lang: 'en', identity: user });
+  assert.deepEqual(r.blocks.map((b) => b.type === 'notice' && b.kind), ['needs-details']);
+  assert.equal(r.remaining, 11);
+  assert.equal(f.aiCalls, 0);
+});
 
-  for (const bad of [
-    { image: PHOTO, mime: 'image/gif' },
-    { image: 'tiny', mime: 'image/jpeg' },
-    { image: 'not base64!'.repeat(200), mime: 'image/jpeg' },
-    { image: 'A'.repeat(2_000_004), mime: 'image/jpeg' },
-  ]) {
-    await assert.rejects(readPalm(f.deps(), { ...bad, identity: user }), BadQuestion);
-  }
-  assert.equal(f.palmCalls, 3);
+test('own-chart question with birth details: calculated chart goes to the model and is shown', async () => {
+  const f = new Fakes();
+  f.profile = birth;
+  f.reply = { answer: 'Your chart shows a steady, practical approach to work.', cited: [] };
+  const r = await ask(f.deps(), { question: 'What does my kundli say about career?', lang: 'en', identity: user });
+  assert.equal(r.layer, 'ai');
+  assert.equal(r.blocks[0].type === 'text' && r.blocks[0].text, 'Your chart shows a steady, practical approach to work.');
+  const chart = r.blocks.find((b) => b.type === 'chart');
+  assert.ok(chart && chart.type === 'chart' && chart.lagna && chart.rows.length === 9 && chart.rows.every((x) => x.house));
+  assert.match(f.chartsSeen[0], /^Lagna \(ascendant\): /);
+  assert.equal(r.remaining, 10);
+});
+
+test('chart sources follow the question: marriage looks at the 7th house, a named graha at its placement', () => {
+  const chart = calculateChart({ date: birth.birthDate, time: birth.birthTime, tzOffsetMin: 330, lat: birth.lat, lon: birth.lon });
+  const seventh = chart.grahas.filter((p) => p.house === 7).map((p) => `graha-house/${p.graha}:7`);
+  const forMarriage = chartSources(chart, 'meri shaadi ke baare mein kundli kya kehti hai');
+  for (const id of seventh) assert.ok(forMarriage.includes(id), id);
+  assert.ok(forMarriage.includes(`rashi/${chart.lagna!.rashi}`));
+  const saturn = chart.grahas.find((p) => p.graha === 'saturn')!;
+  assert.ok(chartSources(chart, 'What does Saturn do in my chart?').includes(`graha-house/saturn:${saturn.house}`));
+  assert.ok(forMarriage.length <= 6);
 });

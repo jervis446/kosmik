@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -22,15 +21,14 @@ import {
   type Layer,
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { MODES, type ModeKey } from "../lib/modes";
-import { pickPalmPhoto } from "../lib/palm";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { Blocks } from "./Blocks";
+import { DetailsModal } from "./DetailsForms";
 import { Thinking } from "./Thinking";
 
 export type Turn =
-  | { id: string; role: "user"; text: string; photo?: string }
+  | { id: string; role: "user"; text: string }
   | {
       id: string;
       role: "assistant";
@@ -57,6 +55,28 @@ const LAYER_LABEL: Record<Layer, string> = {
 };
 
 const MAX_LEN = 500;
+const PALM_WORDS =
+  /palm|hast ?rekha|hatheli|life ?line|heart ?line|head ?line|fate ?line|हथेली|हस्तरेखा/i;
+
+/** What Kosmik can do, shown on an empty chat. Plain text: people just type their question. */
+const HINTS: [string, string, string][] = [
+  [
+    "ॐ",
+    "Bhagavad Gita",
+    "Ask for a verse (“Gita 2.47”, “verse of the day”) or what the Gita says about something on your mind.",
+  ],
+  ["✦", "Tarot", "“Pull 3 tarot cards” or “What does The Star mean?”"],
+  [
+    "☉",
+    "Your kundli",
+    "“What does my chart say about career?” Kosmik calculates your chart from your birth details; it asks for them the first time.",
+  ],
+  [
+    "✋",
+    "Palm reading",
+    "“Read my palm.” Kosmik needs photos of both palms; it asks for them the first time, or add them in Account → My details.",
+  ],
+];
 let seq = 0;
 const nextId = () => `t${Date.now()}-${seq++}`;
 const message = (e: unknown) =>
@@ -70,11 +90,9 @@ const message = (e: unknown) =>
 export function Conversation({
   initialTurns = [],
   initialConversationId = null,
-  initialMode = "gita",
 }: {
   initialTurns?: Turn[];
   initialConversationId?: string | null;
-  initialMode?: ModeKey;
 }) {
   const { colors } = useTheme();
   const { session } = useAuth();
@@ -84,17 +102,19 @@ export function Conversation({
   const [conversationId, setConversationId] = useState<string | null>(
     initialConversationId,
   );
-  const [mode, setMode] = useState<ModeKey>(initialMode);
   const [input, setInput] = useState("");
   const [inputHeight, setInputHeight] = useState(24);
   const [lang, setLang] = useState<Lang | undefined>(undefined);
   const [busy, setBusy] = useState<"ask" | "palm" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
-  const [photoMenu, setPhotoMenu] = useState(false);
+  const [modal, setModal] = useState<{
+    kind: "birth" | "palm";
+    question: string;
+  } | null>(null);
   const scroll = useRef<ScrollViewInstance>(null);
 
-  const received = (r: AskResult) => {
+  const received = (r: AskResult, question: string) => {
     if (r.conversationId && r.conversationId !== conversationId) {
       setConversationId(r.conversationId);
       shell.setActiveId(r.conversationId);
@@ -111,6 +131,20 @@ export function Conversation({
         feedback: null,
       },
     ]);
+    // Questions about your own chart or palm need your saved details: ask for them right away.
+    const need = r.blocks.find(
+      (b) =>
+        b.type === "notice" &&
+        (b.kind === "needs-details" ||
+          b.kind === "needs-palm" ||
+          b.kind === "retake"),
+    );
+    if (need?.type === "notice") {
+      setModal({
+        kind: need.kind === "needs-details" ? "birth" : "palm",
+        question,
+      });
+    }
   };
 
   const send = async (text: string) => {
@@ -123,40 +157,13 @@ export function Conversation({
     setError(null);
     setInput("");
     setInputHeight(24);
-    setBusy("ask");
+    setBusy(PALM_WORDS.test(q) ? "palm" : "ask");
     setTurns((t) => [...t, { id: nextId(), role: "user", text: q }]);
     try {
-      received(await api.ask(q, lang, conversationId));
+      received(await api.ask(q, lang, conversationId), q);
     } catch (e) {
       setError(message(e));
       setInput(q);
-      setTurns((t) => t.slice(0, -1));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const sendPalm = async (source: "library" | "camera") => {
-    setPhotoMenu(false);
-    if (busy) return;
-    setError(null);
-    let photo;
-    try {
-      photo = await pickPalmPhoto(source);
-    } catch (e) {
-      setError(message(e));
-      return;
-    }
-    if (!photo) return;
-    setBusy("palm");
-    setTurns((t) => [
-      ...t,
-      { id: nextId(), role: "user", text: "Read my palm", photo: photo.uri },
-    ]);
-    try {
-      received(await api.palm(photo.base64, photo.mime, lang, conversationId));
-    } catch (e) {
-      setError(message(e));
       setTurns((t) => t.slice(0, -1));
     } finally {
       setBusy(null);
@@ -176,6 +183,16 @@ export function Conversation({
     } catch {
       set(null);
     }
+  };
+
+  /** The question asked just before an answer, so it can be asked again once details are added. */
+  const lastQuestion = (answerId: string) => {
+    const i = turns.findIndex((x) => x.id === answerId);
+    for (let j = i - 1; j >= 0; j--) {
+      const x = turns[j];
+      if (x.role === "user") return x.text;
+    }
+    return "";
   };
 
   const onKeyPress = (e: {
@@ -198,7 +215,6 @@ export function Conversation({
       LANGS[(LANGS.findIndex((l) => l.key === lang) + 1) % LANGS.length].key,
     );
   const langLabel = LANGS.find((l) => l.key === lang)?.label ?? "Auto";
-  const active = MODES.find((m) => m.key === mode) ?? MODES[0];
   const canSend = !busy && !!input.trim();
 
   return (
@@ -219,93 +235,27 @@ export function Conversation({
             <View style={{ gap: 6 }}>
               <Text style={s.hello}>Namaste. What’s on your mind?</Text>
               <Text style={s.sub}>
-                Ask about the Gita, your rashi, a graha or nakshatra, draw tarot
-                cards, or read your palm.
+                Just ask. Kosmik works out whether it’s about the Gita, tarot,
+                your chart or your palm.
               </Text>
             </View>
-            <View style={s.tabs} accessibilityRole="tablist">
-              {MODES.map((m) => (
-                <Pressable
-                  key={m.key}
-                  onPress={() => setMode(m.key)}
-                  style={[s.tab, mode === m.key && s.tabOn]}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: mode === m.key }}
-                >
-                  <Text
-                    style={[
-                      s.tabGlyph,
-                      mode === m.key && { color: colors.onPrimary },
-                    ]}
-                  >
-                    {m.glyph}
-                  </Text>
-                  <Text
-                    style={[
-                      s.tabText,
-                      mode === m.key && { color: colors.onPrimary },
-                    ]}
-                  >
-                    {m.label}
-                  </Text>
-                </Pressable>
+            <View style={s.hints}>
+              {HINTS.map(([glyph, title, text]) => (
+                <View key={title} style={s.hint}>
+                  <Text style={s.hintGlyph}>{glyph}</Text>
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <Text style={s.hintTitle}>{title}</Text>
+                    <Text style={s.sub}>{text}</Text>
+                  </View>
+                </View>
               ))}
             </View>
-            <Text style={s.sub}>{active.blurb}</Text>
-            {active.key === "palm" ? (
-              <View style={s.palmCard}>
-                <Text style={s.palmTitle}>Read your palm</Text>
-                <Text style={s.sub}>
-                  Use your dominant hand, open and flat, in good light, with the
-                  lines filling most of the photo. The photo is read once and
-                  never stored.
-                </Text>
-                <View
-                  style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}
-                >
-                  <Pressable
-                    onPress={() => sendPalm("library")}
-                    style={s.primaryBtn}
-                    accessibilityRole="button"
-                  >
-                    <Text style={s.primaryBtnText}>Upload a palm photo</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => sendPalm("camera")}
-                    style={s.ghostBtn}
-                    accessibilityRole="button"
-                  >
-                    <Text style={s.ghostBtnText}>Take a photo</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
-              <View style={s.starters}>
-                {active.starters.map((q) => (
-                  <Pressable
-                    key={q}
-                    style={s.starter}
-                    onPress={() => send(q)}
-                    accessibilityRole="button"
-                  >
-                    <Text style={s.starterText}>{q}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
           </View>
         ) : null}
 
         {turns.map((t) =>
           t.role === "user" ? (
             <View key={t.id} style={s.userBubble}>
-              {t.photo ? (
-                <Image
-                  source={{ uri: t.photo }}
-                  style={s.photo}
-                  accessibilityLabel="Your palm photo"
-                />
-              ) : null}
               <Text style={s.userText} selectable>
                 {t.text}
               </Text>
@@ -320,7 +270,12 @@ export function Conversation({
                   blocks={t.blocks}
                   onSignIn={() => router.push("/sign-in")}
                   onPremium={() => router.push("/premium")}
-                  onRetake={() => sendPalm("library")}
+                  onDetails={() =>
+                    setModal({ kind: "birth", question: lastQuestion(t.id) })
+                  }
+                  onPalm={() =>
+                    setModal({ kind: "palm", question: lastQuestion(t.id) })
+                  }
                 />
                 <View style={s.metaRow}>
                   {t.layer && LAYER_LABEL[t.layer] ? (
@@ -380,24 +335,6 @@ export function Conversation({
             {error}
           </Text>
         ) : null}
-        {photoMenu ? (
-          <View style={s.menu}>
-            <Pressable
-              onPress={() => sendPalm("library")}
-              style={s.menuItem}
-              accessibilityRole="button"
-            >
-              <Text style={s.menuText}>✋ Upload a palm photo</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => sendPalm("camera")}
-              style={s.menuItem}
-              accessibilityRole="button"
-            >
-              <Text style={s.menuText}>📷 Take a palm photo</Text>
-            </Pressable>
-          </View>
-        ) : null}
         <View style={s.composer}>
           <TextInput
             value={input}
@@ -418,14 +355,6 @@ export function Conversation({
             editable={!busy}
           />
           <View style={s.toolRow}>
-            <Pressable
-              onPress={() => setPhotoMenu((v) => !v)}
-              style={s.tool}
-              accessibilityRole="button"
-              accessibilityLabel="Add a palm photo"
-            >
-              <Text style={s.toolText}>＋</Text>
-            </Pressable>
             <Pressable
               onPress={cycleLang}
               style={s.langPill}
@@ -456,6 +385,15 @@ export function Conversation({
           For reflection, not medical, legal or financial advice.
         </Text>
       </View>
+      <DetailsModal
+        kind={modal?.kind ?? null}
+        onClose={() => setModal(null)}
+        onDone={() => {
+          const q = modal?.question;
+          setModal(null);
+          if (q) send(q);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -482,60 +420,24 @@ const styles = (c: Colors) =>
       fontSize: 15,
       lineHeight: 22,
     },
-    tabs: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    tab: {
+    hints: { gap: 10 },
+    hint: {
       flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
+      gap: 12,
+      backgroundColor: c.surface,
       borderWidth: 1,
       borderColor: c.line,
-      backgroundColor: c.surface,
-      borderRadius: 999,
-      paddingHorizontal: 14,
-      minHeight: 40,
-    },
-    tabOn: { backgroundColor: c.primary, borderColor: c.primary },
-    tabGlyph: { color: c.accent, fontFamily: font.verse, fontSize: 15 },
-    tabText: { color: c.text, fontFamily: font.semibold, fontSize: 14 },
-    starters: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-    starter: {
-      flexBasis: 220,
-      flexGrow: 1,
-      borderWidth: 1,
-      borderColor: c.line,
-      backgroundColor: c.surface,
       borderRadius: 16,
       padding: 14,
-      minHeight: 56,
-      justifyContent: "center",
     },
-    starterText: { color: c.text, fontFamily: font.medium, fontSize: 15 },
-    palmCard: {
-      backgroundColor: c.surface,
-      borderWidth: 1,
-      borderColor: c.line,
-      borderRadius: 20,
-      padding: 18,
-      gap: 12,
+    hintGlyph: {
+      color: c.accent,
+      fontFamily: font.verse,
+      fontSize: 18,
+      width: 24,
+      textAlign: "center",
     },
-    palmTitle: { color: c.text, fontFamily: font.bold, fontSize: 18 },
-    primaryBtn: {
-      backgroundColor: c.primary,
-      borderRadius: 999,
-      paddingHorizontal: 18,
-      minHeight: 46,
-      justifyContent: "center",
-    },
-    primaryBtnText: { color: c.onPrimary, fontFamily: font.bold, fontSize: 15 },
-    ghostBtn: {
-      borderWidth: 1,
-      borderColor: c.line,
-      borderRadius: 999,
-      paddingHorizontal: 18,
-      minHeight: 46,
-      justifyContent: "center",
-    },
-    ghostBtnText: { color: c.text, fontFamily: font.bold, fontSize: 15 },
+    hintTitle: { color: c.text, fontFamily: font.bold, fontSize: 15 },
     userBubble: {
       alignSelf: "flex-end",
       maxWidth: "82%",
@@ -551,7 +453,6 @@ const styles = (c: Colors) =>
       fontSize: 16,
       lineHeight: 23,
     },
-    photo: { width: 180, height: 180, borderRadius: 14, maxWidth: "100%" },
     answerRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
     avatar: {
       width: 30,
@@ -587,21 +488,6 @@ const styles = (c: Colors) =>
       fontSize: 14,
       paddingHorizontal: 6,
     },
-    menu: {
-      alignSelf: "flex-start",
-      backgroundColor: c.surface,
-      borderWidth: 1,
-      borderColor: c.line,
-      borderRadius: 14,
-      padding: 4,
-    },
-    menuItem: {
-      paddingHorizontal: 14,
-      minHeight: 44,
-      justifyContent: "center",
-      borderRadius: 10,
-    },
-    menuText: { color: c.text, fontFamily: font.semibold, fontSize: 15 },
     composer: {
       backgroundColor: c.surface,
       borderWidth: 1,
@@ -621,16 +507,6 @@ const styles = (c: Colors) =>
       outlineStyle: "none",
     } as object,
     toolRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-    tool: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      borderWidth: 1,
-      borderColor: c.line,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    toolText: { color: c.text, fontSize: 20, lineHeight: 22 },
     langPill: {
       borderWidth: 1,
       borderColor: c.line,

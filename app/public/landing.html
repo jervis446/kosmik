@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Kosmik by Asanoha: ask about the Bhagavad Gita, tarot, your kundli and your palm, with answers that cite their sources.">
+<style>html,body{margin:0;padding:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Kosmik</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Serif+Devanagari:wght@500;600&family=Noto+Sans+Devanagari:wght@500&family=Noto+Sans+Bengali:wght@500&family=Noto+Sans+Telugu:wght@500&family=Noto+Sans+Tamil:wght@500&family=Noto+Sans+Gujarati:wght@500&family=Noto+Sans+Kannada:wght@500&family=Noto+Sans+Malayalam:wght@500&family=Noto+Sans+Oriya:wght@500&family=Noto+Sans+Gurmukhi:wght@500&display=swap">
+<style>
+/* Layout: single column, two columns on desktop. Hash views: home, #privacy, #terms. Dark first, minimal palette. */
+:root {
+  --bg: #0B0A14; --surface: #16142A; --surface-2: #1E1B38; --line: rgba(167,163,194,.18);
+  --text: #F5F3FF; --muted: #A7A3C2; --primary: #8B5CF6; --primary-soft: rgba(139,92,246,.18);
+  --accent: #F59E0B; --accent-soft: rgba(245,158,11,.16); --success: #22C55E; --on-primary: #FFFFFF;
+  --glow: radial-gradient(60% 50% at 15% 0%, rgba(139,92,246,.35), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(245,158,11,.18), transparent 70%);
+  --grad: linear-gradient(120deg, #3B2A8F 0%, #8B5CF6 55%, #F59E0B 100%);
+  --kesari: var(--accent); --sindoor: var(--primary); --marigold: var(--accent); --peacock: var(--accent); --tulsi: var(--success);
+  --font: "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --verse: "Noto Serif Devanagari", "Noto Sans Devanagari", serif;
+  --r: 22px; --r-sm: 14px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #FFFBF5; --surface: #FFFFFF; --surface-2: #F6F1FF; --line: rgba(26,21,48,.12);
+    --text: #1A1530; --muted: #5E5878; --primary: #6D28D9; --primary-soft: rgba(109,40,217,.10);
+    --accent: #EA580C; --accent-soft: rgba(234,88,12,.10); --success: #15803D; --on-primary: #FFFFFF;
+    --glow: radial-gradient(60% 50% at 15% 0%, rgba(109,40,217,.14), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(234,88,12,.12), transparent 70%);
+    --grad: linear-gradient(120deg, #4C1D95 0%, #6D28D9 55%, #EA580C 100%);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #FFFBF5; --surface: #FFFFFF; --surface-2: #F6F1FF; --line: rgba(26,21,48,.12);
+  --text: #1A1530; --muted: #5E5878; --primary: #6D28D9; --primary-soft: rgba(109,40,217,.10);
+  --accent: #EA580C; --accent-soft: rgba(234,88,12,.10); --success: #15803D; --on-primary: #FFFFFF;
+  --glow: radial-gradient(60% 50% at 15% 0%, rgba(109,40,217,.14), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(234,88,12,.12), transparent 70%);
+  --grad: linear-gradient(120deg, #4C1D95 0%, #6D28D9 55%, #EA580C 100%);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+body { background: var(--bg); background-image: var(--glow); background-repeat: no-repeat; color: var(--text); font: 400 16px/1.6 var(--font); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { margin: 0; text-wrap: balance; letter-spacing: -0.02em; }
+h1 { font-size: clamp(36px, 6.6vw, 64px); line-height: 1.03; font-weight: 800; }
+h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.1; font-weight: 800; }
+h3 { font-size: 19px; line-height: 1.25; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--primary); }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--marigold); outline-offset: 3px; border-radius: 10px; }
+.muted { color: var(--muted); }
+.eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--peacock); }
+.grad-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* header */
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--bg) 84%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+header { border-bottom: 1px solid var(--line); }
+.bar { display: flex; align-items: center; gap: 10px; padding-block: 10px; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 21px; letter-spacing: -0.03em; text-decoration: none; color: var(--text); margin-right: auto; }
+.logo svg { width: 32px; height: 32px; overflow: visible; }
+.logo-text { display: grid; line-height: 1.05; }
+.byline { font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
+.byline b { color: var(--accent); font-weight: 800; }
+.nav { display: none; gap: 2px; }
+.nav a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 14px; padding: 8px 12px; border-radius: 999px; }
+.nav a:hover { color: var(--text); background: var(--primary-soft); }
+.iconbtn { min-width: 44px; height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+@media (min-width: 960px) { .nav { display: flex; } }
+
+/* hero */
+.hero { position: relative; padding-block: clamp(32px, 6vw, 64px) 28px; display: grid; gap: 28px; }
+.hero-copy { display: grid; gap: 16px; max-width: 640px; }
+.hero-copy p { font-size: 18px; color: var(--muted); max-width: 56ch; }
+.platforms { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--muted); }
+.pill b { color: var(--text); font-weight: 700; }
+
+.ask { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: 18px; display: grid; gap: 14px; box-shadow: 0 30px 80px -40px color-mix(in srgb, var(--kesari) 70%, transparent); }
+.ask-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.greet { font-weight: 800; font-size: 20px; }
+.tabs { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.tabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; min-height: 32px; }
+.tabs button[aria-selected="true"] { background: var(--primary); color: var(--on-primary); }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.chip { flex: none; border: 1px solid var(--line); background: var(--surface-2); padding: 10px 14px; border-radius: 999px; font-size: 14px; font-weight: 600; min-height: 44px; transition: border-color .2s, transform .2s; }
+.chip:hover { border-color: var(--kesari); transform: translateY(-1px); }
+.chip[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }
+.thread { display: grid; gap: 12px; min-height: 280px; align-content: start; }
+.bubble-q { justify-self: end; max-width: 85%; background: var(--primary); color: var(--on-primary); padding: 10px 14px; border-radius: 18px 18px 6px 18px; font-weight: 600; }
+.answer { display: grid; gap: 12px; animation: rise .45s ease both; }
+.answer > p { max-width: 62ch; }
+.tag-example { justify-self: start; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--peacock); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; }
+@keyframes rise { from { opacity: .001; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.prompt { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 6px 6px 6px 16px; }
+.prompt input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: 500 16px var(--font); min-height: 40px; }
+.prompt input::placeholder { color: var(--muted); }
+.round { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; font-size: 18px; flex: none; }
+.round.send { background: var(--grad); color: #fff; border: 0; }
+.hint { font-size: 13px; color: var(--muted); }
+
+/* rich blocks */
+.verse { border-radius: var(--r); background: var(--surface-2); border: 1px solid var(--line); padding: 18px; display: grid; gap: 10px; }
+.verse .sa { font-family: var(--verse); font-size: 20px; line-height: 1.75; color: var(--text); }
+.verse .iast { font-style: italic; color: var(--muted); }
+.verse .src { font-size: 13px; font-weight: 700; color: var(--sindoor); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.spread { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tcard { perspective: 900px; border: 0; background: none; padding: 0; text-align: left; }
+.tcard .inner { position: relative; aspect-ratio: 2 / 3.2; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.2,.7,.2,1); }
+.tcard.flipped .inner { transform: rotateY(180deg); }
+.tface { position: absolute; inset: 0; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; border: 1px solid var(--line); display: grid; padding: 10px; }
+.tback { background: var(--grad); place-items: center; color: #fff; font-weight: 800; font-size: 28px; }
+.tfront { background: var(--surface-2); transform: rotateY(180deg); align-content: space-between; }
+.tfront .num { font-size: 12px; font-weight: 700; color: var(--kesari); letter-spacing: .08em; }
+.tfront .name { font-weight: 800; font-size: 15px; line-height: 1.2; }
+.tfront .pos { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.tmeaning { display: grid; gap: 6px; font-size: 15px; }
+.chart-wrap { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 16px; align-items: center; }
+.chart-wrap svg { width: 100%; height: auto; }
+.facts { display: grid; gap: 8px; font-size: 15px; }
+.facts div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.facts span:first-child { color: var(--muted); }
+.steps { display: grid; gap: 10px; counter-reset: s; padding: 0; margin: 0; list-style: none; }
+.steps li { display: grid; grid-template-columns: 32px 1fr; gap: 10px; align-items: start; }
+.steps li::before { counter-increment: s; content: counter(s); width: 32px; height: 32px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+.mini-products { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.mini-products .pcard { flex: 0 0 168px; }
+
+/* sections */
+section.block { padding-block: clamp(40px, 7vw, 80px); }
+.head { display: grid; gap: 10px; max-width: 680px; margin-bottom: 28px; }
+.head p { color: var(--muted); font-size: 17px; }
+.pillars { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.pillar { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: grid; gap: 10px; align-content: start; }
+.pillar .glyph { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; }
+.pillar .glyph { background: var(--primary-soft); }
+.pillar ul { margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 4px; font-size: 15px; }
+.split { display: grid; gap: 24px; align-items: center; }
+.hero > *, .split > *, .ask, .ask > *, .answer > *, .shop > *, .tabs, .game > * { min-width: 0; }
+@media (min-width: 900px) { .hero { grid-template-columns: 1fr 1.05fr; align-items: center; } .split { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .chart-wrap { grid-template-columns: minmax(0, 1fr); } .chart-wrap svg { max-width: 260px; justify-self: center; } }
+
+/* game */
+.game { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: 18px; display: grid; gap: 14px; }
+.gstats { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.gstats .pill b { font-variant-numeric: tabular-nums; }
+.board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 460px; width: 100%; justify-self: center; }
+.rcard { aspect-ratio: 1; border: 0; padding: 0; background: none; perspective: 700px; border-radius: 16px; }
+.rcard .inner { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .45s cubic-bezier(.2,.7,.2,1); }
+.rcard.up .inner, .rcard.done .inner { transform: rotateY(180deg); }
+.rface { position: absolute; inset: 0; border-radius: 14px; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: grid; place-items: center; border: 1px solid var(--line); }
+.rback { background: var(--grad); color: rgba(255,255,255,.9); font-size: 22px; }
+.rfront { background: var(--surface-2); transform: rotateY(180deg); align-content: center; gap: 2px; text-align: center; }
+.rfront .glyph { font-size: clamp(22px, 6vw, 32px); line-height: 1; }
+.rfront .nm { font-size: 12px; font-weight: 700; color: var(--muted); }
+.rcard.done .rfront { background: color-mix(in srgb, var(--tulsi) 18%, var(--surface-2)); border-color: var(--tulsi); }
+.gmsg { min-height: 1.6em; font-weight: 600; }
+.gwin { background: var(--grad); color: #fff; border-radius: 18px; padding: 16px; display: grid; gap: 6px; }
+
+/* store */
+.shop { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: 16px; display: grid; gap: 16px; }
+.shop-search { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; color: var(--muted); font-weight: 500; }
+.loc { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+.cats { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 4px; }
+.cat { flex: none; width: 72px; display: grid; justify-items: center; gap: 6px; font-size: 12px; font-weight: 600; text-align: center; color: var(--muted); }
+.cat span { width: 60px; height: 60px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line); display: grid; place-items: center; font-size: 26px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 640px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.pcard { background: var(--surface-2); border: 1px solid var(--line); border-radius: 18px; padding: 10px; display: grid; gap: 8px; align-content: start; }
+.pimg { aspect-ratio: 1; border-radius: 12px; display: grid; place-items: center; font-size: 46px; background: var(--primary-soft); }
+.badge { justify-self: start; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--peacock); }
+.pname { font-weight: 700; font-size: 14px; line-height: 1.3; min-height: 2.6em; }
+.prow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.price { font-weight: 800; font-variant-numeric: tabular-nums; }
+.mrp { font-size: 12px; color: var(--muted); text-decoration: line-through; font-variant-numeric: tabular-nums; }
+.add { min-width: 64px; height: 36px; border-radius: 10px; border: 1.5px solid var(--tulsi); background: transparent; color: var(--tulsi); font-weight: 800; font-size: 13px; }
+.stepper { display: inline-flex; align-items: center; height: 36px; border-radius: 10px; background: var(--tulsi); color: #fff; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stepper button { border: 0; background: transparent; color: #fff; width: 30px; height: 36px; font-size: 18px; font-weight: 800; }
+.stepper span { min-width: 18px; text-align: center; font-size: 14px; }
+.cartbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--tulsi); color: #fff; border-radius: 16px; padding: 12px 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cartbar small { display: block; font-weight: 600; opacity: .9; }
+.note { font-size: 13px; color: var(--muted); }
+
+/* pricing */
+.plans { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); align-items: stretch; }
+.plan { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 22px; display: grid; gap: 14px; align-content: start; position: relative; }
+.plan.featured { border: 2px solid var(--primary); }
+.plan .ribbon { position: absolute; top: -12px; left: 20px; background: var(--primary); color: var(--on-primary); font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px; }
+.plan h3 { font-size: 18px; }
+.cost { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; font-variant-numeric: tabular-nums; }
+.cost .now { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.cost .per { color: var(--muted); font-weight: 600; }
+.cost .was { color: var(--muted); text-decoration: line-through; font-weight: 600; }
+.offer { justify-self: start; font-size: 12px; font-weight: 800; color: var(--accent); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; }
+.plan ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 15px; }
+.plan li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; }
+.plan li::before { content: "✓"; color: var(--success); font-weight: 800; }
+.plan .save { font-size: 13px; color: var(--muted); }
+.refer { margin-top: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 22px; display: grid; gap: 14px; }
+@media (min-width: 820px) { .refer { grid-template-columns: 1.3fr 1fr; align-items: center; } }
+.refer .how { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: r; }
+.refer .how li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; font-size: 15px; }
+.refer .how li::before { counter-increment: r; content: counter(r); width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+.earn { background: var(--surface-2); border-radius: 18px; padding: 16px; display: grid; gap: 6px; font-variant-numeric: tabular-nums; }
+.earn label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.earn input[type="range"] { width: 100%; accent-color: var(--primary); }
+.earn .big { font-size: 28px; font-weight: 800; }
+
+/* languages */
+.langs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.lang { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; display: grid; gap: 2px; }
+.lang .hi { font-size: 22px; font-weight: 500; line-height: 1.4; }
+.lang .lname { font-size: 13px; color: var(--muted); font-weight: 600; }
+
+/* principles */
+.rules { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.rule { border-left: 3px solid var(--primary); padding: 4px 0 4px 14px; display: grid; gap: 4px; }
+.rule p { color: var(--muted); font-size: 15px; }
+.help { margin-top: 20px; background: var(--accent-soft); border-radius: var(--r-sm); padding: 14px 16px; font-weight: 600; }
+
+/* cta, family, footer */
+.cta { background: var(--grad); color: #fff; border-radius: 28px; padding: clamp(24px, 5vw, 44px); display: grid; gap: 14px; }
+.cta p { opacity: .94; max-width: 58ch; }
+.cta .pill { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.28); color: #fff; }
+.cta .pill b { color: #fff; }
+.family { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.fam { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: grid; gap: 4px; text-decoration: none; color: var(--text); }
+.fam:hover { border-color: var(--kesari); }
+.fam span { color: var(--muted); font-size: 14px; }
+.fam b { font-size: 17px; }
+footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(safe-area-inset-bottom, 0px)); font-size: 14px; color: var(--muted); }
+.foot { display: grid; gap: 24px; }
+@media (min-width: 760px) { .foot { grid-template-columns: 1.2fr 1fr; } }
+.foot nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; align-content: start; }
+.foot nav a { color: var(--text); text-decoration: none; font-weight: 600; }
+.by { font-size: 15px; color: var(--text); }
+.by b { color: var(--kesari); }
+.legal-note { margin-top: 24px; font-size: 13px; }
+
+.open-btn { min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 14px; display: inline-flex; align-items: center; text-decoration: none; white-space: nowrap; }
+.open-btn:hover { filter: brightness(1.08); }
+.cta .open-btn { justify-self: start; background: #fff; color: #3B2A8F; min-height: 48px; padding: 0 22px; font-size: 16px; }
+
+/* legal views */
+.doc { padding-block: clamp(28px, 5vw, 56px) 48px; }
+.doc .inner { max-width: 760px; display: grid; gap: 14px; }
+.doc h1 { font-size: clamp(32px, 5vw, 46px); }
+.doc h2 { font-size: 22px; margin-top: 18px; }
+.doc ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.doc li, .doc p { color: var(--text); }
+.draft { background: var(--accent-soft); border-radius: var(--r-sm); padding: 12px 14px; font-weight: 600; font-size: 14px; }
+.back { justify-self: start; text-decoration: none; font-weight: 700; }
+</style>
+
+<header>
+  <div class="wrap bar">
+    <a class="logo" href="#home" aria-label="Kosmik home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#F59E0B"/></linearGradient></defs><circle cx="16" cy="16" r="15" fill="url(#lg)"/><path d="M16 6l2.6 6.6L25 13l-5 4.3L21.6 24 16 20.3 10.4 24 12 17.3 7 13l6.4-.4z" fill="#fff"/></svg>
+      <span class="logo-text">Kosmik<span class="byline">by <b>asanoha</b></span></span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#ask">Ask</a><a href="#features">Kundli · Tarot · Palm</a><a href="#play">Play</a><a href="#pricing">Pricing</a><a href="#shop">Shop</a><a href="#languages">Languages</a>
+    </nav>
+    <button class="iconbtn" id="langBtn" type="button" aria-label="Switch language to Hindi">हिं</button>
+    <button class="iconbtn" id="themeBtn" type="button" aria-label="Switch to light mode">☀︎</button>
+    <a class="open-btn" href="/chat">Open Kosmik</a>
+  </div>
+</header>
+
+<main id="view-home">
+  <div class="wrap hero" id="ask">
+    <div class="hero-copy">
+      <span class="eyebrow" data-i18n="eyebrow">AI spiritual guide · live on the web</span>
+      <h1><span data-i18n="h1a">Ask the stars.</span> <span class="grad-text" data-i18n="h1b">Get answers with sources.</span></h1>
+      <p data-i18n="lead">Kundli, tarot, palm reading and the Gita in one search bar. Every answer cites the verse it comes from, in your language, with puja essentials one tap away.</p>
+      <div class="platforms">
+        <span class="pill">🌐 <b>Web</b> · live</span><span class="pill">📱 <b>iOS</b> · 🤖 <b>Android</b> · soon</span><span class="pill">🔑 <span data-i18n="sso">Sign in with your <b>Asanoha</b> account</span></span>
+        <span class="pill">🎁 <span data-i18n="free"><b>11 free questions</b> every week</span></span>
+      </div>
+    </div>
+
+    <div class="ask" aria-label="Try the search">
+      <div class="ask-top">
+        <div class="greet" data-i18n="greet">Namaste ✨</div>
+        <div class="tabs" role="tablist" aria-label="Result type">
+          <button role="tab" aria-selected="true">All</button><button role="tab" aria-selected="false">Answers</button><button role="tab" aria-selected="false">Shop</button><button role="tab" aria-selected="false">Scriptures</button>
+        </div>
+      </div>
+      <div class="chips" id="chips" aria-label="Suggested questions"></div>
+      <div class="thread" id="thread" aria-live="polite"></div>
+      <form class="prompt" id="promptForm" autocomplete="off">
+        <label for="promptInput" style="position:absolute;left:-9999px">Ask anything</label>
+        <input id="promptInput" placeholder="Ask about your kundli, tarot, a verse…" maxlength="200">
+        <button class="round" type="button" aria-label="Voice input (in the app)">🎤</button>
+        <button class="round" type="button" aria-label="Palm photo (in the app)">📷</button>
+        <button class="round send" type="submit" aria-label="Send">↑</button>
+      </form>
+      <p class="hint">Tap a suggestion to see an example. For real answers, <a href="/chat">open Kosmik</a>.</p>
+    </div>
+  </div>
+
+  <section class="block" id="features">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">Four ways to ask</span>
+        <h2>The chart is calculated. The AI only explains it.</h2>
+        <p>Planet positions come from an astronomy engine, not from the language model. The AI reads the result and puts it into plain words.</p>
+      </div>
+      <div class="pillars">
+        <article class="pillar"><div class="glyph">🪐</div><h3>Vedic kundli</h3>
+          <ul><li>Lagna, planets in rashis and houses, calculated from your birth details</li><li>Moon nakshatra and pada</li><li>Sidereal (Lahiri), whole-sign houses</li><li>Birth time unknown? We say what changes</li><li>Coming: Navamsa, dasha timeline, panchang, Guna Milan</li></ul></article>
+        <article class="pillar"><div class="glyph">🃏</div><h3>Tarot</h3>
+          <ul><li>1-card and 3-card spreads</li><li>Reversed cards included</li><li>Meanings for all 78 cards</li><li>Cards drawn with secure randomness on our server</li></ul></article>
+        <article class="pillar"><div class="glyph">🖐️</div><h3>Palm reading</h3>
+          <ul><li>Save photos of both palms once</li><li>Ask anything about your lines</li><li>Heart, head, life and fate lines explained</li><li>Photos kept only until you delete them</li></ul></article>
+        <article class="pillar"><div class="glyph">📜</div><h3>Scripture Q&amp;A</h3>
+          <ul><li>All 701 verses of the Bhagavad Gita</li><li>Sanskrit, transliteration and translation</li><li>Every answer names chapter and verse</li><li>No verse found? It says so instead of guessing</li></ul></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="scriptures">
+    <div class="wrap split">
+      <div class="head" style="margin:0">
+        <span class="eyebrow">Cited, not made up</span>
+        <h2>Every verse comes with its address.</h2>
+        <p>Answers about the scriptures quote only verses found in our library: the work, chapter and verse, the Sanskrit, a transliteration and a translation in your language.</p>
+      </div>
+      <figure class="verse" style="margin:0">
+        <div class="sa" lang="sa">कर्मण्येवाधिकारस्ते मा फलेषु कदाचन ।<br>मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि ॥</div>
+        <div class="iast" lang="sa-Latn">karmaṇy evādhikāras te mā phaleṣu kadācana<br>mā karma-phala-hetur bhūr mā te saṅgo ’stv akarmaṇi</div>
+        <p>You have a right to your work, but never to its results. Don’t let results be your reason for acting, and don’t hold on to doing nothing either.</p>
+        <figcaption class="src"><span>Bhagavad Gita 2.47</span><span class="muted">Translation: Kosmik</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="block" id="play">
+    <div class="wrap split">
+      <div class="head" style="margin:0">
+        <span class="eyebrow">Play · Rashi Jodi</span>
+        <h2>Match the rashis. Meet their rulers.</h2>
+        <p>Flip two cards at a time and find the pairs. Each match shows the rashi’s ruling graha in Vedic astrology. Fewer moves, better score.</p>
+        <p class="note">Your best score stays on this device.</p>
+      </div>
+      <div class="game" aria-label="Rashi Jodi memory game">
+        <div class="gstats">
+          <span class="pill">Moves <b id="gMoves">0</b></span>
+          <span class="pill">Pairs <b id="gPairs">0/8</b></span>
+          <span class="pill">Time <b id="gTime">0:00</b></span>
+          <span class="pill">Best <b id="gBest">–</b></span>
+          <button class="iconbtn" id="gNew" type="button" style="margin-left:auto">New game</button>
+        </div>
+        <div class="board" id="board"></div>
+        <div class="gmsg" id="gMsg" aria-live="polite">Tap a card to begin.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="shop">
+    <div class="wrap split">
+      <div class="head" style="margin:0">
+        <span class="eyebrow">Store · opening soon</span>
+        <h2>Puja essentials, a tap from the answer.</h2>
+        <p>Rudraksha, malas, yantras and puja kits from suppliers who send a certificate with every bead. Delivery takes 2 to 5 days, and the app tells you that up front.</p>
+        <p class="note">Items and prices are a preview. Product notes describe traditional belief and make no health claims. Suggestions are always optional.</p>
+      </div>
+      <div class="shop" aria-label="Store preview">
+        <div class="loc"><div><b>Deliver to</b> <span class="muted">· Add PIN code</span></div><span class="pill">2–5 days</span></div>
+        <div class="shop-search" role="search">🔍 <span>Search “rudraksha for focus”</span></div>
+        <div class="cats" id="cats"></div>
+        <div class="grid" id="products"></div>
+        <div class="cartbar" id="cartbar" hidden><div><span id="cartCount">1 item</span><small id="cartTotal">₹0</small></div><span>View cart →</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="pricing">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">Pricing · launch offer</span>
+        <h2>Start free. Go unlimited for less than a chai a day.</h2>
+        <p>Every account gets 11 free questions a week. Premium removes the limit. Launch prices are for people who join early.</p>
+      </div>
+      <div class="plans">
+        <article class="plan">
+          <h3>Starter</h3>
+          <div class="cost"><span class="now">₹0</span><span class="per">forever</span></div>
+          <ul>
+            <li><span><b>11 questions every week</b>, on kundli, tarot, palm or scriptures</span></li>
+            <li><span>Your birth chart, calculated from your details</span></li>
+            <li><span>Daily tarot card and verse of the day</span></li>
+            <li><span>Rashi Jodi and the store</span></li>
+          </ul>
+          <p class="save">Your free questions refill every Monday.</p>
+        </article>
+        <article class="plan">
+          <h3>Premium · 7 days</h3>
+          <span class="offer">Launch offer · 48% off</span>
+          <div class="cost"><span class="now">₹51</span><span class="per">for 7 days</span><span class="was" aria-label="Regular price 99 rupees">₹99</span></div>
+          <ul>
+            <li><span><b>Unlimited questions</b></span></li>
+            <li><span>Unlimited palm readings</span></li>
+            <li><span>Birth profiles for family and partner</span></li>
+            <li><span>Everything in Starter</span></li>
+          </ul>
+          <p class="save">One-time UPI payment. Doesn’t renew.</p>
+        </article>
+        <article class="plan featured">
+          <span class="ribbon">Best value</span>
+          <h3>Premium · 30 days</h3>
+          <span class="offer">Launch offer · 49% off</span>
+          <div class="cost"><span class="now">₹101</span><span class="per">for 30 days</span><span class="was" aria-label="Regular price 199 rupees">₹199</span></div>
+          <ul>
+            <li><span><b>Unlimited questions</b></span></li>
+            <li><span>Unlimited palm readings</span></li>
+            <li><span>Birth profiles for family and partner</span></li>
+            <li><span>Everything in Starter</span></li>
+          </ul>
+          <p class="save">About ₹23 a week. One-time UPI payment. Doesn’t renew.</p>
+        </article>
+      </div>
+      <p class="note" style="margin-top:12px">Prices include GST. Regular prices apply after the launch offer ends; we’ll show the end date in the app before it does.</p>
+
+      <div class="refer" id="refer">
+        <div style="display:grid;gap:12px">
+          <span class="eyebrow">Invite and earn</span>
+          <h3 style="font-size:24px">Share Kosmik. Get 10% back in Noha Money.</h3>
+          <ol class="how">
+            <li><span>Share your invite link from the app.</span></li>
+            <li><span>Your friend joins and buys Premium or something from the store.</span></li>
+            <li><span>You get 10% of what they paid in Noha Money, your wallet across Asanoha apps.</span></li>
+          </ol>
+          <p class="note">Credited once the purchase can no longer be cancelled or refunded. No limit on how many friends you invite.</p>
+        </div>
+        <div class="earn" aria-label="Referral earnings calculator">
+          <label for="friends">Friends who buy: <b id="friendsOut">5</b></label>
+          <input type="range" id="friends" min="1" max="50" value="5">
+          <label for="spend">Each spends: <b id="spendOut">₹500</b></label>
+          <input type="range" id="spend" min="51" max="3000" step="1" value="500">
+          <span class="muted" style="font-size:13px;margin-top:6px">You’d get back</span>
+          <span class="big" id="earnOut">₹250</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="languages">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">Languages</span>
+        <h2>Ask in the language you pray in.</h2>
+        <p>Kosmik answers in English, Hindi and Hinglish today. More Indian languages are on the way.</p>
+      </div>
+      <div class="langs" id="langs"></div>
+    </div>
+  </section>
+
+  <section class="block" id="principles">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">How it behaves</span>
+        <h2>Guidance, not fear.</h2>
+        <p>Astrology, tarot and palmistry are spiritual guidance and entertainment. These rules are built into every answer.</p>
+      </div>
+      <div class="rules">
+        <div class="rule"><h3>No scary predictions</h3><p>It never predicts death, illness, accidents or guaranteed outcomes. A life line says nothing about lifespan.</p></div>
+        <div class="rule"><h3>No fear-based selling</h3><p>At most three suggestions, only when relevant, always optional. No “dosha will ruin you”.</p></div>
+        <div class="rule"><h3>No invented verses</h3><p>Scripture answers quote retrieved verses only. If nothing matches, it says so.</p></div>
+        <div class="rule"><h3>Real advice goes to real experts</h3><p>Health, legal and money questions get pointed to a professional.</p></div>
+        <div class="rule"><h3>Your birth details are yours</h3><p>Birth data and palm photos are treated as sensitive under India’s DPDP Act: you consent, and you can change or delete them any time.</p></div>
+        <div class="rule"><h3>Every tradition, respected</h3><p>No caste or communal content, across sampradayas.</p></div>
+      </div>
+      <p class="help">Going through a hard time? Talk to someone now: Tele-MANAS <span style="user-select:all">14416</span>, free and 24×7 in India.</p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap" style="display:grid;gap:28px">
+      <div class="cta">
+        <span class="eyebrow" style="color:#fff">Live on the web</span>
+        <h2>One login for every Asanoha app.</h2>
+        <p>Sign in with Google, or with the same Asanoha account you use for the Asanoha store, Wearday and PeoplePitchers. iPhone and Android apps are coming.</p>
+        <a class="open-btn" href="/chat">Open Kosmik</a>
+        <div class="platforms"><span class="pill">🌐 <b>Web app</b> · live</span><span class="pill">📱 <b>App Store</b> · soon</span><span class="pill">🤖 <b>Google Play</b> · soon</span></div>
+      </div>
+      <div>
+        <div class="head" style="margin-bottom:14px"><span class="eyebrow">More from Asanoha</span></div>
+        <div class="family">
+          <a class="fam" href="https://asanoha.co.in"><b>Asanoha</b><span>Ayurveda store · asanoha.co.in</span></a>
+          <a class="fam" href="https://wearday.asanoha.co.in"><b>Wearday</b><span>Wardrobe and outfit ideas · wearday.asanoha.co.in</span></a>
+          <a class="fam" href="https://peoplepitchers.com"><b>PeoplePitchers</b><span>Hiring on proof of work · peoplepitchers.com</span></a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="logo" href="#home" style="font-size:19px">Kosmik</a>
+        <p class="muted" style="max-width:360px;margin-top:10px">Ask the stars. Get answers with sources. Kundli, tarot, palm reading and the scriptures in your language.</p>
+        <p class="by" style="margin-top:16px">an <b>asanoha</b> product</p>
+      </div>
+      <nav aria-label="Footer">
+        <a href="#ask">Ask</a><a href="#play">Play Rashi Jodi</a>
+        <a href="#shop">Shop</a><a href="#pricing">Pricing</a>
+        <a href="#refer">Invite and earn</a><a href="#languages">Languages</a>
+        <a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+      </nav>
+    </div>
+    <p class="legal-note">© 2026 Shri Krishna Enterprises. Kosmik, a product of Asanoha, is operated by Shri Krishna Enterprises, Etawah, Uttar Pradesh (GSTIN 09AQAPS4921Q1Z7). Readings are spiritual guidance and entertainment, not certainty, and not medical, legal or financial advice.</p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const $ = (s, el = document) => el.querySelector(s);
+  const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+  const rupees = (n) => '₹' + n.toLocaleString('en-IN');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const root = document.documentElement;
+
+  // ---------- views: home, #privacy, #terms ----------
+  const views = {};
+  const route = () => {
+    const name = location.hash.slice(1);
+    const doc = views[name];
+    $('#view-home').hidden = !!doc;
+    Object.values(views).forEach((v) => { v.hidden = v !== doc; });
+    if (doc) window.scrollTo(0, 0);
+    else if (name && name !== 'home') document.getElementById(name)?.scrollIntoView();
+    else if (name === 'home') window.scrollTo(0, 0);
+  };
+  addEventListener('hashchange', route);
+  route();
+
+  // ---------- day / night ----------
+  const isNight = () => root.dataset.theme ? root.dataset.theme === 'dark' : !matchMedia('(prefers-color-scheme: light)').matches;
+  const themeBtn = $('#themeBtn');
+  const paintThemeBtn = () => { const n = isNight(); themeBtn.textContent = n ? '☀︎' : '☾'; themeBtn.setAttribute('aria-label', n ? 'Switch to light mode' : 'Switch to dark mode'); };
+  const savedTheme = store.get('kosmik-theme'); if (savedTheme) root.dataset.theme = savedTheme;
+  paintThemeBtn();
+  themeBtn.addEventListener('click', () => { root.dataset.theme = isNight() ? 'light' : 'dark'; store.set('kosmik-theme', root.dataset.theme); paintThemeBtn(); });
+  matchMedia('(prefers-color-scheme: light)').addEventListener('change', paintThemeBtn);
+
+  // ---------- language (hero only) ----------
+  const strings = {
+    en: { eyebrow: 'AI spiritual guide · live on the web', h1a: 'Ask the stars.', h1b: 'Get answers with sources.', lead: 'Kundli, tarot, palm reading and the Gita in one search bar. Every answer cites the verse it comes from, in your language, with puja essentials one tap away.', sso: 'Sign in with your <b>Asanoha</b> account', free: '<b>11 free questions</b> every week', greet: 'Namaste ✨' },
+    hi: { eyebrow: 'एआई आध्यात्मिक मार्गदर्शक · अब वेब पर', h1a: 'सितारों से पूछिए।', h1b: 'स्रोत के साथ जवाब पाइए।', lead: 'कुंडली, टैरो, हस्तरेखा और गीता, सब एक सर्च बार में। हर जवाब उस श्लोक का हवाला देता है जिससे वह आया है, आपकी भाषा में।', sso: 'अपने <b>Asanoha</b> अकाउंट से साइन इन करें', free: 'हर हफ़्ते <b>11 सवाल मुफ़्त</b>', greet: 'नमस्ते ✨' },
+  };
+  let lang = store.get('kosmik-lang') === 'hi' ? 'hi' : 'en';
+  const langBtn = $('#langBtn');
+  const applyLang = () => {
+    document.querySelectorAll('[data-i18n]').forEach((el) => { el.innerHTML = strings[lang][el.dataset.i18n]; });
+    root.lang = lang;
+    langBtn.textContent = lang === 'en' ? 'हिं' : 'EN';
+    langBtn.setAttribute('aria-label', lang === 'en' ? 'Switch language to Hindi' : 'Switch language to English');
+  };
+  langBtn.addEventListener('click', () => { lang = lang === 'en' ? 'hi' : 'en'; store.set('kosmik-lang', lang); applyLang(); });
+  applyLang();
+
+  // ---------- store ----------
+  const products = [
+    { id: 'r5', icon: '📿', name: '5 Mukhi Rudraksha Mala, 108 beads', price: 899, mrp: 1299, badge: 'With certificate' },
+    { id: 'sp', icon: '🔮', name: 'Sphatik (clear quartz) mala', price: 649, mrp: 899, badge: 'Bestseller' },
+    { id: 'sy', icon: '🔱', name: 'Shree Yantra, brass, 3 inch', price: 499, mrp: 699, badge: 'Under ₹499' },
+    { id: 'pk', icon: '🪔', name: 'Navratri puja kit, 21 items', price: 749, mrp: 999, badge: 'Festival' },
+    { id: 'in', icon: '🌿', name: 'Sandalwood incense, 100 sticks', price: 199, mrp: 249, badge: 'Daily puja' },
+    { id: 'kd', icon: '🏺', name: 'Brass kalash with coconut stand', price: 599, mrp: 799, badge: 'Griha pravesh' },
+  ];
+  const cats = [['📿', 'Rudraksha'], ['🧿', 'Malas'], ['🔮', 'Crystals'], ['🔱', 'Yantras'], ['🪔', 'Puja kits'], ['🕉️', 'Idols'], ['🌿', 'Incense'], ['📖', 'Books'], ['✨', 'Bracelets']];
+  $('#cats').innerHTML = cats.map(([i, n]) => `<div class="cat"><span aria-hidden="true">${i}</span>${n}</div>`).join('');
+  const cart = {};
+  const cardHTML = (p) => `
+    <article class="pcard" data-id="${p.id}">
+      <div class="pimg" aria-hidden="true">${p.icon}</div>
+      <span class="badge">${p.badge}</span>
+      <div class="pname">${p.name}</div>
+      <div class="prow"><div><div class="price">${rupees(p.price)}</div><div class="mrp">${rupees(p.mrp)}</div></div><div class="ctl"></div></div>
+    </article>`;
+  const renderCtl = (el, id) => {
+    const qty = cart[id] || 0;
+    const name = products.find((p) => p.id === id).name;
+    el.innerHTML = qty
+      ? `<div class="stepper"><button type="button" data-act="dec" aria-label="Remove one ${name}">−</button><span aria-live="polite">${qty}</span><button type="button" data-act="inc" aria-label="Add one more ${name}">+</button></div>`
+      : `<button class="add" type="button" data-act="inc" aria-label="Add ${name} to cart">ADD</button>`;
+  };
+  const renderAllCtls = () => document.querySelectorAll('.pcard').forEach((c) => renderCtl(c.querySelector('.ctl'), c.dataset.id));
+  const renderCart = () => {
+    const ids = Object.keys(cart).filter((k) => cart[k] > 0);
+    const count = ids.reduce((s, k) => s + cart[k], 0);
+    const total = ids.reduce((s, k) => s + cart[k] * products.find((p) => p.id === k).price, 0);
+    $('#cartbar').hidden = count === 0;
+    $('#cartCount').textContent = `${count} item${count === 1 ? '' : 's'}`;
+    $('#cartTotal').textContent = rupees(total);
+  };
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const id = btn.closest('.pcard').dataset.id;
+    cart[id] = Math.max(0, (cart[id] || 0) + (btn.dataset.act === 'inc' ? 1 : -1));
+    renderAllCtls(); renderCart();
+  });
+  $('#products').innerHTML = products.map(cardHTML).join('');
+  renderAllCtls();
+
+  // ---------- referral calculator ----------
+  const friends = $('#friends'), spend = $('#spend');
+  const calc = () => {
+    const f = Number(friends.value), sp = Number(spend.value);
+    $('#friendsOut').textContent = f;
+    $('#spendOut').textContent = rupees(sp);
+    $('#earnOut').textContent = rupees(Math.floor(f * sp * 0.10));
+  };
+  friends.addEventListener('input', calc); spend.addEventListener('input', calc); calc();
+
+  // ---------- languages ----------
+  const langs = [['Hello', 'English'], ['Namaste ji', 'Hinglish'], ['नमस्ते', 'Hindi'], ['নমস্কার', 'Bengali'], ['नमस्कार', 'Marathi'], ['నమస్కారం', 'Telugu'], ['வணக்கம்', 'Tamil'], ['નમસ્તે', 'Gujarati'], ['ನಮಸ್ಕಾರ', 'Kannada'], ['നമസ്കാരം', 'Malayalam'], ['ନମସ୍କାର', 'Odia'], ['ਸਤ ਸ੍ਰੀ ਅਕਾਲ', 'Punjabi']];
+  $('#langs').innerHTML = langs.map(([w, n]) => `<div class="lang"><span class="hi">${w}</span><span class="lname">${n}</span></div>`).join('');
+
+  // ---------- Rashi Jodi ----------
+  const rashis = [
+    ['♈', 'Mesh', 'Aries', 'Mangal (Mars)'], ['♉', 'Vrishabh', 'Taurus', 'Shukra (Venus)'], ['♊', 'Mithun', 'Gemini', 'Budh (Mercury)'],
+    ['♋', 'Kark', 'Cancer', 'Chandra (Moon)'], ['♌', 'Simha', 'Leo', 'Surya (Sun)'], ['♍', 'Kanya', 'Virgo', 'Budh (Mercury)'],
+    ['♎', 'Tula', 'Libra', 'Shukra (Venus)'], ['♏', 'Vrishchik', 'Scorpio', 'Mangal (Mars)'], ['♐', 'Dhanu', 'Sagittarius', 'Guru (Jupiter)'],
+    ['♑', 'Makar', 'Capricorn', 'Shani (Saturn)'], ['♒', 'Kumbh', 'Aquarius', 'Shani (Saturn)'], ['♓', 'Meen', 'Pisces', 'Guru (Jupiter)'],
+  ];
+  const PAIRS = 8;
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  let game;
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const best = () => { const b = Number(store.get('kosmik-rashi-best')); return Number.isFinite(b) && b > 0 ? b : null; };
+  const paintStats = () => {
+    $('#gMoves').textContent = game.moves;
+    $('#gPairs').textContent = `${game.found}/${PAIRS}`;
+    $('#gTime').textContent = fmt(game.seconds);
+    const b = best(); $('#gBest').textContent = b ? `${b} moves` : '–';
+  };
+  const newGame = () => {
+    if (game?.timer) clearInterval(game.timer);
+    const picks = shuffle([...rashis]).slice(0, PAIRS);
+    const deck = shuffle([...picks, ...picks].map((r, i) => ({ r, i })));
+    game = { deck, open: [], moves: 0, found: 0, seconds: 0, timer: null, locked: false };
+    $('#board').innerHTML = deck.map((c, idx) => `
+      <button class="rcard" type="button" data-idx="${idx}" aria-label="Hidden card">
+        <span class="inner"><span class="rface rback" aria-hidden="true">✦</span>
+        <span class="rface rfront" aria-hidden="true"><span class="glyph">${c.r[0]}︎</span><span class="nm">${c.r[1]}</span></span></span>
+      </button>`).join('');
+    $('#gMsg').textContent = 'Tap a card to begin.';
+    paintStats();
+  };
+  $('#board').addEventListener('click', (e) => {
+    const btn = e.target.closest('.rcard');
+    if (!btn || game.locked || btn.classList.contains('up') || btn.classList.contains('done')) return;
+    if (!game.timer) game.timer = setInterval(() => { game.seconds++; paintStats(); }, 1000);
+    const card = game.deck[Number(btn.dataset.idx)];
+    btn.classList.add('up'); btn.setAttribute('aria-label', `${card.r[1]} (${card.r[2]})`);
+    game.open.push(btn);
+    if (game.open.length < 2) return;
+    game.moves++;
+    const [a, b] = game.open;
+    const ra = game.deck[Number(a.dataset.idx)].r, rb = game.deck[Number(b.dataset.idx)].r;
+    game.open = [];
+    if (ra[1] === rb[1]) {
+      a.classList.add('done'); b.classList.add('done');
+      game.found++;
+      $('#gMsg').textContent = `${ra[1]} (${ra[2]}) is ruled by ${ra[3]}.`;
+      if (game.found === PAIRS) {
+        clearInterval(game.timer);
+        const prev = best();
+        const record = !prev || game.moves < prev;
+        if (record) store.set('kosmik-rashi-best', String(game.moves));
+        $('#gMsg').innerHTML = `<div class="gwin"><b>All ${PAIRS} pairs in ${game.moves} moves and ${fmt(game.seconds)}.</b><span>${record ? 'New best score on this device.' : `Your best is ${prev} moves.`} Tap New game to play again.</span></div>`;
+      }
+    } else {
+      game.locked = true;
+      setTimeout(() => {
+        a.classList.remove('up'); b.classList.remove('up');
+        a.setAttribute('aria-label', 'Hidden card'); b.setAttribute('aria-label', 'Hidden card');
+        game.locked = false;
+      }, reduceMotion ? 300 : 800);
+    }
+    paintStats();
+  });
+  $('#gNew').addEventListener('click', newGame);
+  newGame();
+
+  // ---------- ask demo ----------
+  const chartSVG = () => {
+    const pos = { 1: [150, 82], 2: [75, 38], 3: [36, 75], 4: [75, 150], 5: [36, 225], 6: [75, 262], 7: [150, 220], 8: [225, 262], 9: [264, 225], 10: [225, 150], 11: [264, 75], 12: [225, 38] };
+    const lagnaSign = 5;
+    // Rahu and Ketu are always opposite each other (houses 7 and 1 here).
+    const planets = { 1: 'Asc Mo Ke', 2: 'Ju', 4: 'Sa', 7: 'Ra', 9: 'Su Me', 10: 'Ve', 11: 'Ma' };
+    let t = '';
+    for (let h = 1; h <= 12; h++) {
+      const [x, y] = pos[h];
+      const sign = ((lagnaSign + h - 2) % 12) + 1;
+      t += `<text x="${x}" y="${y}" text-anchor="middle" class="sg">${sign}</text>`;
+      if (planets[h]) t += `<text x="${x}" y="${y + 16}" text-anchor="middle" class="pl">${planets[h]}</text>`;
+    }
+    return `<svg viewBox="0 0 300 300" role="img" aria-label="Sample North Indian kundli chart">
+      <style>.ln{stroke:var(--muted);stroke-width:1.4;fill:none}.sg{fill:var(--muted);font:600 12px var(--font)}.pl{fill:var(--text);font:800 12px var(--font)}</style>
+      <rect x="4" y="4" width="292" height="292" rx="10" class="ln" style="stroke:var(--kesari)"/>
+      <path d="M4 4L296 296M296 4L4 296M150 4L296 150L150 296L4 150Z" class="ln"/>${t}</svg>`;
+  };
+  const productsMini = (ids) => `<div class="mini-products">${ids.map((id) => cardHTML(products.find((p) => p.id === id))).join('')}</div>`;
+  const examples = [
+    { chip: 'Gita verse for anxiety 📜', html: () => `
+      <p>When worry is about how things will turn out, the Gita points you back to the part you control: the work itself.</p>
+      <figure class="verse" style="margin:0">
+        <div class="sa" lang="sa">कर्मण्येवाधिकारस्ते मा फलेषु कदाचन ।<br>मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि ॥</div>
+        <div class="iast" lang="sa-Latn">karmaṇy evādhikāras te mā phaleṣu kadācana<br>mā karma-phala-hetur bhūr mā te saṅgo ’stv akarmaṇi</div>
+        <p>You have a right to your work, but never to its results. Don’t let results be your reason for acting, and don’t hold on to doing nothing either.</p>
+        <figcaption class="src"><span>Bhagavad Gita 2.47</span><span class="muted">Translation: Kosmik</span></figcaption>
+      </figure>
+      <p class="muted">If anxiety is affecting your sleep or daily life, a counsellor can help. Tele-MANAS: 14416.</p>` },
+    { chip: 'Pull 3 tarot cards for my career 🃏', html: () => `
+      <p>Past, present, future. Tap each card to turn it over.</p>
+      <div class="spread">
+        ${[['VIII · Pentacles', 'Eight of Pentacles', 'Past'], ['VII', 'The Chariot', 'Present'], ['III · Wands', 'Three of Wands', 'Future']].map(([n, name, pos]) => `
+          <button type="button" class="tcard" aria-label="Turn over the ${pos.toLowerCase()} card">
+            <div class="inner"><div class="tface tback" aria-hidden="true">✦</div>
+            <div class="tface tfront"><span class="num">${n}</span><span class="name">${name}</span><span class="pos">${pos}</span></div></div>
+          </button>`).join('')}
+      </div>
+      <div class="tmeaning">
+        <span><b>Eight of Pentacles (past):</b> steady practice built the skills you rely on now.</span>
+        <span><b>The Chariot (present):</b> momentum is on your side if you pick one direction and commit to it.</span>
+        <span><b>Three of Wands (future):</b> your plans widen. Expect more options, not guarantees.</span>
+      </div>` },
+    { chip: 'Explain my kundli simply 🪐', html: () => `
+      <p>Here’s how a chart reads once you add your birth date, time and place. This one is a sample, not yours.</p>
+      <div class="chart-wrap">${chartSVG()}
+        <div class="facts">
+          <div><span>Lagna (rising sign)</span><span>Leo</span></div>
+          <div><span>Moon sign</span><span>Leo</span></div>
+          <div><span>Chart style</span><span>North Indian</span></div>
+          <div><span>Numbers in boxes</span><span>Zodiac signs</span></div>
+        </div>
+      </div>
+      <p>The top diamond is your first house: how you come across. With Leo rising, a chart like this is read as warm and expressive. Planets in each box add detail.</p>` },
+    { chip: 'Read my palm 🖐️', html: () => `
+      <p>In Kosmik, it goes like this:</p>
+      <ol class="steps">
+        <li><span>Add photos of both palms once, in Account → My details (or when Kosmik asks).</span></li>
+        <li><span>Ask anything: “What does my heart line say?”</span></li>
+        <li><span>Kosmik reads both hands and explains your heart, head, life and fate lines.</span></li>
+        <li><span>Delete the photos any time.</span></li>
+      </ol>
+      <p class="muted">The life line describes vitality in palmistry tradition. It is not a prediction of lifespan.</p>` },
+    { chip: 'Which rudraksha suits me? 📿', html: () => `
+      <p>Traditionally, the 5 Mukhi rudraksha is the everyday choice, worn for focus and calm during japa. That is a traditional belief, not a medical treatment. With your chart, the app can explain which traditions link which beads to which planets.</p>
+      <p class="muted">Optional picks from the store:</p>
+      ${productsMini(['r5', 'sp', 'in'])}` },
+  ];
+  const chipsEl = $('#chips'), thread = $('#thread');
+  chipsEl.innerHTML = examples.map((e, i) => `<button class="chip" type="button" aria-pressed="false" data-i="${i}">${e.chip}</button>`).join('');
+  const show = (i) => {
+    const ex = examples[i];
+    chipsEl.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.i === String(i))));
+    thread.innerHTML = `<div class="bubble-q">${ex.chip.replace(/\s\S+$/u, '')}</div><div class="answer"><span class="tag-example">Example answer</span>${ex.html()}</div>`;
+    renderAllCtls();
+  };
+  chipsEl.addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (c) show(Number(c.dataset.i)); });
+  thread.addEventListener('click', (e) => { const t = e.target.closest('.tcard'); if (t) t.classList.toggle('flipped'); });
+  document.querySelectorAll('.tabs [role="tab"]').forEach((tab) => tab.addEventListener('click', () => {
+    document.querySelectorAll('.tabs [role="tab"]').forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+  }));
+  $('#promptForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = $('#promptInput').value.trim();
+    if (!q) return;
+    thread.innerHTML = `<div class="bubble-q"></div><div class="answer"><span class="tag-example">Preview</span><p>For a real answer, <a href="/chat">open Kosmik</a> and ask there. It’s free to start.</p></div>`;
+    thread.querySelector('.bubble-q').textContent = q;
+    $('#promptInput').value = '';
+  });
+  show(0);
+})();
+</script>
+
+</body></html>
+</body>
+</html>

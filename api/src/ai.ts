@@ -10,18 +10,21 @@ export const DEFAULT_CHAT_MODEL = 'gemini-3.5-flash';
 export type Grounded = { answer: string; cited: string[]; personal: boolean; offTopic: boolean };
 
 export type PalmReading = { isPalm: boolean; overview: string; lines: { name: string; reading: string }[] };
-export type PalmImage = { data: string; mime: string };
+export type PalmImage = { data: string; mime: string; hand?: 'left' | 'right' };
 
 export interface AiClient {
   readonly model: string;
   embed(text: string): Promise<number[]>;
-  answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter?: boolean): Promise<Grounded>;
-  readPalm(image: PalmImage, lang: Lang, stricter?: boolean): Promise<PalmReading>;
+  /** chart: the person's calculated birth chart, when the question is about them. */
+  answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter?: boolean, chart?: string): Promise<Grounded>;
+  readPalm(images: PalmImage[], lang: Lang, opts?: { question?: string; stricter?: boolean }): Promise<PalmReading>;
 }
 
-export const PALM_PROMPT = `You are Kosmik's palm reader, for young Indians. You read the photo of a hand in the tradition of Indian palmistry (hast rekha shastra).
+export const PALM_PROMPT = `You are Kosmik's palm reader, for young Indians. You read photos of a person's palms (left and/or right hand, labelled) in the tradition of Indian palmistry (hast rekha shastra).
 Rules, always:
-- First decide if the photo clearly shows the inside of an open human palm with the lines visible. If not (another object, the back of the hand, a fist, too dark or blurry), set "is_palm" to false, leave "lines" empty and say in "overview" what to change for a better photo.
+- First decide if the photos clearly show the inside of an open human palm with the lines visible. If none does (another object, the back of the hand, a fist, too dark or blurry), set "is_palm" to false, leave "lines" empty and say in "overview" which photo to retake and how.
+- With both hands, palmistry traditionally reads the non-dominant hand as natural tendencies and the dominant hand as how they have developed; compare them where it helps.
+- If the person asked something specific, answer it in "overview" from what the lines show, within these rules.
 - Describe only what you can actually see in this photo: the heart line, head line, life line, and the fate line if visible. For each, say how it looks (long, curved, deep, faint, forked, broken) and what palmistry traditionally links that with, in one or two warm sentences in the second person.
 - Palmistry is reflection and entertainment, not certainty. Never mention lifespan, death, illness, accidents, the number or timing of marriages, divorce, children, or money predictions. A short life line says nothing about how long someone lives.
 - No remedies, gemstones, rituals or products, and no fear.
@@ -70,7 +73,8 @@ Rules, always:
 - No medical, legal or financial advice: suggest a qualified professional instead.
 - Never push products, gemstones or remedies, and never use fear.
 - Respect every tradition; no caste or communal content.
-- If the question depends on the person's own birth chart or private life (their kundli, dasha, marriage timing), set "personal" to true and explain the general idea; Kosmik will ask for their birth details.
+- If the question depends on the person's own birth chart or private life (their kundli, dasha, marriage timing) and no CHART is given, set "personal" to true and explain the general idea; Kosmik will ask for their birth details.
+- If a CHART is given, it was calculated from this person's birth details: answer about their chart using only the CHART facts and SOURCES, say "your chart", set "personal" to false. Describe tendencies, never events, dates or timing (dashas are not calculated). Cite the SOURCES you used.
 - If the question has nothing to do with spirituality, astrology, tarot or scriptures, set "off_topic" to true and gently say what you can help with.
 - Keep "answer" under 140 words, short paragraphs, no headings, emojis rarely. Don't write source ids like "BG 2.47" in the answer text: cited verses are shown as cards below it. You may say "the Gita says".
 Reply with JSON only: {"answer": "...", "cited": ["..."], "personal": false, "off_topic": false}.`;
@@ -164,8 +168,8 @@ export class GeminiAi implements AiClient {
     return v;
   }
 
-  async answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter = false): Promise<Grounded> {
-    const user = `${LANGUAGE[lang]}\n\nSOURCES:\n${buildSources(sources.verses, sources.meanings)}\n\nQUESTION: ${question}${
+  async answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter = false, chart?: string): Promise<Grounded> {
+    const user = `${LANGUAGE[lang]}\n\n${chart ? `CHART (calculated, sidereal, Lahiri, whole-sign houses):\n${chart}\n\n` : ''}SOURCES:\n${buildSources(sources.verses, sources.meanings)}\n\nQUESTION: ${question}${
       stricter ? '\n\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''
     }`;
     const out = (await this.post('/chat/completions', {
@@ -184,7 +188,8 @@ export class GeminiAi implements AiClient {
     return parsed;
   }
 
-  async readPalm(image: PalmImage, lang: Lang, stricter = false): Promise<PalmReading> {
+  async readPalm(images: PalmImage[], lang: Lang, opts: { question?: string; stricter?: boolean } = {}): Promise<PalmReading> {
+    const intro = `${LANGUAGE[lang]}${opts.question ? `\nThe person asks: ${opts.question}` : ''}${opts.stricter ? '\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''}`;
     const out = (await this.post('/chat/completions', {
       model: this.model,
       messages: [
@@ -192,14 +197,17 @@ export class GeminiAi implements AiClient {
         {
           role: 'user',
           content: [
-            { type: 'text', text: `${LANGUAGE[lang]}${stricter ? ' Your previous reply broke the rules. Follow every rule strictly this time.' : ''}` },
-            { type: 'image_url', image_url: { url: `data:${image.mime};base64,${image.data}` } },
+            { type: 'text', text: intro },
+            ...images.flatMap((img) => [
+              { type: 'text', text: img.hand ? `${img.hand === 'left' ? 'Left' : 'Right'} hand:` : 'Palm:' },
+              { type: 'image_url', image_url: { url: `data:${img.mime};base64,${img.data}` } },
+            ]),
           ],
         },
       ],
       response_format: { type: 'json_schema', json_schema: { name: 'palm_reading', schema: PALM_SCHEMA } },
       reasoning_effort: this.reasoningEffort,
-      max_tokens: 1200,
+      max_tokens: 1400,
       temperature: 0.5,
     })) as { choices?: { message?: { content?: string } }[] };
     const parsed = parsePalm(out.choices?.[0]?.message?.content);

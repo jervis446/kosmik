@@ -69,11 +69,22 @@ test('palm: the photo is sent as an inline image and the reply is parsed', async
   const calls = fakeFetch(() => ({
     json: { choices: [{ message: { content: '{"is_palm":true,"overview":"A long, narrow palm.","lines":[{"name":"Heart line","reading":"Curved and deep."}]}' } }] },
   }));
-  const out = await new GeminiAi({ apiKey: 'k' }).readPalm({ data: 'QUJD', mime: 'image/jpeg' }, 'hi');
+  const out = await new GeminiAi({ apiKey: 'k' }).readPalm(
+    [
+      { data: 'QUJD', mime: 'image/jpeg', hand: 'left' },
+      { data: 'REVG', mime: 'image/jpeg', hand: 'right' },
+    ],
+    'hi',
+    { question: 'meri life line kaisi hai?' },
+  );
   assert.deepEqual(out, { isPalm: true, overview: 'A long, narrow palm.', lines: [{ name: 'Heart line', reading: 'Curved and deep.' }] });
   const content = (calls[0].body.messages as { content: unknown }[])[1].content as { type: string; text?: string; image_url?: { url: string } }[];
   assert.match(content[0].text!, /Hindi/);
-  assert.equal(content[1].image_url!.url, 'data:image/jpeg;base64,QUJD');
+  assert.match(content[0].text!, /meri life line kaisi hai\?/);
+  assert.deepEqual(
+    content.slice(1).map((c) => c.text ?? c.image_url!.url),
+    ['Left hand:', 'data:image/jpeg;base64,QUJD', 'Right hand:', 'data:image/jpeg;base64,REVG'],
+  );
 });
 
 test('palm: "is_palm" without readable lines counts as not a palm; junk is rejected', () => {

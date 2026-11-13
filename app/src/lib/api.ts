@@ -36,10 +36,24 @@ export type Block =
     }
   | { type: "palm"; lines: { name: string; reading: string }[] }
   | {
+      type: "chart";
+      lagna: string | null;
+      moon: string;
+      nakshatra: string;
+      rows: {
+        graha: string;
+        rashi: string;
+        house: string | null;
+        retrograde: boolean;
+      }[];
+    }
+  | {
       type: "notice";
       kind:
         | "helpline"
         | "needs-chart"
+        | "needs-details"
+        | "needs-palm"
         | "coming-soon"
         | "limit"
         | "sign-in"
@@ -90,6 +104,24 @@ export type PaymentState = {
   premiumUntil: number | null;
 };
 
+export type Hand = "left" | "right";
+export type BirthDetails = {
+  name: string | null;
+  birthDate: string;
+  birthTime: string | null;
+  place: string;
+  lat: number;
+  lon: number;
+  tzOffsetMin: number;
+};
+export type Place = {
+  name: string;
+  lat: number;
+  lon: number;
+  country: string;
+  tzOffsetMin: number | null;
+};
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -136,16 +168,29 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ question, lang, conversationId }),
     }),
-  palm: (
-    image: string,
-    mime: string,
-    lang: Lang | undefined,
-    conversationId: string | null,
-  ) =>
-    call<AskResult>("/api/palm", {
-      method: "POST",
-      body: JSON.stringify({ image, mime, lang, conversationId }),
+  profile: () =>
+    call<{
+      details: BirthDetails | null;
+      palms: Record<Hand, number | null>;
+    }>("/api/profile"),
+  saveProfile: (details: BirthDetails) =>
+    call<{ details: BirthDetails }>("/api/profile", {
+      method: "PUT",
+      body: JSON.stringify({ ...details, consent: true }),
     }),
+  deleteProfile: () =>
+    call<{ deleted: boolean }>("/api/profile", { method: "DELETE" }),
+  palmPhoto: (hand: Hand) =>
+    call<{ hand: Hand; mime: string; data: string }>(`/api/palm-photo/${hand}`),
+  savePalmPhoto: (hand: Hand, image: string, mime: string) =>
+    call<{ saved: boolean }>(`/api/palm-photo/${hand}`, {
+      method: "PUT",
+      body: JSON.stringify({ image, mime, consent: true }),
+    }),
+  deletePalmPhoto: (hand: Hand) =>
+    call<{ deleted: boolean }>(`/api/palm-photo/${hand}`, { method: "DELETE" }),
+  places: (q: string) =>
+    call<{ places: Place[] }>(`/api/places?q=${encodeURIComponent(q)}`),
   conversations: () =>
     call<{ conversations: ConversationSummary[] }>("/api/conversations"),
   conversation: (id: string) =>

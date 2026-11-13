@@ -1,12 +1,6 @@
-import { Conversation } from "../components/Conversation";
-import { Shell } from "../components/Shell";
-import { useShell } from "../lib/shell";
+import { Redirect } from "expo-router";
 
-export default function Home() {
-  const { chatKey, startMode } = useShell();
-  return (
-    <Shell>
-      <Conversation key={chatKey} initialMode={startMode ?? undefined} />
-    </Shell>
-  );
+/** On the website, / is the landing page (served by the Worker). Inside the app it opens the chat. */
+export default function Index() {
+  return <Redirect href="/chat" />;
 }

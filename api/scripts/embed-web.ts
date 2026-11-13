@@ -68,6 +68,7 @@ function main() {
     .join('\n');
   // Keep the pages and scripts, plus any other file whose name the app refers to.
   const used = files.filter((f) => TYPES[extname(f)] && (f.endsWith('.html') || f.endsWith('.js') || text.includes(f.slice(f.lastIndexOf('/') + 1))));
+  if (!used.includes('/landing.html')) throw new Error('app/dist/landing.html is missing (app/public/landing.html)');
 
   rmSync(OUT, { recursive: true, force: true });
   mkdirSync(OUT);
@@ -90,12 +91,13 @@ ${entries.join('\n')}
 };
 
 function serve(req: Request, path: string): Response | null {
-  const file = FILES[path];
+  // The landing page is the front door; the app lives at /chat.
+  const file = path === '/' ? FILES['/landing.html'] : FILES[path];
   // Single-page app: routes without a file extension get index.html.
   const hit = file ?? (/\\.[a-z0-9]+$/i.test(path) ? undefined : FILES['/index.html']);
   if (!hit) return null;
   // Hashed bundles and fonts never change; pages must be revalidated.
-  const immutable = /[.-][0-9a-f]{16,}\\./.test(path) && path !== '/index.html';
+  const immutable = /[.-][0-9a-f]{16,}\\./.test(path) && !path.endsWith('.html');
   return new Response(req.method === 'HEAD' ? null : hit[0], {
     headers: {
       'content-type': hit[1],

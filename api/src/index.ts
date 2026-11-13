@@ -1,7 +1,9 @@
 /**
  * Kosmik API and web app host (Cloudflare Worker).
- *   POST /api/ask                 ask a question (signed in or guest)
- *   POST /api/palm                read a palm photo (counts as a question; the photo isn't stored)
+ *   POST /api/ask                 ask a question (signed in)
+ *   GET/PUT/DELETE /api/profile   your birth details (and which palm photos are saved)
+ *   GET/PUT/DELETE /api/palm-photo/:hand   a saved palm photo (left or right)
+ *   GET  /api/places?q=           birth place search
  *   GET  /api/conversations       your conversations
  *   GET  /api/conversations/:id   messages in one of your conversations
  *   DELETE /api/conversations/:id delete one of your conversations
@@ -12,13 +14,14 @@
  *   GET  /api/pay/:id             a payment's status
  *   POST /api/pay/webhook         Noha Pay confirms a payment
  *   GET  /api/health
- * Everything else is the web app (static files, single-page fallback).
+ * / is the landing page; everything else is the web app (static files, single-page fallback).
  */
 import { GeminiAi } from './ai.ts';
-import { guestSubject, isPremium, Unauthorized, userFromRequest } from './auth.ts';
+import { isPremium, Unauthorized, userFromRequest } from './auth.ts';
 import { planFor } from './lib/limits.ts';
 import { handleWebhook, PaymentError, paymentsEnabled, paymentStatus, PLANS, premiumUntil, startPayment } from './payments.ts';
-import { ask, BadQuestion, MAX_PALM_BASE64, readPalm, verseOfTheDay } from './pipeline.ts';
+import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
+import { D1Profiles, MAX_PHOTO_BASE64, ProfileError, searchPlaces } from './profiles.ts';
 import { purgeExpired } from './retention.ts';
 import { D1AnswerCache, D1History, D1Library, D1Usage, MemoryVectorSearch, VectorizeSearch } from './store.ts';
 import type { Env } from './types.ts';
@@ -91,10 +94,9 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
   if (path === '/api/ask' && req.method === 'POST') {
     const body = await readJson(req);
     if (typeof body.question !== 'string') throw new BadQuestion('Ask a question to get started.');
-    const userId = await userFromRequest(req, env);
-    const identity = userId
-      ? { kind: 'user' as const, id: userId, premium: await isPremium(env.DB, userId, now) }
-      : { kind: 'guest' as const, subject: await guestSubject(req, env, now) };
+    // Kosmik is for signed-in people: limits, history and personal details all hang off the account.
+    const userId = await requireUser(req, env);
+    const identity = { kind: 'user' as const, id: userId, premium: await isPremium(env.DB, userId, now) };
     const result = await ask(
       {
         library: new D1Library(env.DB),
@@ -103,6 +105,7 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
         usage: new D1Usage(env.DB),
         history: new D1History(env.DB),
         ai: gemini(env),
+        profiles: new D1Profiles(env.DB),
       },
       {
         question: body.question,
@@ -114,17 +117,47 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
     return json(req, env, result);
   }
 
-  if (path === '/api/palm' && req.method === 'POST') {
-    const body = await readJson(req, MAX_PALM_BASE64 + 1000);
-    const userId = await userFromRequest(req, env);
-    const identity = userId
-      ? { kind: 'user' as const, id: userId, premium: await isPremium(env.DB, userId, now) }
-      : { kind: 'guest' as const, subject: await guestSubject(req, env, now) };
-    const result = await readPalm(
-      { library: new D1Library(env.DB), cache: new D1AnswerCache(env.DB), vectors: new MemoryVectorSearch(env.DB), usage: new D1Usage(env.DB), history: new D1History(env.DB), ai: gemini(env) },
-      { image: body.image, mime: body.mime, lang: typeof body.lang === 'string' ? body.lang : undefined, identity, conversationId: typeof body.conversationId === 'string' ? body.conversationId : null },
-    );
-    return json(req, env, result);
+  // My details: birth details for the kundli and photos of both palms.
+  if (path === '/api/profile') {
+    const userId = await requireUser(req, env);
+    const profiles = new D1Profiles(env.DB);
+    if (req.method === 'GET') return json(req, env, { details: await profiles.get(userId), palms: await profiles.palmStatus(userId) });
+    if (req.method === 'PUT') return json(req, env, { details: await profiles.save(userId, await readJson(req), now) });
+    if (req.method === 'DELETE') {
+      await profiles.deleteAll(userId);
+      return json(req, env, { deleted: true });
+    }
+  }
+
+  const palmMatch = /^\/api\/palm-photo\/(left|right)$/.exec(path);
+  if (palmMatch) {
+    const userId = await requireUser(req, env);
+    const profiles = new D1Profiles(env.DB);
+    if (req.method === 'GET') {
+      const photo = await profiles.palm(userId, palmMatch[1] as 'left' | 'right');
+      return photo ? json(req, env, photo) : error(req, env, 'No photo saved for this hand.', 404);
+    }
+    if (req.method === 'PUT') {
+      await profiles.savePalm(userId, palmMatch[1], await readJson(req, MAX_PHOTO_BASE64 + 1000), now);
+      return json(req, env, { saved: true });
+    }
+    if (req.method === 'DELETE') {
+      await profiles.deletePalm(userId, palmMatch[1]);
+      return json(req, env, { deleted: true });
+    }
+  }
+
+  if (path === '/api/places' && req.method === 'GET') {
+    await requireUser(req, env);
+    if (env.RATE_LIMITER && !(await env.RATE_LIMITER.limit({ key: `places:${req.headers.get('cf-connecting-ip') ?? 'unknown'}` })).success) {
+      return error(req, env, 'Too many searches. Please wait a minute.', 429);
+    }
+    try {
+      return json(req, env, { places: await searchPlaces(url.searchParams.get('q') ?? '', env.NOMINATIM_URL) });
+    } catch (e) {
+      console.error('place search failed', (e as Error).message);
+      return error(req, env, 'Place search isn’t working right now. Please try again shortly.', 502);
+    }
   }
 
   if (path === '/api/conversations' && req.method === 'GET') {
@@ -225,6 +258,10 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
+    // The landing page; the app is at /chat.
+    if (url.pathname === '/' && (req.method === 'GET' || req.method === 'HEAD') && env.ASSETS) {
+      return env.ASSETS.fetch(new Request(new URL('/landing', url), req));
+    }
     if (!url.pathname.startsWith('/api/')) {
       return env.ASSETS ? env.ASSETS.fetch(req) : new Response('Not found', { status: 404 });
     }
@@ -235,6 +272,7 @@ export default {
       if (e instanceof BadQuestion) return error(req, env, e.message, 400);
       if (e instanceof Unauthorized) return error(req, env, e.message, 401);
       if (e instanceof PaymentError) return error(req, env, e.message, e.status);
+      if (e instanceof ProfileError) return error(req, env, e.message, 400);
       console.error('api error', (e as Error).message);
       return error(req, env, 'Something went wrong. Please try again.', 500);
     }

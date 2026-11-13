@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -18,7 +19,7 @@ import { font, useTheme } from "../lib/theme";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SignIn() {
-  const { session, sendCode, verifyCode } = useAuth();
+  const { session, sendCode, verifyCode, signInWithGoogle } = useAuth();
   const { colors } = useTheme();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -27,10 +28,23 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session) router.replace("/");
+    if (session) router.replace("/chat");
   }, [session]);
 
   const s = StyleSheet.create({
+    google: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      minHeight: 50,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.surface,
+    },
+    googleG: { color: "#4285F4", fontFamily: font.heavy, fontSize: 18 },
+    googleText: { color: colors.text, fontFamily: font.bold, fontSize: 16 },
     wrap: {
       padding: 24,
       gap: 14,
@@ -113,11 +127,31 @@ export default function SignIn() {
         </Text>
         <Text style={s.p}>
           {step === "email"
-            ? "One account for every Asanoha app. We’ll email you a 6-digit code, no password needed. Signed in, you get 11 free questions a week and your chats are saved."
+            ? "One account for every Asanoha app. Continue with Google, or we’ll email you a 6-digit code. You get 11 free questions a week and your chats are saved."
             : `We sent a code to ${email.trim()}. It expires in a few minutes.`}
         </Text>
         {!authConfigured ? (
           <Text style={s.error}>Sign-in isn’t set up in this build.</Text>
+        ) : null}
+        {step === "email" && Platform.OS === "web" ? (
+          <>
+            <Pressable
+              style={s.google}
+              onPress={() => {
+                setError(null);
+                signInWithGoogle().catch((e: Error) => setError(e.message));
+              }}
+              disabled={!authConfigured}
+              accessibilityRole="button"
+              accessibilityLabel="Continue with Google"
+            >
+              <Text style={s.googleG}>G</Text>
+              <Text style={s.googleText}>Continue with Google</Text>
+            </Pressable>
+            <Text style={[s.p, { textAlign: "center" }]}>
+              or use your email
+            </Text>
+          </>
         ) : null}
         {step === "email" ? (
           <TextInput

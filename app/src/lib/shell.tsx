@@ -10,7 +10,6 @@ import { Platform, useWindowDimensions } from "react-native";
 
 import { api, type ConversationSummary } from "./api";
 import { useAuth } from "./auth";
-import type { ModeKey } from "./modes";
 
 /** Wide screens keep the sidebar open; narrow ones open it as a drawer. */
 export const WIDE = 900;
@@ -28,9 +27,7 @@ type Shell = {
   setActiveId: (id: string | null) => void;
   /** Changes whenever "New chat" is pressed, so the home conversation starts empty. */
   chatKey: number;
-  /** The topic a new chat opens on (from the sidebar), if any. */
-  startMode: ModeKey | null;
-  newChat: (mode?: ModeKey) => void;
+  newChat: () => void;
   openChat: (id: string) => void;
 };
 
@@ -44,7 +41,6 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [chats, setChats] = useState<ConversationSummary[] | null>(null);
   const [activeId, setActiveIdState] = useState<string | null>(null);
   const [chatKey, setChatKey] = useState(0);
-  const [startMode, setStartMode] = useState<ModeKey | null>(null);
   const [version, setVersion] = useState(0);
 
   const userId = session?.user.id ?? null;
@@ -75,7 +71,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
         if (id === activeId) {
           setActiveIdState(null);
           setChatKey((k) => k + 1);
-          router.navigate("/");
+          router.navigate("/chat");
         }
       },
       activeId,
@@ -92,15 +88,17 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
         setVersion((v) => v + 1);
       },
       chatKey,
-      startMode,
-      newChat: (mode) => {
-        setStartMode(mode ?? null);
+      newChat: () => {
         setActiveIdState(null);
         setChatKey((k) => k + 1);
         closeDrawer();
-        router.navigate("/");
+        router.navigate("/chat");
         if (Platform.OS === "web" && globalThis.history) {
-          globalThis.history.replaceState(globalThis.history.state, "", "/");
+          globalThis.history.replaceState(
+            globalThis.history.state,
+            "",
+            "/chat",
+          );
         }
       },
       openChat: (id) => {
@@ -109,7 +107,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
         router.navigate({ pathname: "/chat/[id]", params: { id } });
       },
     };
-  }, [wide, drawerOpen, chats, userId, activeId, chatKey, startMode]);
+  }, [wide, drawerOpen, chats, userId, activeId, chatKey]);
 
   return <ShellCtx.Provider value={value}>{children}</ShellCtx.Provider>;
 }

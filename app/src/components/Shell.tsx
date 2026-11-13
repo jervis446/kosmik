@@ -1,6 +1,14 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Redirect } from "expo-router";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useAuth } from "../lib/auth";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { Sidebar } from "./Sidebar";
@@ -15,7 +23,24 @@ export function Shell({
 }) {
   const { colors, isDark, setPref } = useTheme();
   const shell = useShell();
+  const { session, ready } = useAuth();
   const s = styles(colors);
+
+  // Kosmik works only when signed in.
+  if (!ready)
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.bg,
+        }}
+      >
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  if (!session) return <Redirect href="/sign-in" />;
 
   return (
     <SafeAreaView
