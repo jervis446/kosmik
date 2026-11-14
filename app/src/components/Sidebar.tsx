@@ -29,7 +29,7 @@ function group(chats: ConversationSummary[], now: number) {
 }
 
 /** ChatGPT-style sidebar: new chat, topics, your chats, and your account at the bottom. */
-export function Sidebar() {
+export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
   const { colors } = useTheme();
   const { session } = useAuth();
   const shell = useShell();
@@ -54,6 +54,16 @@ export function Sidebar() {
             </Text>
           </Text>
         </View>
+        {shell.wide && onCollapse ? (
+          <Pressable
+            onPress={onCollapse}
+            style={s.icon}
+            accessibilityRole="button"
+            accessibilityLabel="Close sidebar"
+          >
+            <Text style={s.iconText}>⇤</Text>
+          </Pressable>
+        ) : null}
         {!shell.wide ? (
           <Pressable
             onPress={shell.closeDrawer}
