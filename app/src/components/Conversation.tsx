@@ -25,6 +25,7 @@ import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { Blocks } from "./Blocks";
 import { DetailsModal } from "./DetailsForms";
+import { Engines } from "./Engines";
 import { Thinking } from "./Thinking";
 
 export type Turn =
@@ -60,30 +61,6 @@ const PALM_WORDS =
 
 const QUIZ_WORDS = /\b(quiz|test|retake|redo|take|find out)\b/i;
 
-/** What Kosmik can do, shown on an empty chat. Plain text: people just type their question. */
-const HINTS: [string, string, string][] = [
-  [
-    "ॐ",
-    "Bhagavad Gita",
-    "Ask for a verse (“Gita 2.47”, “verse of the day”) or what the Gita says about something on your mind.",
-  ],
-  ["✦", "Tarot", "“Pull 3 tarot cards” or “What does The Star mean?”"],
-  [
-    "☉",
-    "Your kundli",
-    "“What does my chart say about career?” Kosmik calculates your chart from your birth details; it asks for them the first time.",
-  ],
-  [
-    "✋",
-    "Palm reading",
-    "“Read my palm.” Kosmik needs photos of both palms; it asks for them the first time, or add them in Account → My details.",
-  ],
-  [
-    "❀",
-    "Ayurveda",
-    "“What is Ashwagandha?”, “Which herbs balance Pitta?” or “What is my dosha?” Kosmik asks 12 quick questions the first time.",
-  ],
-];
 let seq = 0;
 const nextId = () => `t${Date.now()}-${seq++}`;
 const message = (e: unknown) =>
@@ -248,21 +225,11 @@ export function Conversation({
             <View style={{ gap: 6 }}>
               <Text style={s.hello}>Namaste. What’s on your mind?</Text>
               <Text style={s.sub}>
-                Just ask. Kosmik works out whether it’s about the Gita, tarot,
-                your chart, your palm or Ayurveda.
+                Just ask, in English, Hindi or Hinglish. Or hover a card for
+                ideas.
               </Text>
             </View>
-            <View style={s.hints}>
-              {HINTS.map(([glyph, title, text]) => (
-                <View key={title} style={s.hint}>
-                  <Text style={s.hintGlyph}>{glyph}</Text>
-                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <Text style={s.hintTitle}>{title}</Text>
-                    <Text style={s.sub}>{text}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
+            <Engines onAsk={(q) => send(q)} />
           </View>
         ) : null}
 
@@ -443,7 +410,6 @@ const styles = (c: Colors) =>
       fontSize: 15,
       lineHeight: 22,
     },
-    hints: { gap: 10 },
     hint: {
       flexDirection: "row",
       gap: 12,
