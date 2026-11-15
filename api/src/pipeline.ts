@@ -365,6 +365,7 @@ export async function ask(
       { type: 'text', text: grounded.answer },
       ...citedVerses.map(verseBlock),
       ...(await meaningBlocks(deps, citedMeanings)),
+      ...extras(grounded),
     ];
     if (grounded.personal) blocks.push({ type: 'notice', kind: 'needs-details', text: T.needsDetails[lang] });
 
@@ -564,8 +565,10 @@ async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Pr
   const cited = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 3);
   return [
     { type: 'text', text: grounded.answer },
+    ...extras(grounded, (t) => !contentProblems(t, [], { open }).length).filter((b) => b.type === 'behind'),
     chartBlock(chart, new Date(now)),
     ...cited.map((m): Block => ({ type: 'meaning', ...m })),
+    ...extras(grounded, (t) => !contentProblems(t, [], { open }).length).filter((b) => b.type === 'followups'),
   ];
 }
 
@@ -585,6 +588,16 @@ async function palmAnswer(deps: Deps, question: string, lang: Lang, photos: { ha
 }
 
 const HERB_LIST = 12;
+
+/** The fold-out reasoning and the ask-next questions that close an AI answer. */
+function extras(g: { followUps?: string[]; behind?: string[]; offTopic?: boolean }, contentOk = (t: string) => !contentProblems(t).length): Block[] {
+  const out: Block[] = [];
+  const behind = (g.behind ?? []).filter(contentOk);
+  const next = (g.followUps ?? []).filter(contentOk);
+  if (behind.length) out.push({ type: 'behind', points: behind });
+  if (next.length && !g.offTopic) out.push({ type: 'followups', questions: next });
+  return out;
+}
 const cap = (d: string) => d[0].toUpperCase() + d.slice(1);
 
 export function herbListTitle(f: { dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: string }): string {
@@ -619,5 +632,5 @@ async function prakritiAdvice(deps: Deps, question: string, lang: Lang, p: Prakr
   if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts, conversation);
   if (contentProblems(grounded.answer).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
   const cited = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 3);
-  return [{ type: 'text', text: grounded.answer }, prakritiBlock(p), ...(await meaningBlocks(deps, cited))];
+  return [{ type: 'text', text: grounded.answer }, prakritiBlock(p), ...(await meaningBlocks(deps, cited)), ...extras(grounded)];
 }

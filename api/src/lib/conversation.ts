@@ -53,6 +53,10 @@ export function summariseBlocks(blocks: Block[]): string {
         return [`[Their prakriti: ${b.label}]`];
       case 'notice':
         return b.kind === 'helpline' ? [] : [b.text];
+      case 'behind':
+        return [`[Based on: ${b.points.join('; ')}]`];
+      case 'followups':
+        return [];
     }
   });
   return parts.join(' ');

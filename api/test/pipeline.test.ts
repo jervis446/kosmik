@@ -123,6 +123,8 @@ class Fakes {
           cited: this.reply.cited ?? sources.verses.map((v) => v.ref),
           personal: this.reply.personal ?? false,
           offTopic: false,
+          followUps: this.reply.followUps,
+          behind: this.reply.behind,
         };
       },
       readPalm: async (images, _lang, opts) => {
@@ -547,4 +549,14 @@ test('memory: a follow-up that turns out to be about self-harm gets the helpline
   const r = await ask(f.deps(), { question: 'should i just end it', lang: 'en', identity: user, conversationId: 'conv-1' });
   assert.equal(r.layer, 'safety');
   assert.ok(r.blocks.some((b) => b.type === 'notice' && b.kind === 'helpline'));
+});
+
+test('answers end with the astrology behind them and questions to ask next', async () => {
+  const f = new Fakes();
+  f.profile = birth;
+  f.reply = { answer: 'Asha, a switch suits you from April 2027.', cited: [], followUps: ['Which month is best?', 'Should I study first?'], behind: ['10th lord Jupiter in the 12th house', 'Rahu–Venus antardasha from 19 April 2027'] };
+  const r = await ask(f.deps(), { question: 'What does my kundli say about career?', lang: 'en', identity: user });
+  assert.deepEqual(r.blocks.map((b) => b.type), ['text', 'behind', 'chart', 'followups']);
+  const next = r.blocks.find((b) => b.type === 'followups');
+  assert.deepEqual(next?.type === 'followups' && next.questions, ['Which month is best?', 'Should I study first?']);
 });

@@ -331,7 +331,12 @@ export function Conversation({
             <View style={s.avatar}>
               <Text style={s.avatarText}>✦</Text>
             </View>
-            <Thinking kind={busy} />
+            <Thinking
+              kind={busy}
+              question={
+                [...turns].reverse().find((t) => t.role === "user")?.text ?? ""
+              }
+            />
           </View>
         ) : null}
       </ScrollView>

@@ -71,6 +71,8 @@ export type Block =
       total: number;
       herbs: { key: string; name: string; english: string; virya: string }[];
     }
+  | { type: "behind"; points: string[] }
+  | { type: "followups"; questions: string[] }
   | {
       type: "prakriti";
       vata: number;

@@ -7,7 +7,16 @@ export const EMBED_MODEL = 'gemini-embedding-2';
 export const EMBED_DIMS = 768;
 export const DEFAULT_CHAT_MODEL = 'gemini-3.5-flash';
 
-export type Grounded = { answer: string; cited: string[]; personal: boolean; offTopic: boolean };
+export type Grounded = {
+  answer: string;
+  cited: string[];
+  personal: boolean;
+  offTopic: boolean;
+  /** Four short questions the person might ask next. */
+  followUps?: string[];
+  /** With a chart: the exact chart factors the answer rests on. */
+  behind?: string[];
+};
 
 export type PalmReading = { isPalm: boolean; overview: string; lines: { name: string; reading: string }[] };
 export type PalmImage = { data: string; mime: string; hand?: 'left' | 'right' };
@@ -85,7 +94,10 @@ Rules, always:
 - If CONVERSATION SO FAR is given, it is the earlier part of this chat: use it to understand the QUESTION and continue naturally, without repeating what Kosmik already said, but take facts only from SOURCES, CHART or PRAKRITI.
 - If the question has nothing to do with spirituality, astrology, tarot, Ayurveda or scriptures, set "off_topic" to true and gently say what you can help with.
 - Keep "answer" under {{WORDS}} words, short paragraphs, no headings, emojis rarely. Don't write source ids like "BG 2.47" in the answer text: cited verses are shown as cards below it. You may say "the Gita says".
-Reply with JSON only: {"answer": "...", "cited": ["..."], "personal": false, "off_topic": false}.`;
+- Voice: warm, direct and modern, like a wise friend who knows the subject: plain words, short paragraphs, no lectures. Use the person's name when you know it. Explain any Sanskrit or astrology term in a few words the first time.
+- "follow_ups": four short questions (at most 9 words each) this person would naturally ask next about their own situation, in the same language as the answer.
+- "behind": when a CHART or PRAKRITI is given, three to five short lines naming the exact factors you used (for example "10th lord Mercury in the 3rd house", "Saturn–Jupiter antardasha from 23 December 2026", "Saturn transiting your 7th house until June 2027"); otherwise an empty list.
+Reply with JSON only: {"answer": "...", "cited": ["..."], "personal": false, "off_topic": false, "follow_ups": ["..."], "behind": ["..."]}.`;
 
 const CAUTION: Record<AstroMode, string> = {
   safe: '- Astrology, tarot and palmistry are spiritual guidance and entertainment, not certainty. Never predict death, illness, accidents, divorce or guaranteed outcomes.',
@@ -135,8 +147,10 @@ const SCHEMA = {
     cited: { type: 'array', items: { type: 'string' } },
     personal: { type: 'boolean' },
     off_topic: { type: 'boolean' },
+    follow_ups: { type: 'array', items: { type: 'string' } },
+    behind: { type: 'array', items: { type: 'string' } },
   },
-  required: ['answer', 'cited', 'personal', 'off_topic'],
+  required: ['answer', 'cited', 'personal', 'off_topic', 'follow_ups', 'behind'],
 };
 
 export function buildSources(verses: Verse[], meanings: Meaning[]): string {
@@ -169,8 +183,18 @@ export function parseGrounded(output: unknown): Grounded | null {
     cited: Array.isArray(obj.cited) ? obj.cited.filter((c): c is string => typeof c === 'string') : [],
     personal: obj.personal === true,
     offTopic: obj.off_topic === true,
+    followUps: strings(obj.follow_ups, 4, 80),
+    behind: strings(obj.behind, 6, 160),
   };
 }
+
+const strings = (x: unknown, max: number, len: number) =>
+  Array.isArray(x)
+    ? x
+        .filter((v): v is string => typeof v === 'string' && v.trim().length > 2)
+        .map((v) => v.trim().slice(0, len))
+        .slice(0, max)
+    : [];
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
 const TIMEOUT_MS = 20_000;

@@ -47,7 +47,7 @@ test('answer sends the sources and parses the JSON reply', async () => {
   }));
   const ai = new GeminiAi({ apiKey: 'k', model: 'gemini-test', baseUrl: 'http://127.0.0.1:8788/' });
   const out = await ai.answer('exam ki tension', 'hinglish', sources);
-  assert.deepEqual(out, { answer: 'Focus on the work.', cited: ['BG 2.47'], personal: false, offTopic: false });
+  assert.deepEqual(out, { answer: 'Focus on the work.', cited: ['BG 2.47'], personal: false, offTopic: false, followUps: [], behind: [] });
   assert.equal(calls[0].url, 'http://127.0.0.1:8788/chat/completions');
   assert.equal(calls[0].body.model, 'gemini-test');
   assert.equal(calls[0].body.reasoning_effort, 'none');

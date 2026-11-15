@@ -26,6 +26,10 @@ export type Block =
       link: string;
     }
   | { type: 'herb-list'; title: string; total: number; herbs: { key: string; name: string; english: string; virya: string }[] }
+  /** The chart (or prakriti) factors an answer rests on, shown folded under it. */
+  | { type: 'behind'; points: string[] }
+  /** Questions to ask next; tapping one asks it. */
+  | { type: 'followups'; questions: string[] }
   | { type: 'prakriti'; vata: number; pitta: number; kapha: number; label: string; takenAt: number }
   | {
       type: 'notice';

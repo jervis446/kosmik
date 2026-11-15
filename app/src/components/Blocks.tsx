@@ -1,9 +1,62 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { Block } from "../lib/api";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { PrakritiBars } from "./Prakriti";
+
+/** Planets, houses and dates in an answer, picked out in the highlight colour. */
+const MARK =
+  /\b(Sun|Moon|Mars|Mercury|Jupiter|Venus|Saturn|Rahu|Ketu|Surya|Chandra|Mangal|Budh|Guru|Shukra|Shani|Sade Sati|Lagna|(?:1[0-2]|[1-9])(?:st|nd|rd|th) (?:house|lord)s?|(?:\d{1,2} )?(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec) (?:19|20)\d{2}|(?:mid-|early |late )?(?:19|20)\d{2})\b/g;
+
+export function highlight(text: string, color: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(MARK)) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(
+      <Text key={m.index} style={{ color }}>
+        {m[0]}
+      </Text>,
+    );
+    last = m.index + m[0].length;
+  }
+  out.push(text.slice(last));
+  return out;
+}
+
+/** "The astrology behind this": folded until tapped. */
+function Behind({ points }: { points: string[] }) {
+  const { colors } = useTheme();
+  const s = styles(colors);
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={{ gap: 8 }}>
+      <Pressable
+        onPress={() => setOpen(!open)}
+        style={s.behindBtn}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+      >
+        <Text style={{ color: colors.highlight }}>✦</Text>
+        <Text style={[s.body, { fontSize: 15 }]}>
+          The astrology behind this
+        </Text>
+        <Text style={{ color: colors.muted }}>{open ? "⌃" : "⌄"}</Text>
+      </Pressable>
+      {open ? (
+        <View style={s.behindBox} testID="behind">
+          {points.map((p) => (
+            <Text key={p} style={[s.body, { fontSize: 14 }]}>
+              <Text style={{ color: colors.highlight }}>• </Text>
+              {highlight(p, colors.highlight)}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 const cap = (d: string) => d[0].toUpperCase() + d.slice(1);
 const VIRYA: Record<string, string> = { Ushna: "heating", Sheeta: "cooling" };
@@ -42,7 +95,7 @@ export function Blocks({
           case "text":
             return (
               <Text key={i} style={s.body} selectable>
-                {b.text}
+                {highlight(b.text, colors.highlight)}
               </Text>
             );
           case "verse":
@@ -52,7 +105,6 @@ export function Blocks({
               <View key={i} style={s.card}>
                 <View style={s.row}>
                   <Text style={[s.title, { flex: 1 }]}>{b.title}</Text>
-                  {!b.reviewed ? <Text style={s.draft}>Draft</Text> : null}
                 </View>
                 <Text style={s.body} selectable>
                   {b.body}
@@ -223,6 +275,34 @@ export function Blocks({
                     <Text style={s.outlineBtnText}>Retake the quiz</Text>
                   </Pressable>
                 ) : null}
+              </View>
+            );
+          case "behind":
+            return <Behind key={i} points={b.points} />;
+          case "followups":
+            return (
+              <View key={i} style={{ gap: 8 }} testID="followups">
+                <Text style={s.mono}>ASK NEXT</Text>
+                <View style={s.nextGrid}>
+                  {b.questions.map((q) => (
+                    <Pressable
+                      key={q}
+                      onPress={onAsk ? () => onAsk(q) : undefined}
+                      disabled={!onAsk}
+                      style={({ pressed }) => [
+                        s.next,
+                        pressed && { borderColor: colors.primary },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ask: ${q}`}
+                    >
+                      <Text style={[s.body, { flex: 1, fontSize: 15 }]}>
+                        {q}
+                      </Text>
+                      <Text style={{ color: colors.muted }}>→</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             );
           case "notice":
@@ -416,16 +496,6 @@ const styles = (c: Colors) =>
       lineHeight: 22,
     },
     ref: { color: c.accent, fontFamily: font.bold, fontSize: 13 },
-    draft: {
-      color: c.accent,
-      backgroundColor: c.accentSoft,
-      fontFamily: font.bold,
-      fontSize: 11,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 999,
-      overflow: "hidden",
-    },
     notice: {
       backgroundColor: c.primarySoft,
       borderRadius: 16,
@@ -442,6 +512,43 @@ const styles = (c: Colors) =>
       justifyContent: "center",
     },
     noticeBtnText: { color: c.onPrimary, fontFamily: font.bold, fontSize: 15 },
+    mono: {
+      color: c.muted,
+      fontFamily: font.mono,
+      fontSize: 11,
+      letterSpacing: 2,
+    },
+    nextGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    next: {
+      flexBasis: 240,
+      flexGrow: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      borderWidth: 1,
+      borderColor: c.line,
+      borderRadius: 999,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      minHeight: 46,
+    },
+    behindBtn: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      borderWidth: 1,
+      borderColor: c.line,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      minHeight: 42,
+    },
+    behindBox: {
+      borderLeftWidth: 2,
+      borderLeftColor: c.primary,
+      paddingLeft: 12,
+      gap: 6,
+    },
     outlineBtn: {
       alignSelf: "flex-start",
       borderWidth: 1,
