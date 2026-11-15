@@ -276,3 +276,180 @@ const styles = (c: Colors) =>
     },
     fill: { height: 8, borderRadius: 4, backgroundColor: c.primary },
   });
+
+type Sign = "v" | "p" | "k" | "n";
+
+/** Ten questions about the last few weeks. Options: balanced, then Vata, Pitta and Kapha signs. */
+const VIKRITI_QUESTIONS: [string, [string, string, string, string]][] = [
+  [
+    "Appetite and digestion",
+    [
+      "Regular and comfortable",
+      "Irregular; gas or bloating",
+      "Very strong; acidity or burning if a meal is late",
+      "Low; heavy and slow after meals",
+    ],
+  ],
+  [
+    "Bowel movements",
+    [
+      "Regular and easy",
+      "Dry, hard or irregular",
+      "Loose or frequent",
+      "Sluggish, sticky or heavy",
+    ],
+  ],
+  [
+    "Sleep",
+    [
+      "Restful",
+      "Light or broken; hard to fall asleep",
+      "Waking hot or in the small hours; vivid dreams",
+      "Too long, groggy on waking",
+    ],
+  ],
+  [
+    "Energy",
+    [
+      "Steady through the day",
+      "Comes and goes; I tire quickly",
+      "Driven, but close to burning out",
+      "Low, heavy, unmotivated",
+    ],
+  ],
+  [
+    "Mind and mood",
+    [
+      "Calm and clear",
+      "Anxious, worried or scattered",
+      "Irritable, impatient or critical",
+      "Dull, low or withdrawn",
+    ],
+  ],
+  [
+    "Skin",
+    [
+      "Normal",
+      "Dry, rough or cracking",
+      "Rashes, redness or acne",
+      "Oily, puffy or congested",
+    ],
+  ],
+  [
+    "Body temperature",
+    [
+      "Comfortable",
+      "Cold; cold hands and feet",
+      "Hot; sweating more than usual",
+      "Heavy and damp; chilly in damp weather",
+    ],
+  ],
+  [
+    "Body",
+    [
+      "Feels normal",
+      "Stiffness, aches or cracking joints",
+      "Heat, burning eyes or inflammation",
+      "Mucus, congestion or water retention",
+    ],
+  ],
+  [
+    "Cravings",
+    [
+      "Nothing in particular",
+      "Warm, salty or crunchy food",
+      "Cold drinks and sweets",
+      "Sweets, heavy or comfort food",
+    ],
+  ],
+  [
+    "Weight",
+    ["Stable", "Losing weight", "Stable, but very thirsty", "Gaining weight"],
+  ],
+];
+const SIGNS: Sign[] = ["n", "v", "p", "k"];
+
+/** The vikriti check: the current state of the doshas and the agni. */
+export function VikritiQuiz({ onSaved }: { onSaved: () => void }) {
+  const { colors } = useTheme();
+  const s = styles(colors);
+  const [answers, setAnswers] = useState<(Sign | null)[]>(
+    VIKRITI_QUESTIONS.map(() => null),
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const done = answers.filter(Boolean).length;
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.saveVikriti(answers as Sign[]);
+      track("details/vikriti-saved");
+      onSaved();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <View style={{ gap: 16 }}>
+      <Text style={s.small}>
+        Think only about the last two to four weeks, not your whole life.
+      </Text>
+      {VIKRITI_QUESTIONS.map(([q, options], i) => (
+        <View
+          key={q}
+          style={{ gap: 6 }}
+          accessibilityRole="radiogroup"
+          accessibilityLabel={q}
+        >
+          <Text style={s.label}>
+            {i + 1}. {q}
+          </Text>
+          {options.map((o, j) => {
+            const selected = answers[i] === SIGNS[j];
+            return (
+              <Pressable
+                key={o}
+                onPress={() =>
+                  setAnswers((a) => a.map((x, k) => (k === i ? SIGNS[j] : x)))
+                }
+                style={[s.option, selected && s.optionOn]}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                accessibilityLabel={o}
+              >
+                <Text style={s.optionText}>{o}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
+      <Text style={s.small}>
+        Saved to your account. A self-assessment, not a diagnosis.
+      </Text>
+      {error ? <Text style={s.error}>{error}</Text> : null}
+      <Pressable
+        onPress={save}
+        disabled={done < VIKRITI_QUESTIONS.length || saving}
+        style={[
+          s.primary,
+          (done < VIKRITI_QUESTIONS.length || saving) && { opacity: 0.4 },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Save my vikriti"
+      >
+        {saving ? (
+          <ActivityIndicator color={colors.onPrimary} />
+        ) : (
+          <Text style={s.primaryText}>
+            {done < VIKRITI_QUESTIONS.length
+              ? `${done} of ${VIKRITI_QUESTIONS.length} answered`
+              : "Save my vikriti"}
+          </Text>
+        )}
+      </Pressable>
+    </View>
+  );
+}

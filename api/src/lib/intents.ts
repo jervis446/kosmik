@@ -17,7 +17,12 @@ export type Intent =
   | { type: 'palm' }
   | { type: 'daily-horoscope' }
   | { type: 'herb'; key: string }
-  | { type: 'herb-list'; dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: 'Ushna' | 'Sheeta' }
+  | { type: 'herb-list'; dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: 'Ushna' | 'Sheeta'; rasa?: string[]; guna?: string[]; vipaka?: string }
+  | { type: 'herb-compare'; keys: string[] }
+  /** The ritu (Ayurvedic season) running now, with its guidance. */
+  | { type: 'ritu' }
+  /** The person's current state: show it, or (quiz) open the check. */
+  | { type: 'vikriti'; quiz: boolean }
   /** The person's own prakriti: show it, or (quiz) open the quiz. */
   | { type: 'prakriti'; quiz: boolean }
   /** A herb for a health problem, or a dose: Kosmik doesn't advise; it shows the herb card if one is named. */
@@ -84,6 +89,55 @@ const doshaIn = (text: string) => DOSHA.find(([, re]) => re.test(text))?.[0];
 const PRAKRITI_SELF =
   /\b(my|mera|meri|mere|mujhe|mujhko|apna|apni)\b.{0,30}\b(prakriti|prakruti|prakrati|dosha|doshas|dosh|body type|constitution)\b|\b(which|what) dosha (am i|do i have|i have)\b|\b(prakriti|prakruti|dosha|body type) (quiz|test|analysis|assessment)\b|मेरी प्रकृति|मेरा दोष/;
 const QUIZ = /\b(quiz|test|retake|redo|take|find out)\b/;
+export const VIKRITI_SELF =
+  /\b(my|mera|meri|mere|mujhe|check|test|quiz)\b.{0,30}\b(vikriti|vikruti|imbalance|current dosha|dosha imbalance|agni|digestive fire|digestion type)\b|\b(vikriti|vikruti) (quiz|test|check|analysis)\b|मेरी विकृति/;
+const RITU = /\b(ritu|rutu|ritus|season|seasonal|mausam)\b|ऋतु/;
+const NOW = /\b(now|current|currently|this|abhi|aaj|today|kaunsa|kaun sa|which|chal raha|running|routine|ritucharya|diet|eat|food|khana)\b/;
+const DEFINE = /\b(what is|whats|what are|meaning|mean|means|define|explain|about|kya hai|kya hota|kise kehte|samjhao)\b/;
+
+const RASAS: [string, RegExp][] = [
+  ['Madhura', /\b(madhura|madhur|sweet)\b/],
+  ['Amla', /\b(amla rasa|amla taste|sour)\b/],
+  ['Lavana', /\b(lavana|lavan|salty)\b/],
+  ['Katu', /\b(katu|pungent)\b/],
+  ['Tikta', /\b(tikta|tikt|bitter)\b/],
+  ['Kashaya', /\b(kashaya|kasaya|kashay|astringent)\b/],
+];
+const GUNAS: [string, RegExp][] = [
+  ['Laghu', /\b(laghu|light)\b/],
+  ['Guru', /\b(guru guna|heavy)\b/],
+  ['Snigdha', /\b(snigdha|unctuous|oily)\b/],
+  ['Ruksha', /\b(ruksha|ruksh|dry)\b/],
+  ['Tikshna', /\b(tikshna|teekshna|sharp)\b/],
+];
+
+/** Ayurveda terms with their own library entry. */
+const CONCEPTS: [string, RegExp][] = [
+  ['rasa-madhura', /\b(madhura|madhur) rasa\b|\bsweet taste\b/],
+  ['rasa-amla', /\bamla rasa\b|\bsour taste\b/],
+  ['rasa-lavana', /\b(lavana|lavan) rasa\b|\bsalty taste\b/],
+  ['rasa-katu', /\bkatu rasa\b|\bpungent taste\b/],
+  ['rasa-tikta', /\b(tikta|tikt) rasa\b|\bbitter taste\b/],
+  ['rasa-kashaya', /\b(kashaya|kasaya) rasa\b|\bastringent taste\b/],
+  ['vipaka', /\b(vipaka|vipak|post digestive)\b/],
+  ['virya', /\b(virya|veerya|viryam)\b/],
+  ['prabhava', /\b(prabhava|prabhav)\b/],
+  ['guna', /\b(gurvadi|guna|gunas)\b(?! of)/],
+  ['agni', /\b(agni|jatharagni|digestive fire)\b/],
+  ['ama', /\b(ama|aam|aama)\b/],
+  ['ojas', /\b(ojas|oja)\b/],
+  ['dhatu', /\b(dhatu|dhatus|sapta dhatu)\b/],
+  ['mala', /\b(mala|malas)\b/],
+  ['srotas', /\b(srotas|srota|strotas)\b/],
+  ['dinacharya', /\b(dinacharya|dincharya)\b/],
+  ['ritucharya', /\b(ritucharya|rituchariya)\b/],
+  ['panchakarma', /\b(panchakarma|panch karma|panchkarma)\b/],
+  ['tridosha', /\b(tridosha|three doshas|tridosh)\b/],
+  ['manas-prakriti', /\b(sattva|satva|rajas|tamas|triguna|manas prakriti)\b/],
+  ['vikriti', /\b(vikriti|vikruti)\b/],
+  ['prakriti', /\b(prakriti|prakruti)\b/],
+  ['rasa', /\b(rasa|six tastes|shad rasa)\b/],
+];
 const ADVICE = /\b(eat|eating|food|foods|diet|khana|khaana|meal|meals|routine|dinacharya|lifestyle|exercise|yoga|sleep|herbs?|jadi ?buti|avoid|should i|tips|balance|season|ritucharya|drink)\b/;
 const HERB_WORD = /\b(herbs?|herbal|jadi ?butis?|jadibuti|jadiyan|plants?|dravyas?|aushadhi|aushadh)\b|जड़ी/;
 const HERB_CONTEXT =
@@ -100,6 +154,24 @@ const tokens = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').t
 for (const [key, names] of HERB_INDEX) for (const n of names) if (!HERB_NAMES.has(tokens(n))) HERB_NAMES.set(tokens(n), key);
 for (const [key, , synonyms] of HERB_INDEX) for (const n of synonyms) if (!HERB_NAMES.has(tokens(n)) && !HERB_SYNONYMS.has(tokens(n))) HERB_SYNONYMS.set(tokens(n), key);
 
+/** Every herb named in the question, in order (for comparisons). */
+export function findHerbs(text: string): string[] {
+  const words = tokens(text).split(' ');
+  const out: string[] = [];
+  for (let i = 0; i < words.length; ) {
+    let hit: { key: string; n: number } | undefined;
+    for (let n = 4; n >= 1 && !hit; n--) {
+      const key = HERB_NAMES.get(words.slice(i, i + n).join(' '));
+      if (key) hit = { key, n };
+    }
+    if (hit) {
+      if (!out.includes(hit.key)) out.push(hit.key);
+      i += hit.n;
+    } else i++;
+  }
+  return out;
+}
+
 /** The herb named in the question, by name, English or botanical name, or a Sanskrit synonym. */
 export function findHerb(text: string, synonyms: boolean): string | undefined {
   const words = tokens(text).split(' ');
@@ -114,17 +186,31 @@ export function findHerb(text: string, synonyms: boolean): string | undefined {
 
 /** Ayurveda questions Kosmik can answer from the herb and dosha libraries. */
 function ayurvedaIntent(text: string): Intent | undefined {
+  if (VIKRITI_SELF.test(text) && !DEFINE.test(text.replace(/\b(my|mera|meri)\b.*/, ''))) return { type: 'vikriti', quiz: QUIZ.test(text) };
   if (PRAKRITI_SELF.test(text)) {
     if (ADVICE.test(text)) return { type: 'prakriti-advice' };
     return { type: 'prakriti', quiz: QUIZ.test(text) };
   }
+  if ((RITU.test(text) && NOW.test(text)) || (/\britucharya\b/.test(text) && !DEFINE.test(text))) return { type: 'ritu' };
   const named = findHerb(text, true);
   if (HEALTH.test(text) && (named || HERB_WORD.test(text) || /\b(ayurved\w*)\b|आयुर्वेद/.test(text))) return named ? { type: 'herb-health', key: named } : { type: 'herb-health' };
+  const both = findHerbs(text);
+  if (both.length >= 2 && /\b(compare|comparison|vs|versus|difference|differ|better|or|ya|aur|and|between|kaun)\b/.test(text)) return { type: 'herb-compare', keys: both.slice(0, 3) };
   const dosha = doshaIn(text);
   const virya = /\b(cooling|cool|thanda|thandi|sheeta|sheet)\b/.test(text) ? 'Sheeta' : /\b(warming|heating|hot|garam|ushna)\b/.test(text) ? 'Ushna' : undefined;
-  if (HERB_WORD.test(text) && (dosha || virya)) {
+  const vipakaM = /\b(madhura|madhur|amla|katu) vipaka?\b/.exec(text);
+  const vipaka = vipakaM ? { madhura: 'Madhura', madhur: 'Madhura', amla: 'Amla', katu: 'Katu' }[vipakaM[1]] : undefined;
+  const rest = vipakaM ? text.replace(vipakaM[0], ' ') : text;
+  const rasa = RASAS.filter(([, re]) => re.test(rest)).map(([r]) => r);
+  const guna = GUNAS.filter(([, re]) => re.test(rest)).map(([g]) => g);
+  if (HERB_WORD.test(text) && (dosha || virya || vipaka || rasa.length || guna.length)) {
     const effect = /\b(increase|increases|increasing|aggravate|aggravates|aggravating|worsen|worsens|raise|raises|badhate|badhati|badhata|badhaye|badhane)\b/.test(text) ? 'aggravate' : 'pacify';
-    return { type: 'herb-list', dosha, effect, virya: dosha ? undefined : virya };
+    const props = { ...(vipaka ? { vipaka } : {}), ...(rasa.length ? { rasa } : {}), ...(guna.length ? { guna } : {}) };
+    return { type: 'herb-list', dosha, effect, virya, ...props };
+  }
+  const concept = CONCEPTS.find(([, re]) => re.test(text));
+  if (concept && (DEFINE.test(text) || text.split(' ').length <= 3) && !(concept[0] === 'ama' && findHerb(text, false))) {
+    return { type: 'meaning', kind: 'ayurveda', key: concept[0] };
   }
   const words = text.split(' ').length;
   if (dosha && (words <= 3 || /\b(what is|whats|meaning|mean|means|about|explain|kya hai|kya hota|kise kehte)\b/.test(text)) && !findHerb(text, false)) {
@@ -168,7 +254,7 @@ export function matchIntent(question: string): Intent | undefined {
   const rashi = findAlias(RASHIS, text);
   if (graha && rashi) return { type: 'meaning', kind: 'graha-rashi', key: `${graha.key}:${rashi.key}` };
 
-  if (PRAKRITI_SELF.test(text)) return ayurvedaIntent(text);
+  if (PRAKRITI_SELF.test(text) || VIKRITI_SELF.test(text)) return ayurvedaIntent(text);
   if (PALM.test(text)) return { type: 'palm' };
   if (PERSONAL.test(text)) return { type: 'needs-chart' };
 

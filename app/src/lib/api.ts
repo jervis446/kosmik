@@ -64,6 +64,48 @@ export type Block =
       description: string;
       caution: boolean;
       link: string;
+      synonyms?: string[];
+      parts?: string[];
+    }
+  | {
+      type: "herb-compare";
+      herbs: {
+        key: string;
+        name: string;
+        english: string;
+        botanical: string;
+        rasa: string[];
+        guna: string[];
+        virya: string;
+        vipaka: string;
+        pacify: string[];
+        aggravate: string[];
+        parts: string[];
+      }[];
+    }
+  | {
+      type: "ritu";
+      ritu: string;
+      sanskrit: string;
+      months: string;
+      ayana: string;
+      strength: string;
+      rasa: string;
+      doshas: string;
+      favour: string[];
+      avoid: string[];
+      routine: string[];
+      next: string;
+    }
+  | {
+      type: "vikriti";
+      vata: number;
+      pitta: number;
+      kapha: number;
+      aggravated: string[];
+      agni: string;
+      takenAt: number;
+      prakriti: string | null;
     }
   | {
       type: "herb-list";
@@ -89,6 +131,7 @@ export type Block =
         | "needs-details"
         | "needs-palm"
         | "needs-prakriti"
+        | "needs-vikriti"
         | "coming-soon"
         | "limit"
         | "sign-in"
@@ -174,6 +217,15 @@ export type Snapshot = {
 };
 
 export type Hand = "left" | "right";
+export type Vikriti = {
+  vata: number;
+  pitta: number;
+  kapha: number;
+  agni: string;
+  agniLabel: string;
+  aggravated: string[];
+  takenAt: number;
+};
 export type Prakriti = {
   vata: number;
   pitta: number;
@@ -270,7 +322,13 @@ export const api = {
       details: BirthDetails | null;
       palms: Record<Hand, number | null>;
       prakriti: Prakriti | null;
+      vikriti: Vikriti | null;
     }>("/api/profile"),
+  saveVikriti: (answers: ("v" | "p" | "k" | "n")[]) =>
+    call<{ vikriti: Vikriti }>("/api/vikriti", {
+      method: "PUT",
+      body: JSON.stringify({ answers }),
+    }),
   startPhone: (phone: string) =>
     call<{ phone: string }>("/api/phone/start", {
       method: "POST",

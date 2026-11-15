@@ -29,6 +29,11 @@ test('intents: herbs, herb lists, doshas and prakriti are recognised; astrology 
   assert.deepEqual(matchIntent('haldi ke fayde'), { type: 'herb', key: 'haridra' });
   assert.deepEqual(matchIntent('Withania somnifera'), { type: 'herb', key: 'ashwagandha' });
   assert.deepEqual(matchIntent('Which herbs balance Pitta?'), { type: 'herb-list', dosha: 'pitta', effect: 'pacify', virya: undefined });
+  assert.deepEqual(matchIntent('herbs with tikta rasa and sheeta virya'), { type: 'herb-list', dosha: undefined, effect: 'pacify', virya: 'Sheeta', rasa: ['Tikta'] });
+  assert.deepEqual(matchIntent('Compare ashwagandha and shatavari'), { type: 'herb-compare', keys: ['ashwagandha', 'shatavari'] });
+  assert.deepEqual(matchIntent('what is vipaka'), { type: 'meaning', kind: 'ayurveda', key: 'vipaka' });
+  assert.deepEqual(matchIntent('which ritu is it now'), { type: 'ritu' });
+  assert.deepEqual(matchIntent('check my vikriti'), { type: 'vikriti', quiz: false });
   assert.deepEqual(matchIntent('herbs that increase kapha'), { type: 'herb-list', dosha: 'kapha', effect: 'aggravate', virya: undefined });
   assert.deepEqual(matchIntent('cooling herbs'), { type: 'herb-list', dosha: undefined, effect: 'pacify', virya: 'Sheeta' });
   assert.deepEqual(matchIntent('What is vata dosha?'), { type: 'meaning', kind: 'dosha', key: 'vata' });
@@ -81,4 +86,12 @@ test('herb SQL: lists by dosha leave out herbs that raise it and poisonous plant
   assert.deepEqual(await ay.prakriti('u1'), { vata: 0, pitta: 0, kapha: 100, takenAt: 2000 });
   await new D1Profiles(db).deleteAll('u1');
   assert.equal(await ay.prakriti('u1'), null);
+});
+
+test('vikriti: scored from ten answers; the first gives the agni', async () => {
+  const { scoreVikriti, aggravated } = await import('../src/ayurveda.ts');
+  const v = scoreVikriti(['p', 'p', 'p', 'v', 'n', 'n', 'p', 'k', 'v', 'n']);
+  assert.deepEqual(v, { vata: 2, pitta: 4, kapha: 1, agni: 'tikshna' });
+  assert.deepEqual(aggravated(v), ['pitta']);
+  assert.throws(() => scoreVikriti(['p']), /Answer all 10/);
 });

@@ -19,7 +19,7 @@ import {
   type Place,
 } from "../lib/api";
 import { pickPalmPhoto } from "../lib/palm";
-import { PrakritiQuiz } from "./Prakriti";
+import { PrakritiQuiz, VikritiQuiz } from "./Prakriti";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { track } from "../lib/analytics";
 
@@ -513,7 +513,7 @@ export function DetailsModal({
   onClose,
   onDone,
 }: {
-  kind: "birth" | "palm" | "prakriti" | null;
+  kind: "birth" | "palm" | "prakriti" | "vikriti" | null;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -541,7 +541,9 @@ export function DetailsModal({
                 ? "Add your palm photos"
                 : shown === "prakriti"
                   ? "Your dosha quiz"
-                  : "Your birth details"}
+                  : shown === "vikriti"
+                    ? "Your vikriti check"
+                    : "Your birth details"}
             </Text>
             <Pressable
               onPress={onClose}
@@ -558,9 +560,12 @@ export function DetailsModal({
                 ? "Kosmik reads both hands. Add them once and every palm question uses them."
                 : shown === "prakriti"
                   ? "Twelve quick questions. Your answers give your prakriti, the mix of Vata, Pitta and Kapha Ayurveda says you were born with."
-                  : "Kosmik calculates your chart from these. Add them once and every chart question uses them."}
+                  : shown === "vikriti"
+                    ? "Ten questions about how you have been lately. They show which dosha is raised right now, and your agni."
+                    : "Kosmik calculates your chart from these. Add them once and every chart question uses them."}
             </Text>
             {shown === "prakriti" ? <PrakritiQuiz onSaved={onDone} /> : null}
+            {shown === "vikriti" ? <VikritiQuiz onSaved={onDone} /> : null}
             {shown === "birth" ? <BirthForm onSaved={onDone} /> : null}
             {shown === "palm" ? (
               <>

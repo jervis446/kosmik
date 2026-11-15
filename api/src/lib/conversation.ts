@@ -57,6 +57,12 @@ export function summariseBlocks(blocks: Block[]): string {
         return [`[Based on: ${b.points.join('; ')}]`];
       case 'followups':
         return [];
+      case 'herb-compare':
+        return [`[Compared: ${b.herbs.map((h) => h.name).join(' and ')}]`];
+      case 'ritu':
+        return [`[Current ritu: ${b.ritu}]`];
+      case 'vikriti':
+        return [`[Their current state (vikriti): ${b.aggravated.join(', ') || 'balanced'}; agni ${b.agni}]`];
     }
   });
   return parts.join(' ');

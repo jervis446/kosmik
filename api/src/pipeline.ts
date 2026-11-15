@@ -17,7 +17,8 @@ import { GRAHAS, ordinal, RASHIS, NAKSHATRAS, TAROT } from './lib/catalog.ts';
 import { calculateChart, type Chart } from './lib/chart.ts';
 import { type Profile, type Profiles, toBirth } from './profiles.ts';
 import type { AnswerCache, History, Library, Usage, VectorSearch } from './store.ts';
-import { type Ayurveda, dominant, type Dosha, herbBlock, type Prakriti, prakritiBlock, prakritiLabel } from './ayurveda.ts';
+import { aggravated, AGNI_LABEL, type Ayurveda, dominant, type Dosha, herbBlock, type HerbFilter, type Prakriti, prakritiBlock, prakritiLabel, type Vikriti, vikritiBlock } from './ayurveda.ts';
+import { rituAt } from './lib/ritu.ts';
 import type { AskResult, Block, CacheEntry, Layer, Meaning, Verse } from './types.ts';
 
 export const MAX_QUESTION = 500;
@@ -135,6 +136,22 @@ const T = {
     hi: 'आपकी अपनी प्रकृति से जवाब देने के लिए Kosmik को आपका दोष क्विज़ चाहिए। लगभग दो मिनट लगते हैं और यह अगली बार के लिए सहेजा जाता है। यह सवाल गिना नहीं गया।',
     hinglish: 'Aapki apni prakriti se jawaab dene ke liye Kosmik ko aapka dosha quiz chahiye. Lagbhag do minute lagte hain aur agli baar ke liye save ho jaata hai. Yeh sawaal count nahi hua.',
   },
+  needsVikriti: {
+    en: 'To see your current state (vikriti), answer 10 quick questions about the last few weeks. It also tells you your agni (digestive fire). This question wasn’t counted.',
+    hi: 'अपनी वर्तमान अवस्था (विकृति) जानने के लिए पिछले कुछ हफ़्तों के बारे में 10 छोटे सवालों के जवाब दें। इससे आपकी अग्नि भी पता चलेगी। यह सवाल गिना नहीं गया।',
+    hinglish: 'Apni current state (vikriti) jaanne ke liye pichhle kuch hafton ke baare mein 10 chhote sawaalon ke jawaab dijiye. Isse aapki agni bhi pata chalegi. Yeh sawaal count nahi hua.',
+  },
+  vikritiIntro: {
+    en: 'Your current state (vikriti), from your check. It is a self-assessment for reflection, not a diagnosis.',
+    hi: 'आपकी जाँच से आपकी वर्तमान अवस्था (विकृति)। यह आत्म-मूल्यांकन है, निदान नहीं।',
+    hinglish: 'Aapke check se aapki current state (vikriti). Yeh self-assessment hai, diagnosis nahi.',
+  },
+  rituIntro: {
+    en: 'The ritu (Ayurvedic season) right now, worked out from the Sun’s sidereal sign:',
+    hi: 'अभी की ऋतु, सूर्य की निरयन राशि से निकाली गई:',
+    hinglish: 'Abhi ki ritu (Ayurvedic season), Surya ki sidereal rashi se nikaali gayi:',
+  },
+  compareIntro: { en: 'Side by side, as Dravyaguna describes them:', hi: 'द्रव्यगुण के अनुसार, साथ-साथ:', hinglish: 'Dravyaguna ke hisaab se, side by side:' },
   takeQuiz: {
     en: 'Answer 12 quick questions about your body and nature, and Kosmik will save your prakriti.',
     hi: 'अपने शरीर और स्वभाव के बारे में 12 छोटे सवालों के जवाब दें, और Kosmik आपकी प्रकृति सहेज लेगा।',
@@ -276,6 +293,16 @@ export async function ask(
     return chartOutcome(profile);
   }
 
+  // The person's current state (vikriti), from its own short check.
+  if (intent?.type === 'vikriti') {
+    const v = userId ? await deps.ayurveda.vikriti(userId) : null;
+    if (!v || intent.quiz) return finish('direct', [{ type: 'notice', kind: 'needs-vikriti', text: T.needsVikriti[lang] }], { count: false });
+    const p = userId ? await deps.ayurveda.prakriti(userId) : null;
+    const up = aggravated(v);
+    const care = await deps.library.meanings(up.slice(0, 2).map((d) => `prakriti-care/${d}`));
+    return finish('direct', [{ type: 'text', text: T.vikritiIntro[lang] }, vikritiBlock(v, p), ...care.map((m): Block => ({ type: 'meaning', ...m }))], { count: false });
+  }
+
   // Ayurveda for the person's own prakriti uses their saved quiz result.
   if (intent?.type === 'prakriti' || intent?.type === 'prakriti-advice') {
     const prakriti = userId ? await deps.ayurveda.prakriti(userId) : null;
@@ -285,7 +312,8 @@ export async function ask(
     if (intent.type === 'prakriti') return finish('direct', await prakritiAnswer(deps, prakriti, lang), { count: false });
     let blocks: Block[];
     try {
-      blocks = await prakritiAdvice(deps, q, lang, prakriti, conversation);
+      const current = userId ? await deps.ayurveda.vikriti(userId) : null;
+      blocks = await prakritiAdvice(deps, q, lang, prakriti, conversation, current);
     } catch (err) {
       return busy(err);
     }
@@ -435,7 +463,7 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number)
     case 'meaning': {
       const m = await deps.library.meaning(intent.kind, intent.key);
       if (!m) return null;
-      const intro = intent.kind.startsWith('tarot') ? T.tarotMeaning[lang] : T.meaning[lang];
+      const intro = intent.kind.startsWith('tarot') ? T.tarotMeaning[lang] : ['ayurveda', 'dosha', 'prakriti-care'].includes(intent.kind) ? T.herbIntro[lang] : T.meaning[lang];
       return { blocks: [{ type: 'text', text: intro }, { type: 'meaning', ...m }], counts: true };
     }
     case 'herb': {
@@ -449,7 +477,8 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number)
       return { blocks: [{ type: 'text', text: T.herbHealth[lang] }, ...(h ? [herbBlock(h)] : [])], counts: false };
     }
     case 'herb-list': {
-      const { herbs, total } = await deps.ayurveda.findHerbs(intent, HERB_LIST);
+      const filter: HerbFilter = { dosha: intent.dosha, effect: intent.effect, virya: intent.virya, rasa: intent.rasa, guna: intent.guna, vipaka: intent.vipaka };
+      const { herbs, total } = await deps.ayurveda.findHerbs(filter, HERB_LIST);
       if (!herbs.length) return null;
       return {
         blocks: [
@@ -459,10 +488,48 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number)
         counts: true,
       };
     }
+    case 'herb-compare': {
+      const hs = await deps.ayurveda.herbs(intent.keys);
+      if (hs.length < 2) return null;
+      return {
+        blocks: [
+          { type: 'text', text: T.compareIntro[lang] },
+          {
+            type: 'herb-compare',
+            herbs: hs.map((h) => ({ key: h.key, name: h.name, english: h.english, botanical: h.botanical, rasa: h.rasa, guna: h.guna, virya: h.virya, vipaka: h.vipaka, pacify: h.pacify, aggravate: h.aggravate, parts: h.parts })),
+          },
+        ],
+        counts: true,
+      };
+    }
+    case 'ritu': {
+      const { now: r, next, nextFrom } = rituAt(new Date(now));
+      return {
+        blocks: [
+          { type: 'text', text: T.rituIntro[lang] },
+          {
+            type: 'ritu',
+            ritu: r.ritu,
+            sanskrit: r.sanskrit,
+            months: r.months,
+            ayana: r.ayana,
+            strength: r.strength,
+            rasa: r.rasa,
+            doshas: r.doshas,
+            favour: r.favour,
+            avoid: r.avoid,
+            routine: r.routine,
+            next: `${next.ritu} begins around ${new Date(nextFrom).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })}`,
+          },
+        ],
+        counts: true,
+      };
+    }
     case 'needs-chart':
     case 'palm':
     case 'prakriti':
     case 'prakriti-advice':
+    case 'vikriti':
       return null; // handled in ask(): they need the person's saved details
     case 'daily-horoscope':
       return { blocks: [{ type: 'notice', kind: 'coming-soon', text: T.horoscope[lang] }], counts: false };
@@ -600,9 +667,16 @@ function extras(g: { followUps?: string[]; behind?: string[]; offTopic?: boolean
 }
 const cap = (d: string) => d[0].toUpperCase() + d.slice(1);
 
-export function herbListTitle(f: { dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: string }): string {
-  if (f.dosha) return f.effect === 'pacify' ? `Herbs that balance ${cap(f.dosha)}` : `Herbs that may increase ${cap(f.dosha)}`;
-  return f.virya === 'Sheeta' ? 'Cooling (sheeta) herbs' : 'Heating (ushna) herbs';
+export function herbListTitle(f: { dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: string; rasa?: string[]; guna?: string[]; vipaka?: string }): string {
+  const props = [
+    ...(f.rasa ?? []).map((r) => `${r.toLowerCase()} rasa`),
+    ...(f.guna ?? []).map((g) => g.toLowerCase()),
+    ...(f.virya ? [f.virya === 'Sheeta' ? 'sheeta (cooling) virya' : 'ushna (heating) virya'] : []),
+    ...(f.vipaka ? [`${f.vipaka.toLowerCase()} vipaka`] : []),
+  ];
+  const base = f.dosha ? (f.effect === 'pacify' ? `Herbs that balance ${cap(f.dosha)}` : `Herbs that may increase ${cap(f.dosha)}`) : 'Herbs';
+  if (!props.length) return f.dosha ? base : f.virya === 'Sheeta' ? 'Cooling (sheeta) herbs' : 'Heating (ushna) herbs';
+  return `${base} with ${props.join(', ')}`;
 }
 
 /** Library meanings as cards: herbs get their full herb card. */
@@ -623,11 +697,13 @@ async function prakritiAnswer(deps: Deps, p: Prakriti, lang: Lang): Promise<Bloc
 }
 
 /** Diet, routine or herb questions about the person's own prakriti, answered from their quiz result. */
-async function prakritiAdvice(deps: Deps, question: string, lang: Lang, p: Prakriti, conversation?: string): Promise<Block[]> {
+async function prakritiAdvice(deps: Deps, question: string, lang: Lang, p: Prakriti, conversation: string | undefined, v: Vikriti | null): Promise<Block[]> {
   const lead = dominant(p).slice(0, 2);
   const { herbs } = await deps.ayurveda.findHerbs({ dosha: lead[0], effect: 'pacify' }, 4);
   const meanings = await deps.library.meanings([...lead.flatMap((d) => [`dosha/${d}`, `prakriti-care/${d}`]), ...herbs.map((h) => `herb/${h.key}`)]);
-  const facts = `PRAKRITI (the person's own dosha self-assessment quiz): Vata ${p.vata}%, Pitta ${p.pitta}%, Kapha ${p.kapha}% (${prakritiLabel(p)}).`;
+  const facts = `PRAKRITI (the person's own dosha self-assessment quiz): Vata ${p.vata}%, Pitta ${p.pitta}%, Kapha ${p.kapha}% (${prakritiLabel(p)}).${
+    v ? `\nVIKRITI now (short check of the last few weeks; signs out of 10): Vata ${v.vata}, Pitta ${v.pitta}, Kapha ${v.kapha}; raised: ${aggravated(v).join(', ') || 'none'}; ${AGNI_LABEL[v.agni]}. Balance the raised dosha first.` : ''
+  }`;
   let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts, conversation);
   if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts, conversation);
   if (contentProblems(grounded.answer).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];

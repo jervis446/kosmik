@@ -8,11 +8,11 @@ import { calculateChart } from '../src/lib/chart.ts';
 import type { AnswerCache, History, Library, Namespace, PastMessage, Usage, VectorSearch } from '../src/store.ts';
 import { topK } from '../src/lib/vectors.ts';
 import type { Block, Meaning, Verse } from '../src/types.ts';
-import type { Herb, Prakriti } from '../src/ayurveda.ts';
+import type { Herb, Prakriti, Vikriti } from '../src/ayurveda.ts';
 
 const herbs: Herb[] = [
-  { key: 'tulsi', name: 'Tulsi', english: 'Holy Basil', botanical: 'Ocimum sanctum', rasa: ['Katu', 'Tikta'], guna: ['Laghu'], virya: 'Ushna', vipaka: 'Katu', pacify: ['vata', 'kapha'], aggravate: ['pitta'], parts: ['Patra'], description: 'In Ayurveda, Tulsi is traditionally used to support clarity.', caution: false, link: 'https://www.amidhaayurveda.com/p/tulsi.html' },
-  { key: 'amla', name: 'Amla', english: 'Indian Gooseberry', botanical: 'Emblica officinalis', rasa: ['Amla'], guna: ['Laghu'], virya: 'Sheeta', vipaka: 'Madhura', pacify: ['vata', 'pitta', 'kapha'], aggravate: [], parts: ['Phala'], description: 'In Ayurveda, Amla is traditionally valued as a rasayana.', caution: false, link: 'https://www.amidhaayurveda.com/p/amla.html' },
+  { key: 'tulsi', name: 'Tulsi', english: 'Holy Basil', botanical: 'Ocimum sanctum', rasa: ['Katu', 'Tikta'], guna: ['Laghu'], virya: 'Ushna', vipaka: 'Katu', pacify: ['vata', 'kapha'], aggravate: ['pitta'], parts: ['Patra'], synonyms: ['Surasa'], description: 'In Ayurveda, Tulsi is traditionally used to support clarity.', caution: false, link: 'https://www.amidhaayurveda.com/p/tulsi.html' },
+  { key: 'amla', name: 'Amla', english: 'Indian Gooseberry', botanical: 'Emblica officinalis', rasa: ['Amla'], guna: ['Laghu'], virya: 'Sheeta', vipaka: 'Madhura', pacify: ['vata', 'pitta', 'kapha'], aggravate: [], parts: ['Phala'], synonyms: ['Amalaki'], description: 'In Ayurveda, Amla is traditionally valued as a rasayana.', caution: false, link: 'https://www.amidhaayurveda.com/p/amla.html' },
 ];
 
 const verses: Verse[] = [
@@ -54,6 +54,7 @@ class Fakes {
   photos: PalmPhoto[] = [];
   chartsSeen: string[] = [];
   prakriti: Prakriti | null = null;
+  vikriti: Vikriti | null = null;
   past: PastMessage[] = [];
   rewriteTo: string | null = null;
   rewriteFails = false;
@@ -145,6 +146,7 @@ class Fakes {
         return { herbs: all.slice(0, limit), total: all.length };
       },
       prakriti: async () => this.prakriti,
+      vikriti: async () => this.vikriti,
     };
     return { library, cache, vectors, usage, history, ai, profiles, ayurveda, now: () => now, random: () => 0 };
   }
@@ -559,4 +561,23 @@ test('answers end with the astrology behind them and questions to ask next', asy
   assert.deepEqual(r.blocks.map((b) => b.type), ['text', 'behind', 'chart', 'followups']);
   const next = r.blocks.find((b) => b.type === 'followups');
   assert.deepEqual(next?.type === 'followups' && next.questions, ['Which month is best?', 'Should I study first?']);
+});
+
+test('ayurveda: two herbs side by side, the ritu now, and the vikriti check', async () => {
+  const f = new Fakes();
+  const cmp = await ask(f.deps(), { question: 'Compare tulsi and amla', lang: 'en', identity: user });
+  const table = cmp.blocks.find((b) => b.type === 'herb-compare');
+  assert.deepEqual(table?.type === 'herb-compare' && table.herbs.map((h) => h.key), ['tulsi', 'amla']);
+
+  const ritu = await ask(f.deps(Date.parse('2026-11-15T06:00:00Z')), { question: 'Which ritu is it now?', lang: 'en', identity: user });
+  const r = ritu.blocks.find((b) => b.type === 'ritu');
+  assert.ok(r && r.type === 'ritu' && /^Sharad/.test(r.ritu), 'mid-November, Sun in sidereal Libra: Sharad');
+  assert.ok(r && r.type === 'ritu' && /^Hemanta/.test(r.next));
+
+  const none = await ask(f.deps(), { question: 'Check my vikriti', lang: 'en', identity: user });
+  assert.deepEqual(none.blocks.map((b) => b.type === 'notice' && b.kind), ['needs-vikriti']);
+  f.vikriti = { vata: 2, pitta: 5, kapha: 1, agni: 'tikshna', takenAt: 1 };
+  const mine = await ask(f.deps(), { question: 'Check my vikriti', lang: 'en', identity: user });
+  const v = mine.blocks.find((b) => b.type === 'vikriti');
+  assert.ok(v && v.type === 'vikriti' && v.aggravated.join() === 'Pitta' && /Tikshna/.test(v.agni));
 });

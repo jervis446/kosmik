@@ -6,8 +6,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "../components/Header";
 import { BirthForm, PalmForm, tzLabel } from "../components/DetailsForms";
 import { PhoneGate } from "../components/PhoneGate";
-import { PrakritiBars, PrakritiQuiz } from "../components/Prakriti";
-import { api, type BirthDetails, type Me, type Prakriti } from "../lib/api";
+import {
+  PrakritiBars,
+  PrakritiQuiz,
+  VikritiQuiz,
+} from "../components/Prakriti";
+import {
+  api,
+  type BirthDetails,
+  type Me,
+  type Prakriti,
+  type Vikriti,
+} from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { GRIEVANCE } from "../lib/legal";
 import { type Colors, font, type ThemePref, useTheme } from "../lib/theme";
@@ -32,6 +42,8 @@ export default function Account() {
   const [palmKey, setPalmKey] = useState(0);
   const [prakriti, setPrakriti] = useState<Prakriti | null | undefined>();
   const [quiz, setQuiz] = useState(false);
+  const [vikriti, setVikriti] = useState<Vikriti | null>(null);
+  const [vQuiz, setVQuiz] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
@@ -51,6 +63,7 @@ export default function Account() {
         if (stopped) return;
         setDetails(p.details);
         setPrakriti(p.prakriti ?? null);
+        setVikriti(p.vikriti ?? null);
       })
       .catch(() => {
         if (stopped) return;
@@ -255,6 +268,47 @@ export default function Account() {
               </Pressable>
             </View>
           )}
+          <Text style={[s.label, { marginTop: 8 }]}>
+            Vikriti (current state)
+          </Text>
+          {vQuiz ? (
+            <VikritiQuiz
+              onSaved={() => {
+                setVQuiz(false);
+                api
+                  .profile()
+                  .then((p) => setVikriti(p.vikriti ?? null))
+                  .catch(() => {});
+              }}
+            />
+          ) : (
+            <View style={{ gap: 8 }} testID="vikriti-result">
+              {vikriti ? (
+                <>
+                  <Text style={s.value}>
+                    {vikriti.aggravated.length
+                      ? `Raised: ${vikriti.aggravated.map((d) => d[0].toUpperCase() + d.slice(1)).join(", ")}`
+                      : "No dosha clearly raised"}
+                  </Text>
+                  <Text style={s.muted}>{vikriti.agniLabel}</Text>
+                </>
+              ) : (
+                <Text style={s.muted}>
+                  Ten questions about the last few weeks, with your agni.
+                </Text>
+              )}
+              <Pressable
+                onPress={() => setVQuiz(true)}
+                style={[s.choice, { alignSelf: "flex-start" }]}
+                accessibilityRole="button"
+                accessibilityLabel="Check vikriti"
+              >
+                <Text style={s.choiceText}>
+                  {vikriti ? "Check again" : "Check vikriti"}
+                </Text>
+              </Pressable>
+            </View>
+          )}
           {confirmDelete ? (
             <View style={{ gap: 8 }}>
               <Text style={s.muted}>
@@ -270,6 +324,7 @@ export default function Account() {
                       setPalmKey((k) => k + 1);
                       setPrakriti(null);
                       setQuiz(false);
+                      setVikriti(null);
                     })
                   }
                   style={[s.choice, { borderColor: colors.danger }]}

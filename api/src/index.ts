@@ -27,7 +27,7 @@ import { planFor } from './lib/limits.ts';
 import { handleWebhook, PaymentError, paymentsEnabled, paymentStatus, PLANS, premiumUntil, startPayment } from './payments.ts';
 import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { D1Profiles, MAX_PHOTO_BASE64, ProfileError, searchPlaces } from './profiles.ts';
-import { D1Ayurveda, PrakritiError, prakritiLabel } from './ayurveda.ts';
+import { aggravated, AGNI_LABEL, D1Ayurveda, PrakritiError, prakritiLabel } from './ayurveda.ts';
 import { purgeExpired } from './retention.ts';
 import { errorSummary, logError } from './errors.ts';
 import { snapshot } from './lib/snapshot.ts';
@@ -135,6 +135,13 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
     return json(req, env, result);
   }
 
+  // My details: the current state (vikriti) from its short check.
+  if (path === '/api/vikriti' && req.method === 'PUT') {
+    const userId = await requireUser(req, env);
+    const v = await new D1Ayurveda(env.DB).saveVikriti(userId, (await readJson(req)).answers, now);
+    return json(req, env, { vikriti: { ...v, aggravated: aggravated(v), agniLabel: AGNI_LABEL[v.agni] } });
+  }
+
   // My details: the prakriti from the dosha quiz.
   if (path === '/api/prakriti') {
     const userId = await requireUser(req, env);
@@ -162,8 +169,14 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
     const userId = await requireUser(req, env);
     const profiles = new D1Profiles(env.DB);
     if (req.method === 'GET') {
-      const prakriti = await new D1Ayurveda(env.DB).prakriti(userId);
-      return json(req, env, { details: await profiles.get(userId), palms: await profiles.palmStatus(userId), prakriti: prakriti && { ...prakriti, label: prakritiLabel(prakriti) } });
+      const ay = new D1Ayurveda(env.DB);
+      const [prakriti, vikriti] = await Promise.all([ay.prakriti(userId), ay.vikriti(userId)]);
+      return json(req, env, {
+        details: await profiles.get(userId),
+        palms: await profiles.palmStatus(userId),
+        prakriti: prakriti && { ...prakriti, label: prakritiLabel(prakriti) },
+        vikriti: vikriti && { ...vikriti, aggravated: aggravated(vikriti), agniLabel: AGNI_LABEL[vikriti.agni] },
+      });
     }
     if (req.method === 'PUT') return json(req, env, { details: await profiles.save(userId, await readJson(req), now) });
     if (req.method === 'DELETE') {

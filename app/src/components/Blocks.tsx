@@ -25,6 +25,128 @@ export function highlight(text: string, color: string): ReactNode[] {
   return out;
 }
 
+type CompareHerb = Extract<Block, { type: "herb-compare" }>["herbs"][number];
+
+/** Two or three herbs side by side, property by property. */
+function HerbCompare({
+  herbs,
+  onAsk,
+}: {
+  herbs: CompareHerb[];
+  onAsk?: (q: string) => void;
+}) {
+  const { colors } = useTheme();
+  const s = styles(colors);
+  const rows: [string, (h: CompareHerb) => string][] = [
+    ["Botanical", (h) => h.botanical],
+    ["Rasa", (h) => h.rasa.join(", ")],
+    ["Guna", (h) => h.guna.join(", ")],
+    [
+      "Virya",
+      (h) => `${h.virya}${VIRYA[h.virya] ? ` (${VIRYA[h.virya]})` : ""}`,
+    ],
+    ["Vipaka", (h) => h.vipaka],
+    ["Balances", (h) => h.pacify.map(cap).join(", ") || "—"],
+    ["May increase", (h) => h.aggravate.map(cap).join(", ") || "—"],
+    ["Parts used", (h) => h.parts.join(", ") || "—"],
+  ];
+  return (
+    <View style={s.card} testID="herb-compare">
+      <Text style={s.mono}>DRAVYAGUNA · SIDE BY SIDE</Text>
+      <View style={s.factRow}>
+        <View style={{ flex: 0.9 }} />
+        {herbs.map((h) => (
+          <Pressable
+            key={h.key}
+            style={{ flex: 1 }}
+            onPress={onAsk ? () => onAsk(`What is ${h.name}?`) : undefined}
+            accessibilityRole="button"
+          >
+            <Text style={[s.title, { fontSize: 16 }]}>❀ {h.name}</Text>
+            <Text style={s.small}>{h.english}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {rows.map(([label, get]) => (
+        <View key={label} style={s.factRow}>
+          <Text style={[s.small, { flex: 0.9 }]}>{label}</Text>
+          {herbs.map((h) => (
+            <Text
+              key={h.key}
+              style={[
+                s.chartCell,
+                { flex: 1 },
+                label === "Botanical" && { fontStyle: "italic" },
+              ]}
+            >
+              {get(h)}
+            </Text>
+          ))}
+        </View>
+      ))}
+      <Text style={s.small}>
+        Traditional knowledge, not medical advice. Source: Amidha Ayurveda Herb
+        Database v2.0 (Sparsh Varshney), CC BY 4.0.
+      </Text>
+    </View>
+  );
+}
+
+/** The ritu running now, with its guidance. */
+function RituCard({ b }: { b: Extract<Block, { type: "ritu" }> }) {
+  const { colors } = useTheme();
+  const s = styles(colors);
+  return (
+    <View style={s.card} testID="ritu">
+      <Text style={s.mono}>RITUCHARYA · NOW</Text>
+      <Text style={s.title}>
+        {b.ritu}{" "}
+        <Text style={{ fontFamily: font.verse, color: colors.highlight }}>
+          {b.sanskrit}
+        </Text>
+      </Text>
+      <Text style={s.small}>
+        {b.months} · {b.ayana}
+      </Text>
+      <View>
+        {(
+          [
+            ["Strength (bala)", b.strength],
+            ["Rasa of the season", b.rasa],
+            ["Doshas", b.doshas],
+          ] as [string, string][]
+        ).map(([k, v]) => (
+          <View key={k} style={s.factRow}>
+            <Text style={[s.small, { flex: 1 }]}>{k}</Text>
+            <Text style={[s.chartCell, { flex: 1.6 }]}>{v}</Text>
+          </View>
+        ))}
+      </View>
+      {(
+        [
+          ["Favour (pathya)", b.favour, colors.success],
+          ["Avoid (apathya)", b.avoid, colors.danger],
+          ["Routine", b.routine, colors.highlight],
+        ] as [string, string[], string][]
+      ).map(([k, items, c]) => (
+        <View key={k} style={{ gap: 4 }}>
+          <Text style={s.mono}>{k.toUpperCase()}</Text>
+          {items.map((x) => (
+            <Text key={x} style={[s.body, { fontSize: 15 }]}>
+              <Text style={{ color: c }}>• </Text>
+              {x}
+            </Text>
+          ))}
+        </View>
+      ))}
+      <Text style={s.small}>
+        Next: {b.next}. Traditional guidance from Charaka Samhita and Ashtanga
+        Hridaya; adapt it with your vaidya.
+      </Text>
+    </View>
+  );
+}
+
 /** "The astrology behind this": folded until tapped. */
 function Behind({ points }: { points: string[] }) {
   const { colors } = useTheme();
@@ -75,6 +197,7 @@ export function Blocks({
   onDetails,
   onPalm,
   onPrakriti,
+  onVikriti,
   onAsk,
 }: {
   blocks: Block[];
@@ -83,6 +206,7 @@ export function Blocks({
   onDetails?: () => void;
   onPalm?: () => void;
   onPrakriti?: () => void;
+  onVikriti?: () => void;
   /** Asks a follow-up question, e.g. tapping a herb in a list. */
   onAsk?: (question: string) => void;
 }) {
@@ -187,6 +311,12 @@ export function Blocks({
                         `${b.virya}${VIRYA[b.virya] ? ` (${VIRYA[b.virya]})` : ""}`,
                       ],
                       ["Vipaka", b.vipaka],
+                      ...(b.synonyms?.length
+                        ? [["Paryaya (synonyms)", b.synonyms.join(", ")]]
+                        : []),
+                      ...(b.parts?.length
+                        ? [["Prayojyanga (parts used)", b.parts.join(", ")]]
+                        : []),
                       [
                         "Balances",
                         b.pacify.map(cap).join(", ") || "None listed",
@@ -277,6 +407,48 @@ export function Blocks({
                 ) : null}
               </View>
             );
+          case "herb-compare":
+            return <HerbCompare key={i} herbs={b.herbs} onAsk={onAsk} />;
+          case "ritu":
+            return <RituCard key={i} b={b} />;
+          case "vikriti":
+            return (
+              <View key={i} style={s.card} testID="vikriti">
+                <Text style={s.mono}>VIKRITI · LAST FEW WEEKS</Text>
+                <Text style={s.title}>
+                  {b.aggravated.length
+                    ? `Raised now: ${b.aggravated.join(", ")}`
+                    : "No dosha clearly raised"}
+                </Text>
+                <PrakritiBars
+                  p={{
+                    vata: b.vata * 10,
+                    pitta: b.pitta * 10,
+                    kapha: b.kapha * 10,
+                  }}
+                />
+                <Text style={[s.body, { fontSize: 15 }]}>{b.agni}</Text>
+                {b.prakriti ? (
+                  <Text style={s.small}>
+                    Your prakriti: {b.prakriti}. Ayurveda aims to bring the
+                    present state back towards it.
+                  </Text>
+                ) : null}
+                <Text style={s.small}>
+                  From your check on {takenOn(b.takenAt)}. A self-assessment,
+                  not a diagnosis.
+                </Text>
+                {onVikriti ? (
+                  <Pressable
+                    onPress={onVikriti}
+                    accessibilityRole="button"
+                    style={s.outlineBtn}
+                  >
+                    <Text style={s.outlineBtnText}>Check again</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            );
           case "behind":
             return <Behind key={i} points={b.points} />;
           case "followups":
@@ -352,6 +524,15 @@ export function Blocks({
                         ? "Replace palm photos"
                         : "Add palm photos"}
                     </Text>
+                  </Pressable>
+                ) : null}
+                {b.kind === "needs-vikriti" && onVikriti ? (
+                  <Pressable
+                    onPress={onVikriti}
+                    accessibilityRole="button"
+                    style={s.noticeBtn}
+                  >
+                    <Text style={s.noticeBtnText}>Take the vikriti check</Text>
                   </Pressable>
                 ) : null}
                 {b.kind === "needs-prakriti" && onPrakriti ? (

@@ -46,5 +46,197 @@
   "title": "Daily care for a Kapha prakriti",
   "body": "Ayurveda suggests lightness, warmth and stimulation for Kapha. Traditional advice: rise early and avoid daytime naps; favour light, warm, dry food with pungent, bitter and astringent tastes, such as millets, barley, vegetables, lentils and spices like ginger and black pepper; go easy on heavy, sweet, fried and cold food and dairy; eat the main meal at midday and a light dinner; brisk daily exercise; dry massage (udvartana); new experiences that keep the mind active.",
   "reviewed": true
+ },
+ {
+  "kind": "ayurveda",
+  "key": "rasa",
+  "lang": "en",
+  "title": "Rasa (taste) in Ayurveda",
+  "body": "Rasa is the taste perceived on the tongue, and Ayurveda counts six: madhura (sweet), amla (sour), lavana (salty), katu (pungent), tikta (bitter) and kashaya (astringent). Each rasa comes from two of the five elements and acts on the doshas: madhura, amla and lavana pacify Vata; madhura, tikta and kashaya pacify Pitta; katu, tikta and kashaya pacify Kapha. A balanced meal traditionally includes all six.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "rasa-madhura",
+  "lang": "en",
+  "title": "Madhura rasa (sweet taste)",
+  "body": "Madhura is made of earth and water. It is described as heavy, unctuous and cooling, building the dhatus, strength and ojas, and calming Vata and Pitta while increasing Kapha. Classical examples are rice, wheat, milk, ghee, dates and sweet fruits. In excess it is said to cause heaviness, sluggishness and Kapha disorders.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "rasa-amla",
+  "lang": "en",
+  "title": "Amla rasa (sour taste)",
+  "body": "Amla is made of earth and fire. It is described as light, hot and unctuous, kindling agni, improving taste and appetite, and calming Vata, while increasing Pitta and Kapha. Classical examples are lemon, tamarind, kokum and curd. In excess it is said to aggravate Pitta and cause burning sensations.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "rasa-lavana",
+  "lang": "en",
+  "title": "Lavana rasa (salty taste)",
+  "body": "Lavana is made of water and fire. It is described as heavy, unctuous and hot, improving taste and digestion, softening and helping elimination, and calming Vata while increasing Pitta and Kapha. Saindhava (rock salt) is considered the best of the salts. In excess it is said to cause thirst, wrinkles and early greying.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "rasa-katu",
+  "lang": "en",
+  "title": "Katu rasa (pungent taste)",
+  "body": "Katu is made of fire and air. It is described as light, dry and hot, kindling agni, clearing the channels and reducing Kapha, while increasing Vata and Pitta. Classical examples are ginger, black pepper, pippali and chilli. In excess it is said to cause burning, thirst and weakness.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "rasa-tikta",
+  "lang": "en",
+  "title": "Tikta rasa (bitter taste)",
+  "body": "Tikta is made of air and space. It is described as light, dry and cold, cleansing, reducing Pitta and Kapha, and helping digestion of ama, while increasing Vata. Classical examples are neem, guduchi, kutki and bitter gourd. It is said to be unpleasant alone but to bring the other tastes back into balance.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "rasa-kashaya",
+  "lang": "en",
+  "title": "Kashaya rasa (astringent taste)",
+  "body": "Kashaya is made of air and earth. It is described as dry, cold and heavy, binding, drying excess fluids and supporting healing, and reducing Pitta and Kapha while increasing Vata. Classical examples are pomegranate peel, haritaki, unripe banana and many pulses. In excess it is said to cause dryness and constipation.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "virya",
+  "lang": "en",
+  "title": "Virya (potency)",
+  "body": "Virya is the active potency of a substance, the property through which it acts. Most classical texts reduce it to two: ushna (heating), which increases Pitta and reduces Vata and Kapha, and sheeta (cooling), which reduces Pitta and increases Vata and Kapha. Some texts list eight viryas. Virya can override rasa: for example, a sweet but heating substance.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "vipaka",
+  "lang": "en",
+  "title": "Vipaka (post-digestive effect)",
+  "body": "Vipaka is the taste a substance turns into after digestion, which shapes its long-term effect. There are three: madhura vipaka (from sweet and salty tastes), which builds tissues and favours Kapha; amla vipaka (from sour), which favours Pitta; and katu vipaka (from pungent, bitter and astringent), which favours Vata. Vipaka is inferred from the substance's effect on the body over time.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "guna",
+  "lang": "en",
+  "title": "Guna (qualities) in Dravyaguna",
+  "body": "Gunas are the qualities of a substance. Charaka lists twenty gurvadi gunas in ten pairs: guru-laghu (heavy-light), sheeta-ushna (cold-hot), snigdha-ruksha (unctuous-dry), manda-tikshna (slow-sharp), sthira-sara (stable-mobile), mridu-kathina (soft-hard), vishada-picchila (clear-slimy), shlakshna-khara (smooth-rough), sukshma-sthula (subtle-gross) and sandra-drava (dense-liquid). Like increases like, and opposites balance.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "prabhava",
+  "lang": "en",
+  "title": "Prabhava (special action)",
+  "body": "Prabhava is a specific action of a substance that cannot be explained by its rasa, guna, virya or vipaka. Classical texts give the example of chitraka and danti, which share properties but only danti acts as a purgative. Prabhava explains why two substances that look alike on paper act differently in the body.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "agni",
+  "lang": "en",
+  "title": "Agni (digestive fire)",
+  "body": "Agni is the transforming fire behind digestion and metabolism. Classical texts count thirteen: one jatharagni in the gut, five bhutagnis and seven dhatvagnis. Jatharagni is described in four states: sama (balanced), vishama (irregular, linked with Vata), tikshna (sharp, linked with Pitta) and manda (slow, linked with Kapha). Healthy agni is considered the root of strength, complexion and long life.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "ama",
+  "lang": "en",
+  "title": "Ama",
+  "body": "Ama is the undigested, sticky residue said to form when agni is weak. It is described as heavy, slimy and foul, clogging the channels (srotas) and mixing with the doshas. Traditional signs include coating on the tongue, heaviness, loss of appetite and lethargy. Ayurveda places great weight on kindling agni and digesting ama before other measures.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "ojas",
+  "lang": "en",
+  "title": "Ojas",
+  "body": "Ojas is the finest essence of all seven dhatus, the basis of vitality, immunity in the classical sense, and resilience of body and mind. It is described as cool, unctuous, sweet and white, like ghee. Ojas is said to be protected by good digestion, rest, contentment and a sattvic life, and depleted by anger, grief, fasting, over-exertion and excess.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "dhatu",
+  "lang": "en",
+  "title": "Sapta dhatu (seven tissues)",
+  "body": "The seven dhatus are the tissues that sustain the body, formed in sequence from digested food: rasa (plasma), rakta (blood), mamsa (muscle), meda (fat), asthi (bone), majja (marrow) and shukra (reproductive tissue). Each is nourished by the one before it through its own dhatvagni, and ojas is the essence of them all.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "mala",
+  "lang": "en",
+  "title": "Mala (waste products)",
+  "body": "Malas are the waste products of the body: purisha (faeces), mutra (urine) and sweda (sweat), along with the finer wastes produced as each dhatu is formed. Ayurveda considers their timely and proper elimination as important as nourishment, and suppressing natural urges is described as a cause of imbalance.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "srotas",
+  "lang": "en",
+  "title": "Srotas (channels)",
+  "body": "Srotas are the channels through which nutrients, doshas, dhatus and wastes flow. Charaka describes thirteen main srotas, for example pranavaha (breath), annavaha (food), rasavaha (plasma) and mutravaha (urine). Health depends on the srotas being open; ama and aggravated doshas are said to block or distort the flow in them.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "dinacharya",
+  "lang": "en",
+  "title": "Dinacharya (daily routine)",
+  "body": "Dinacharya is the daily routine Ayurveda recommends to keep the doshas in rhythm: waking in brahma muhurta before sunrise, cleaning the teeth and scraping the tongue, oil pulling (gandusha), nasya, oil massage (abhyanga), exercise to half one's strength, bathing, and meals at regular times, with the main meal at midday when agni is strongest, and an early night.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "ritucharya",
+  "lang": "en",
+  "title": "Ritucharya (seasonal routine)",
+  "body": "Ritucharya adapts diet and routine to the six seasons. The year divides into Adana kala (Shishira, Vasanta, Grishma), when strength declines, and Visarga kala (Varsha, Sharad, Hemanta), when it returns. Each ritu favours certain tastes and habits, because the doshas accumulate, aggravate and settle in a yearly cycle. Ask Kosmik “which ritu is it now?” for the current season.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "panchakarma",
+  "lang": "en",
+  "title": "Panchakarma",
+  "body": "Panchakarma is the classical five-fold cleansing therapy: vamana (therapeutic emesis), virechana (purgation), basti (medicated enema), nasya (nasal medication) and raktamokshana (bloodletting), preceded by preparation (snehana and svedana) and followed by a careful diet. It is done only under a qualified vaidya, chosen for the person and season.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "tridosha",
+  "lang": "en",
+  "title": "Tridosha",
+  "body": "Tridosha is the theory that three doshas, Vata (air and space), Pitta (fire and water) and Kapha (earth and water), govern all functions of the body and mind. In balance they sustain health; out of balance they are the root of ill health. Each person is born with a particular mix (prakriti), and their present state may differ (vikriti).",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "manas-prakriti",
+  "lang": "en",
+  "title": "Sattva, rajas and tamas (manas prakriti)",
+  "body": "Ayurveda describes the mind through three gunas: sattva (clarity, balance, goodness), rajas (activity, passion, restlessness) and tamas (inertia, heaviness, dullness). Everyone has all three, and a person's usual mix is their manas prakriti. Rajas and tamas are called the doshas of the mind; sattva is cultivated through diet, conduct and contemplation.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "vikriti",
+  "lang": "en",
+  "title": "Vikriti (present state)",
+  "body": "Vikriti is the current state of the doshas, as opposed to prakriti, the constitution you were born with. Diet, season, age, stress and habits can raise one dosha above its natural level. Ayurveda aims to bring vikriti back towards prakriti. Ask Kosmik “check my vikriti” to take the short check.",
+  "reviewed": false
+ },
+ {
+  "kind": "ayurveda",
+  "key": "prakriti",
+  "lang": "en",
+  "title": "Prakriti (constitution)",
+  "body": "Prakriti is the constitution fixed at conception, the natural balance of Vata, Pitta and Kapha a person carries for life. It shapes build, appetite, sleep, temperament and what tends to go out of balance. Classical texts describe seven types: three single, three dual and one balanced (sama). Ask Kosmik “what is my dosha?” to take the quiz.",
+  "reviewed": false
  }
 ]

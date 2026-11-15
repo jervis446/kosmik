@@ -80,7 +80,7 @@ export class D1Profiles implements Profiles {
     await this.db.prepare('DELETE FROM palm_photos WHERE user_id = ? AND hand = ?').bind(userId, hand).run();
   }
   async deleteAll(userId: string): Promise<void> {
-    await this.db.batch(['profiles', 'palm_photos', 'prakriti'].map((t) => this.db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(userId)));
+    await this.db.batch(['profiles', 'palm_photos', 'prakriti', 'vikriti'].map((t) => this.db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(userId)));
   }
 }
 

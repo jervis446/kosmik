@@ -19,16 +19,51 @@ export type Herb = {
   pacify: Dosha[];
   aggravate: Dosha[];
   parts: string[];
+  synonyms: string[];
   description: string;
   caution: boolean;
   link: string;
 };
 
-export type HerbFilter = { dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: 'Ushna' | 'Sheeta' };
+export type HerbFilter = { dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: 'Ushna' | 'Sheeta'; rasa?: string[]; guna?: string[]; vipaka?: string };
 
 export type Prakriti = { vata: number; pitta: number; kapha: number; takenAt: number };
 
 export class PrakritiError extends Error {}
+
+/** Vikriti: the current state, from ten questions about the last few weeks. The first is about digestion. */
+export const VIKRITI_QUESTIONS = 10;
+export type Vikriti = { vata: number; pitta: number; kapha: number; agni: 'sama' | 'vishama' | 'tikshna' | 'manda'; takenAt: number };
+const AGNI = { n: 'sama', v: 'vishama', p: 'tikshna', k: 'manda' } as const;
+export const AGNI_LABEL: Record<Vikriti['agni'], string> = {
+  sama: 'Sama agni (balanced digestion)',
+  vishama: 'Vishama agni (irregular, Vata-type)',
+  tikshna: 'Tikshna agni (sharp, Pitta-type)',
+  manda: 'Manda agni (slow, Kapha-type)',
+};
+
+export function scoreVikriti(answers: unknown): Omit<Vikriti, 'takenAt'> {
+  if (!Array.isArray(answers) || answers.length !== VIKRITI_QUESTIONS || answers.some((a) => !['v', 'p', 'k', 'n'].includes(a))) {
+    throw new PrakritiError(`Answer all ${VIKRITI_QUESTIONS} questions.`);
+  }
+  const count = (x: string) => answers.filter((a) => a === x).length;
+  return { vata: count('v'), pitta: count('p'), kapha: count('k'), agni: AGNI[answers[0] as keyof typeof AGNI] };
+}
+
+/** Doshas raised now: three or more signs out of ten, strongest first. */
+export const aggravated = (v: { vata: number; pitta: number; kapha: number }): Dosha[] =>
+  DOSHAS.filter((d) => v[d] >= 3).sort((a, b) => v[b] - v[a]);
+
+export const vikritiBlock = (v: Vikriti, prakriti: Prakriti | null): Block => ({
+  type: 'vikriti',
+  vata: v.vata,
+  pitta: v.pitta,
+  kapha: v.kapha,
+  aggravated: aggravated(v).map(cap),
+  agni: AGNI_LABEL[v.agni],
+  takenAt: v.takenAt,
+  prakriti: prakriti ? prakritiLabel(prakriti) : null,
+});
 
 export interface Ayurveda {
   herb(key: string): Promise<Herb | null>;
@@ -36,10 +71,13 @@ export interface Ayurveda {
   /** Herbs matching a filter, and how many match in all. */
   findHerbs(filter: HerbFilter, limit: number): Promise<{ herbs: Herb[]; total: number }>;
   prakriti(userId: string): Promise<Prakriti | null>;
+  vikriti(userId: string): Promise<Vikriti | null>;
 }
 
 /** How many questions the prakriti quiz has (the questions themselves live in the app). */
 export const PRAKRITI_QUESTIONS = 12;
+
+const cap = (d: string) => d[0].toUpperCase() + d.slice(1);
 
 /** Turns quiz answers ('v' | 'p' | 'k', one per question) into percentages that add up to 100. */
 export function scorePrakriti(answers: unknown): { vata: number; pitta: number; kapha: number } {
@@ -62,7 +100,6 @@ export function dominant(p: { vata: number; pitta: number; kapha: number }): Dos
   return [first, second];
 }
 
-const cap = (d: string) => d[0].toUpperCase() + d.slice(1);
 export const prakritiLabel = (p: { vata: number; pitta: number; kapha: number }) => {
   const d = dominant(p);
   return d.length === 3 ? 'Tridoshic (balanced)' : d.map(cap).join('-');
@@ -85,6 +122,8 @@ export const herbBlock = (h: Herb): Block => ({
   description: h.description,
   caution: h.caution,
   link: h.link,
+  synonyms: h.synonyms,
+  parts: h.parts,
 });
 
 /** Cooling herbs suit Pitta; warming herbs suit Vata and Kapha. Listed first, then by name. */
@@ -102,11 +141,12 @@ type HerbRow = {
   pacify: string;
   aggravate: string;
   parts: string;
+  synonyms: string;
   description: string;
   caution: number;
   link: string;
 };
-const HERB_COLS = 'key, name, english, botanical, rasa, guna, virya, vipaka, pacify, aggravate, parts, description, caution, link';
+const HERB_COLS = 'key, name, english, botanical, rasa, guna, virya, vipaka, pacify, aggravate, parts, synonyms, description, caution, link';
 const toHerb = (r: HerbRow): Herb => ({
   ...r,
   rasa: JSON.parse(r.rasa),
@@ -114,6 +154,7 @@ const toHerb = (r: HerbRow): Herb => ({
   pacify: JSON.parse(r.pacify),
   aggravate: JSON.parse(r.aggravate),
   parts: JSON.parse(r.parts),
+  synonyms: JSON.parse(r.synonyms),
   caution: r.caution === 1,
 });
 
@@ -148,6 +189,18 @@ export class D1Ayurveda implements Ayurveda {
       where.push('virya = ?');
       binds.push(filter.virya);
     }
+    if (filter.vipaka) {
+      where.push('vipaka = ?');
+      binds.push(filter.vipaka);
+    }
+    for (const r of filter.rasa ?? []) {
+      where.push('EXISTS (SELECT 1 FROM json_each(herbs.rasa) WHERE value = ?)');
+      binds.push(r);
+    }
+    for (const g of filter.guna ?? []) {
+      where.push('EXISTS (SELECT 1 FROM json_each(herbs.guna) WHERE value = ?)');
+      binds.push(g);
+    }
     // Poisonous plants are never suggested in a list.
     where.push('caution = 0');
     const clause = where.join(' AND ');
@@ -175,6 +228,21 @@ export class D1Ayurveda implements Ayurveda {
       .bind(userId, p.vata, p.pitta, p.kapha, JSON.stringify(answers), now)
       .run();
     return { ...p, takenAt: now };
+  }
+  async vikriti(userId: string) {
+    const r = await this.db.prepare('SELECT vata, pitta, kapha, agni, taken_at FROM vikriti WHERE user_id = ?').bind(userId).first<{ vata: number; pitta: number; kapha: number; agni: Vikriti['agni']; taken_at: number }>();
+    return r ? { vata: r.vata, pitta: r.pitta, kapha: r.kapha, agni: r.agni, takenAt: r.taken_at } : null;
+  }
+  async saveVikriti(userId: string, answers: unknown, now: number): Promise<Vikriti> {
+    const v = scoreVikriti(answers);
+    await this.db
+      .prepare(
+        `INSERT INTO vikriti (user_id, vata, pitta, kapha, agni, answers, taken_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (user_id) DO UPDATE SET vata = excluded.vata, pitta = excluded.pitta, kapha = excluded.kapha, agni = excluded.agni, answers = excluded.answers, taken_at = excluded.taken_at`,
+      )
+      .bind(userId, v.vata, v.pitta, v.kapha, v.agni, JSON.stringify(answers), now)
+      .run();
+    return { ...v, takenAt: now };
   }
   async deletePrakriti(userId: string) {
     await this.db.prepare('DELETE FROM prakriti WHERE user_id = ?').bind(userId).run();

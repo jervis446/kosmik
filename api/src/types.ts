@@ -24,7 +24,25 @@ export type Block =
       /** Classed as poisonous in classical texts. */
       caution: boolean;
       link: string;
+      synonyms?: string[];
+      parts?: string[];
     }
+  | { type: 'herb-compare'; herbs: { key: string; name: string; english: string; botanical: string; rasa: string[]; guna: string[]; virya: string; vipaka: string; pacify: string[]; aggravate: string[]; parts: string[] }[] }
+  | {
+      type: 'ritu';
+      ritu: string;
+      sanskrit: string;
+      months: string;
+      ayana: string;
+      strength: string;
+      rasa: string;
+      doshas: string;
+      favour: string[];
+      avoid: string[];
+      routine: string[];
+      next: string;
+    }
+  | { type: 'vikriti'; vata: number; pitta: number; kapha: number; aggravated: string[]; agni: string; takenAt: number; prakriti: string | null }
   | { type: 'herb-list'; title: string; total: number; herbs: { key: string; name: string; english: string; virya: string }[] }
   /** The chart (or prakriti) factors an answer rests on, shown folded under it. */
   | { type: 'behind'; points: string[] }
@@ -33,7 +51,7 @@ export type Block =
   | { type: 'prakriti'; vata: number; pitta: number; kapha: number; label: string; takenAt: number }
   | {
       type: 'notice';
-      kind: 'helpline' | 'needs-chart' | 'needs-details' | 'needs-palm' | 'needs-prakriti' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake';
+      kind: 'helpline' | 'needs-chart' | 'needs-details' | 'needs-palm' | 'needs-prakriti' | 'needs-vikriti' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake';
       text: string;
     };
 

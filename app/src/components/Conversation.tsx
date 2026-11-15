@@ -94,7 +94,7 @@ export function Conversation({
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [modal, setModal] = useState<{
-    kind: "birth" | "palm" | "prakriti";
+    kind: "birth" | "palm" | "prakriti" | "vikriti";
     question: string;
   } | null>(null);
   const scroll = useRef<ScrollViewInstance>(null);
@@ -130,6 +130,7 @@ export function Conversation({
         (b.kind === "needs-details" ||
           b.kind === "needs-palm" ||
           b.kind === "needs-prakriti" ||
+          b.kind === "needs-vikriti" ||
           b.kind === "retake"),
     );
     if (need?.type === "notice") {
@@ -139,7 +140,9 @@ export function Conversation({
             ? "birth"
             : need.kind === "needs-prakriti"
               ? "prakriti"
-              : "palm",
+              : need.kind === "needs-vikriti"
+                ? "vikriti"
+                : "palm",
         question,
       });
     }
@@ -276,6 +279,12 @@ export function Conversation({
                   onPalm={() =>
                     setModal({ kind: "palm", question: lastQuestion(t.id) })
                   }
+                  onVikriti={() =>
+                    setModal({
+                      kind: "vikriti",
+                      question: lastQuestion(t.id),
+                    })
+                  }
                   onPrakriti={() =>
                     setModal({
                       kind: "prakriti",
@@ -406,6 +415,8 @@ export function Conversation({
           // After the quiz, a request to take it shows the result instead of opening it again.
           if (q && modal?.kind === "prakriti" && QUIZ_WORDS.test(q))
             send("What is my prakriti?");
+          else if (q && modal?.kind === "vikriti" && QUIZ_WORDS.test(q))
+            send("Check my vikriti");
           else if (q) send(q);
         }}
       />

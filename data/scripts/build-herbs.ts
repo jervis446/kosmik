@@ -77,7 +77,7 @@ const COMMON_NAMES: Record<string, string[]> = {
   haridra: ['haldi'],
   maricha: ['kali mirch', 'black pepper'],
   pippali: ['pipli', 'long pepper'],
-  yastimadhu: ['mulethi', 'mulethi', 'mulhatti', 'liquorice'],
+  yastimadhu: ['mulethi', 'mulhatti', 'liquorice', 'yashtimadhu', 'madhuka', 'jethimadh', 'jethimadhu'],
   rasona: ['lahsun', 'lehsun'],
   tulsi: ['tulasi'],
   amla: ['amalaki', 'awla', 'aonla', 'amla fruit'],
@@ -98,6 +98,12 @@ const COMMON_NAMES: Record<string, string[]> = {
   hingu: ['hing', 'asafoetida'],
   kumari: ['aloe vera', 'aloe', 'gwarpatha'],
 };
+
+/** Common ways one Sanskrit name is spelt in English: v/w, sht/st, doubled vowels. */
+function spellings(n: string): string[] {
+  const out = new Set([n, n.replace(/w/g, 'v'), n.replace(/v/g, 'w'), n.replace(/sht/g, 'st'), n.replace(/(?<!s)st/g, 'sht'), n.replace(/aa/g, 'a'), n.replace(/ee/g, 'i')]);
+  return [...out];
+}
 
 /** Words a herb description must not use, on top of Kosmik's general content rules. */
 export const HERB_CLAIMS =
@@ -258,8 +264,8 @@ async function main() {
   // Names the Worker recognises. Main names first, so a synonym never hides another herb's name.
   const index = out.map((h) => {
     const names = [...(COMMON_NAMES[h.key] ?? []), h.name, ...(h.name.match(/\(([^)]+)\)/g) ?? []).map((m) => m.slice(1, -1)), h.name.replace(/\s*\(.*?\)\s*/g, ' ').trim(), h.english, h.botanical];
-    const aliases = [...new Set(names.map((n) => n.toLowerCase().trim()).filter((n) => n.length >= 3))];
-    const synonyms = [...new Set(h.synonyms.map((n) => n.toLowerCase()).filter((n) => n.length >= 4 && !aliases.includes(n)))];
+    const aliases = [...new Set(names.map((n) => n.toLowerCase().trim()).filter((n) => n.length >= 3).flatMap(spellings))];
+    const synonyms = [...new Set(h.synonyms.map((n) => n.toLowerCase()).flatMap(spellings).filter((n) => n.length >= 4 && !aliases.includes(n)))];
     return [h.key, aliases, synonyms];
   });
   writeFileSync(
