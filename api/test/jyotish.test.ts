@@ -53,3 +53,17 @@ test('snapshot: three personal lines and the running dasha', async () => {
   const noTime = snapshot(calculateChart({ date: '1998-03-14', time: null, tzOffsetMin: 330, lat: 26.85, lon: 80.95 }), new Date(), null);
   assert.equal(noTime.lines.length, 2, 'no lagna without a birth time');
 });
+
+test('tropical: Western big three, the Sun on the birthday, and the next solar return', async () => {
+  const { zodiac, cusp } = await import('../src/lib/tropical.ts');
+  const chart = calculateChart({ date: '1998-03-14', time: '06:45', tzOffsetMin: 330, lat: 26.85, lon: 80.95 });
+  const z = zodiac(chart, new Date('2026-11-15T06:00:00Z'));
+  assert.equal(z.sun.sign, 'Pisces');
+  assert.match(z.sun.degree, /^23°1\d′ Pisces$/);
+  assert.equal(z.moon.sign, 'Libra');
+  assert.equal(z.rising?.sign, 'Aries');
+  assert.match(z.siderealSun, /Kumbh \(Aquarius\)$/, 'the Vedic sun is in the previous sign');
+  assert.match(z.solarReturn, /^14 March 2027 at /);
+  assert.equal(cusp(30.5), 'Aries–Taurus cusp');
+  assert.equal(cusp(45), null);
+});

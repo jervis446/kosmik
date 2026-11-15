@@ -312,6 +312,40 @@ export function Onboarding({
                     </View>
                   </View>
                 )) ?? <ActivityIndicator color={colors.primary} />}
+                {snap?.western ? (
+                  <View style={s.snapCard} testID="snapshot-western">
+                    <View style={s.snapIcon}>
+                      <Text style={{ color: colors.highlight, fontSize: 18 }}>
+                        ✧
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          gap: 8,
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <Text style={s.snapTitle}>Your Western big three</Text>
+                        <Text style={s.tag}>TROPICAL</Text>
+                      </View>
+                      <Text style={[s.sub, { color: colors.text }]}>
+                        Sun {snap.western.sun} · Moon {snap.western.moon}
+                        {snap.western.rising
+                          ? ` · Rising ${snap.western.rising}`
+                          : ""}
+                      </Text>
+                      <Text style={s.sub}>
+                        Next solar return: {snap.western.solarReturn}
+                        {snap.western.cusp
+                          ? ` · born on the ${snap.western.cusp}`
+                          : ""}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
                 {snap?.dasha ? (
                   <Text style={s.sub}>
                     Running dasha:{" "}

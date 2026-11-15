@@ -44,6 +44,16 @@ export type Block =
     }
   | { type: 'vikriti'; vata: number; pitta: number; kapha: number; aggravated: string[]; agni: string; takenAt: number; prakriti: string | null }
   | { type: 'herb-list'; title: string; total: number; herbs: { key: string; name: string; english: string; virya: string }[] }
+  | {
+      type: 'zodiac';
+      sun: { sign: string; glyph: string; degree: string; vibe: string };
+      moon: { sign: string; glyph: string; degree: string; vibe: string };
+      rising: { sign: string; glyph: string; degree: string; vibe: string } | null;
+      planets: { graha: string; sign: string; glyph: string; degree: string }[];
+      siderealSun: string;
+      cusp: string | null;
+      solarReturn: string;
+    }
   /** The chart (or prakriti) factors an answer rests on, shown folded under it. */
   | { type: 'behind'; points: string[] }
   /** Questions to ask next; tapping one asks it. */

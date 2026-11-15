@@ -581,3 +581,14 @@ test('ayurveda: two herbs side by side, the ritu now, and the vikriti check', as
   const v = mine.blocks.find((b) => b.type === 'vikriti');
   assert.ok(v && v.type === 'vikriti' && v.aggravated.join() === 'Pitta' && /Tikshna/.test(v.agni));
 });
+
+test('zodiac: Western signs need birth details, then come from the chart without AI', async () => {
+  const f = new Fakes();
+  const none = await ask(f.deps(), { question: 'What is my sun sign?', lang: 'en', identity: user });
+  assert.deepEqual(none.blocks.map((b) => b.type === 'notice' && b.kind), ['needs-details']);
+  f.profile = birth;
+  const r = await ask(f.deps(), { question: 'What is my sun sign?', lang: 'en', identity: user });
+  const z = r.blocks.find((b) => b.type === 'zodiac');
+  assert.ok(z && z.type === 'zodiac' && z.sun.sign === 'Pisces' && z.rising?.sign === 'Aries');
+  assert.equal(f.aiCalls, 0);
+});

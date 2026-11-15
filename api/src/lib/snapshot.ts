@@ -6,6 +6,7 @@
 import { RASHIS } from './catalog.ts';
 import { type Chart } from './chart.ts';
 import { dashaLine } from './jyotish.ts';
+import { zodiac } from './tropical.ts';
 
 const MIND: Record<string, string> = {
   mesh: 'You decide fast and feel things in bursts; waiting around drains you.',
@@ -59,6 +60,8 @@ export type Snapshot = {
   name: string | null;
   lines: { kind: 'mind' | 'work' | 'presence'; title: string; tag: string; text: string }[];
   dasha: string | null;
+  /** Western (tropical) big three and the next solar return. */
+  western: { sun: string; moon: string; rising: string | null; solarReturn: string; cusp: string | null };
 };
 
 export function snapshot(chart: Chart, now: Date, name: string | null): Snapshot {
@@ -68,5 +71,11 @@ export function snapshot(chart: Chart, now: Date, name: string | null): Snapshot
     { kind: 'work', title: 'How you work', tag: `Sun · ${label(at('sun'))}`, text: WORK[at('sun')] },
   ];
   if (chart.lagna) lines.push({ kind: 'presence', title: 'How you come across', tag: `Lagna · ${label(chart.lagna.rashi)}`, text: PRESENCE[chart.lagna.rashi] });
-  return { name, lines, dasha: dashaLine(chart, now) };
+  const z = zodiac(chart, now);
+  return {
+    name,
+    lines,
+    dasha: dashaLine(chart, now),
+    western: { sun: `${z.sun.glyph} ${z.sun.sign}`, moon: `${z.moon.glyph} ${z.moon.sign}`, rising: z.rising ? `${z.rising.glyph} ${z.rising.sign}` : null, solarReturn: z.solarReturn, cusp: z.cusp },
+  };
 }

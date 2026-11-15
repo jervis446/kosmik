@@ -19,6 +19,7 @@ import { type Profile, type Profiles, toBirth } from './profiles.ts';
 import type { AnswerCache, History, Library, Usage, VectorSearch } from './store.ts';
 import { aggravated, AGNI_LABEL, type Ayurveda, dominant, type Dosha, herbBlock, type HerbFilter, type Prakriti, prakritiBlock, prakritiLabel, type Vikriti, vikritiBlock } from './ayurveda.ts';
 import { rituAt } from './lib/ritu.ts';
+import { describeTropical, zodiac } from './lib/tropical.ts';
 import type { AskResult, Block, CacheEntry, Layer, Meaning, Verse } from './types.ts';
 
 export const MAX_QUESTION = 500;
@@ -150,6 +151,11 @@ const T = {
     en: 'The ritu (Ayurvedic season) right now, worked out from the Sun’s sidereal sign:',
     hi: 'अभी की ऋतु, सूर्य की निरयन राशि से निकाली गई:',
     hinglish: 'Abhi ki ritu (Ayurvedic season), Surya ki sidereal rashi se nikaali gayi:',
+  },
+  zodiacIntro: {
+    en: 'Your Western (tropical) signs, from the moment you were born. Kosmik’s kundli uses the sidereal (Vedic) zodiac, about 24° behind, so your rashi can differ.',
+    hi: 'आपकी पश्चिमी (सायन) राशियाँ, जन्म के क्षण से। Kosmik की कुंडली निरयन (वैदिक) राशिचक्र से बनती है, जो लगभग 24° पीछे है, इसलिए आपकी राशि अलग हो सकती है।',
+    hinglish: 'Aapke Western (tropical) signs, janam ke pal se. Kosmik ki kundli sidereal (Vedic) zodiac se banti hai, jo lagbhag 24° peeche hai, isliye aapki rashi alag ho sakti hai.',
   },
   compareIntro: { en: 'Side by side, as Dravyaguna describes them:', hi: 'द्रव्यगुण के अनुसार, साथ-साथ:', hinglish: 'Dravyaguna ke hisaab se, side by side:' },
   takeQuiz: {
@@ -284,6 +290,14 @@ export async function ask(
       return busy(err);
     }
     return finish('ai', blocks, { count: blocks[0]?.type !== 'notice' });
+  }
+
+  // Western signs, the Sun on their birthday and the solar return, from their saved birth details.
+  if (intent?.type === 'zodiac') {
+    const profile = userId ? await deps.profiles.get(userId) : null;
+    if (!profile) return finish('direct', [{ type: 'notice', kind: 'needs-details', text: T.needsDetails[lang] }], { count: false });
+    const z = zodiac(calculateChart(toBirth(profile)), new Date(now));
+    return finish('direct', [{ type: 'text', text: T.zodiacIntro[lang] }, { type: 'zodiac', sun: z.sun, moon: z.moon, rising: z.rising, planets: z.planets.map(({ graha, sign, glyph, degree }) => ({ graha, sign, glyph, degree })), siderealSun: z.siderealSun, cusp: z.cusp, solarReturn: z.solarReturn }], { count: false });
   }
 
   // Questions about the person's own chart use their saved birth details.
@@ -525,6 +539,7 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number)
         counts: true,
       };
     }
+    case 'zodiac':
     case 'needs-chart':
     case 'palm':
     case 'prakriti':
@@ -624,7 +639,7 @@ export function chartBlock(chart: Chart, now?: Date): Block {
 async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile, conversation: string | undefined, now: number): Promise<Block[]> {
   const chart = calculateChart(toBirth(profile));
   const meanings = await deps.library.meanings(chartSources(chart, question));
-  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}`;
+  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nWESTERN (tropical, only if they ask about Western astrology or sun signs):\n${describeTropical(chart, new Date(now))}`;
   const open = deps.astroMode === 'open';
   let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts, conversation);
   if (contentProblems(grounded.answer, [], { open }).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts, conversation);

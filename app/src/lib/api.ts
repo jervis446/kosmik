@@ -113,6 +113,21 @@ export type Block =
       total: number;
       herbs: { key: string; name: string; english: string; virya: string }[];
     }
+  | {
+      type: "zodiac";
+      sun: { sign: string; glyph: string; degree: string; vibe: string };
+      moon: { sign: string; glyph: string; degree: string; vibe: string };
+      rising: {
+        sign: string;
+        glyph: string;
+        degree: string;
+        vibe: string;
+      } | null;
+      planets: { graha: string; sign: string; glyph: string; degree: string }[];
+      siderealSun: string;
+      cusp: string | null;
+      solarReturn: string;
+    }
   | { type: "behind"; points: string[] }
   | { type: "followups"; questions: string[] }
   | {
@@ -214,6 +229,13 @@ export type Snapshot = {
     text: string;
   }[];
   dasha: string | null;
+  western?: {
+    sun: string;
+    moon: string;
+    rising: string | null;
+    solarReturn: string;
+    cusp: string | null;
+  };
 };
 
 export type Hand = "left" | "right";

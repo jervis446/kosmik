@@ -19,6 +19,8 @@ export type Intent =
   | { type: 'herb'; key: string }
   | { type: 'herb-list'; dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: 'Ushna' | 'Sheeta'; rasa?: string[]; guna?: string[]; vipaka?: string }
   | { type: 'herb-compare'; keys: string[] }
+  /** The person's Western (tropical) signs, the Sun on their birthday and their solar return. */
+  | { type: 'zodiac' }
   /** The ritu (Ayurvedic season) running now, with its guidance. */
   | { type: 'ritu' }
   /** The person's current state: show it, or (quiz) open the check. */
@@ -222,6 +224,9 @@ function ayurvedaIntent(text: string): Intent | undefined {
   return undefined;
 }
 
+/** Western astrology words: answered with the tropical zodiac card. */
+const WESTERN = /\b(sun sign|star sign|zodiac sign|zodiac|western|tropical|big three|big 3|rising sign|ascendant sign|sun moon (and )?rising|solar return|birthday sun|sun on my birthday|cusp|what sign am i|my sign)\b/;
+
 export function matchIntent(question: string): Intent | undefined {
   const text = normalizeQuestion(question);
   if (!text) return undefined;
@@ -255,6 +260,7 @@ export function matchIntent(question: string): Intent | undefined {
   if (graha && rashi) return { type: 'meaning', kind: 'graha-rashi', key: `${graha.key}:${rashi.key}` };
 
   if (PRAKRITI_SELF.test(text) || VIKRITI_SELF.test(text)) return ayurvedaIntent(text);
+  if (WESTERN.test(text) && /\b(my|mera|meri|mere|am i|i am|im|me)\b/.test(text)) return { type: 'zodiac' };
   if (PALM.test(text)) return { type: 'palm' };
   if (PERSONAL.test(text)) return { type: 'needs-chart' };
 

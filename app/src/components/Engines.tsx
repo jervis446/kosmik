@@ -36,8 +36,8 @@ const ENGINES: Engine[] = [
     glyph: "☉",
     title: "Your kundli",
     tagline: "Your birth chart",
-    detail: "Calculated from your birth details, asked for once.",
-    examples: ["What does my chart say about career?", "What is my rashi?"],
+    detail: "Your Vedic kundli and Western big three, from your birth details.",
+    examples: ["What does my chart say about career?", "What’s my big three?"],
     tint: "#E11D48",
   },
   {

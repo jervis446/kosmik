@@ -57,6 +57,8 @@ export function summariseBlocks(blocks: Block[]): string {
         return [`[Based on: ${b.points.join('; ')}]`];
       case 'followups':
         return [];
+      case 'zodiac':
+        return [`[Their Western signs: Sun ${b.sun.sign}, Moon ${b.moon.sign}${b.rising ? `, Rising ${b.rising.sign}` : ''}; solar return ${b.solarReturn}]`];
       case 'herb-compare':
         return [`[Compared: ${b.herbs.map((h) => h.name).join(' and ')}]`];
       case 'ritu':

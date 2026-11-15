@@ -25,6 +25,83 @@ export function highlight(text: string, color: string): ReactNode[] {
   return out;
 }
 
+/** Western (tropical) big three, the Sun on the birthday and the solar return. */
+function ZodiacCard({ b }: { b: Extract<Block, { type: "zodiac" }> }) {
+  const { colors } = useTheme();
+  const s = styles(colors);
+  const three = [
+    ["Sun", "who you are", b.sun],
+    ["Moon", "how you feel", b.moon],
+    ...(b.rising ? [["Rising", "how you come across", b.rising]] : []),
+  ] as [
+    string,
+    string,
+    { sign: string; glyph: string; degree: string; vibe: string },
+  ][];
+  return (
+    <View style={s.card} testID="zodiac">
+      <Text style={s.mono}>WESTERN · TROPICAL ZODIAC</Text>
+      <Text style={s.title}>
+        Your big three:{" "}
+        {three.map(([, , p]) => `${p.glyph} ${p.sign}`).join("  ")}
+      </Text>
+      {three.map(([k, what, p]) => (
+        <View key={k} style={{ flexDirection: "row", gap: 12 }}>
+          <View style={s.zGlyph}>
+            <Text style={{ color: colors.highlight, fontSize: 22 }}>
+              {p.glyph}
+            </Text>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={[s.body, { fontFamily: font.semibold }]}>
+              {k} in {p.sign}{" "}
+              <Text style={s.small}>
+                · {what} · {p.degree}
+              </Text>
+            </Text>
+            <Text style={[s.body, { fontSize: 15, color: colors.muted }]}>
+              {p.vibe}
+            </Text>
+          </View>
+        </View>
+      ))}
+      <View style={s.sunBox}>
+        <Text style={s.mono}>THE SUN ON YOUR BIRTHDAY</Text>
+        <Text style={[s.body, { fontSize: 15 }]}>
+          Tropical{" "}
+          <Text style={{ color: colors.highlight }}>{b.sun.degree}</Text> ·
+          Vedic (sidereal){" "}
+          <Text style={{ color: colors.highlight }}>{b.siderealSun}</Text>
+        </Text>
+        {b.cusp ? (
+          <Text style={[s.body, { fontSize: 15 }]}>Born on the {b.cusp}.</Text>
+        ) : null}
+        <Text style={[s.body, { fontSize: 15 }]}>
+          Next solar return (the Sun back at that exact degree):{" "}
+          <Text style={{ color: colors.highlight }}>{b.solarReturn}</Text>
+        </Text>
+      </View>
+      <View>
+        {b.planets.map((p) => (
+          <View key={p.graha} style={s.factRow}>
+            <Text style={[s.small, { flex: 1 }]}>
+              {p.graha[0].toUpperCase() + p.graha.slice(1)}
+            </Text>
+            <Text style={[s.chartCell, { flex: 1.5 }]}>
+              {p.glyph} {p.degree}
+            </Text>
+          </View>
+        ))}
+      </View>
+      <Text style={s.small}>
+        Western signs are counted from the equinox; your kundli uses the
+        sidereal (Vedic) zodiac, about 24° behind, so your rashi can be the sign
+        before.
+      </Text>
+    </View>
+  );
+}
+
 type CompareHerb = Extract<Block, { type: "herb-compare" }>["herbs"][number];
 
 /** Two or three herbs side by side, property by property. */
@@ -407,6 +484,8 @@ export function Blocks({
                 ) : null}
               </View>
             );
+          case "zodiac":
+            return <ZodiacCard key={i} b={b} />;
           case "herb-compare":
             return <HerbCompare key={i} herbs={b.herbs} onAsk={onAsk} />;
           case "ritu":
@@ -698,6 +777,20 @@ const styles = (c: Colors) =>
       fontFamily: font.mono,
       fontSize: 11,
       letterSpacing: 2,
+    },
+    zGlyph: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: c.primarySoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sunBox: {
+      gap: 6,
+      padding: 12,
+      borderRadius: 14,
+      backgroundColor: c.primarySoft,
     },
     nextGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     next: {
