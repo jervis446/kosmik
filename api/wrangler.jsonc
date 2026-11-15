@@ -36,6 +36,7 @@
     // WhatsApp codes go through the Noha Pay relay; WA_RELAY_TOKEN is a secret. Set PHONE_REQUIRED to "1"
     // to make a verified number mandatory before the first question.
     "WA_RELAY_URL": "https://wa.peoplepitchers.com/send",
+    "PHONE_REQUIRED": "1",
     // The web app is also served from GitHub Pages at this address and calls the API from there.
     "ALLOWED_ORIGINS": "https://kosmik.asanoha.co.in"
   }
