@@ -678,19 +678,30 @@ export function chartBlock(chart: Chart, now?: Date): Block {
 async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile, conversation: string | undefined, now: number): Promise<Block[]> {
   const chart = calculateChart(toBirth(profile));
   const meanings = await deps.library.meanings(chartSources(chart, question));
-  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nWESTERN (tropical, only if they ask about Western astrology or sun signs):\n${describeTropical(chart, new Date(now))}`;
+  const western = westernIntro(chart, now);
+  const showWestern = !conversation?.includes('Western astrology:');
+  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nWESTERN (tropical). ${showWestern ? 'The app already shows the person this two-line Western summary just above your answer, so do NOT repeat it; write only the Vedic reading from the kundli' : 'Use only if they ask about Western astrology or sun signs'}:\n${describeTropical(chart, new Date(now))}`;
   const open = deps.astroMode === 'open';
   let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts, conversation);
   if (contentProblems(grounded.answer, [], { open }).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts, conversation);
   if (contentProblems(grounded.answer, [], { open }).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
   const cited = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 3);
   return [
-    { type: 'text', text: grounded.answer },
+    ...(showWestern ? [{ type: 'text', text: western } as Block] : []),
+    { type: 'text', text: showWestern ? `Vedic astrology (your kundli): ${grounded.answer}` : grounded.answer },
     ...extras(grounded, (t) => !contentProblems(t, [], { open }).length).filter((b) => b.type === 'behind'),
     chartBlock(chart, new Date(now)),
     ...cited.map((m): Block => ({ type: 'meaning', ...m })),
     ...extras(grounded, (t) => !contentProblems(t, [], { open }).length).filter((b) => b.type === 'followups'),
   ];
+}
+
+/** Two lines of Western (tropical) astrology, shown before the Vedic reading. */
+export function westernIntro(chart: Parameters<typeof zodiac>[0], now: number): string {
+  const z = zodiac(chart, new Date(now));
+  const big = [`Sun ${z.sun.glyph} ${z.sun.degree}`, `Moon ${z.moon.glyph} ${z.moon.degree}`, z.rising ? `Rising ${z.rising.glyph} ${z.rising.degree}` : null].filter(Boolean).join(' · ');
+  const vibe = [z.sun.vibe, z.moon.vibe].join(' ');
+  return `Western astrology: ${big}${z.cusp ? ` (born on the ${z.cusp})` : ''}.\n${vibe}`;
 }
 
 /** Reads the person's saved palm photos, with their question in mind. */

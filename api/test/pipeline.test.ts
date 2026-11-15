@@ -424,7 +424,12 @@ test('own-chart question with birth details: calculated chart goes to the model 
   f.reply = { answer: 'Your chart shows a steady, practical approach to work.', cited: [] };
   const r = await ask(f.deps(), { question: 'What does my kundli say about career?', lang: 'en', identity: user });
   assert.equal(r.layer, 'ai');
-  assert.equal(r.blocks[0].type === 'text' && r.blocks[0].text, 'Your chart shows a steady, practical approach to work.');
+  // Western astrology first, in two lines; then the Vedic reading from the kundli.
+  const west = r.blocks[0].type === 'text' ? r.blocks[0].text : '';
+  assert.match(west, /^Western astrology: Sun . \d+°\d+′ \w+ · Moon . \d+°\d+′ \w+ · Rising . \d+°\d+′ \w+/);
+  assert.equal(west.split('\n').length, 2);
+  assert.equal(r.blocks[1].type === 'text' && r.blocks[1].text, 'Vedic astrology (your kundli): Your chart shows a steady, practical approach to work.');
+  assert.match(f.chartsSeen[0], /do NOT repeat it/);
   const chart = r.blocks.find((b) => b.type === 'chart');
   assert.ok(chart && chart.type === 'chart' && chart.lagna && chart.rows.length === 9 && chart.rows.every((x) => x.house));
   assert.match(f.chartsSeen[0], /^CHART \(calculated[^\n]*\n/);
@@ -586,7 +591,7 @@ test('answers end with the astrology behind them and questions to ask next', asy
   f.profile = birth;
   f.reply = { answer: 'Asha, a switch suits you from April 2027.', cited: [], followUps: ['Which month is best?', 'Should I study first?'], behind: ['10th lord Jupiter in the 12th house', 'Rahu–Venus antardasha from 19 April 2027'] };
   const r = await ask(f.deps(), { question: 'What does my kundli say about career?', lang: 'en', identity: user });
-  assert.deepEqual(r.blocks.map((b) => b.type), ['text', 'behind', 'chart', 'followups']);
+  assert.deepEqual(r.blocks.map((b) => b.type), ['text', 'text', 'behind', 'chart', 'followups']);
   const next = r.blocks.find((b) => b.type === 'followups');
   assert.deepEqual(next?.type === 'followups' && next.questions, ['Which month is best?', 'Should I study first?']);
 });
