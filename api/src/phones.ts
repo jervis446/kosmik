@@ -22,7 +22,10 @@ const RESEND_AFTER = 60_000;
 const MAX_SENDS_A_DAY = 5;
 const MAX_ATTEMPTS = 5;
 
-export const phoneCheckOn = (env: Env) => env.PHONE_REQUIRED === '1' && !!env.WA_RELAY_URL && !!env.WA_RELAY_TOKEN;
+/** Codes can be sent (the relay is configured). */
+export const relayReady = (env: Env) => !!env.WA_RELAY_URL && !!env.WA_RELAY_TOKEN;
+/** A verified number is required before asking. */
+export const phoneCheckOn = (env: Env) => env.PHONE_REQUIRED === '1' && relayReady(env);
 
 /** An Indian mobile number in E.164 (+91 and ten digits starting 6–9), or null. */
 export function normalizePhone(input: unknown): string | null {
@@ -57,7 +60,12 @@ export const relaySender =
       body: JSON.stringify({ to: to.replace('+', ''), text }),
       signal: AbortSignal.timeout(15_000),
     });
-    if (!res.ok) throw new Error(`WhatsApp relay failed (${res.status})`);
+    if (res.ok) return;
+    // The relay's answers: 400 not an Indian mobile, 429 rate limit, 503 WhatsApp disconnected.
+    if (res.status === 400) throw new PhoneError('WhatsApp couldn’t take that number. Check it is a 10-digit Indian mobile with WhatsApp.');
+    if (res.status === 429) throw new PhoneError('Too many codes right now. Please wait 10 minutes and try again.', 429);
+    console.error('whatsapp relay failed', res.status);
+    throw new PhoneError('WhatsApp codes are not going through right now. Please try again in a few minutes.', 503);
   };
 
 export async function startPhone(db: D1Database, userId: string, input: unknown, salt: string, send: Sender, now: number): Promise<{ phone: string }> {

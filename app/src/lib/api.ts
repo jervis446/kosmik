@@ -129,6 +129,8 @@ export type Me = {
   phone: string | null;
   /** True until you verify a WhatsApp number (when Kosmik requires one). */
   phoneRequired: boolean;
+  /** WhatsApp codes can be sent. */
+  phoneAvailable: boolean;
   premiumUntil: number | null;
   usage: { used: number; limit: number | null };
   paymentsEnabled: boolean;

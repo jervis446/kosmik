@@ -23,10 +23,14 @@ export function PhoneGate({
   visible,
   onDone,
   onSignOut,
+  onClose,
 }: {
   visible: boolean;
   onDone: (phone: string) => void;
-  onSignOut: () => void;
+  /** Shown when the number is mandatory. */
+  onSignOut?: () => void;
+  /** Shown when the number is optional (from Account). */
+  onClose?: () => void;
 }) {
   const { colors } = useTheme();
   const s = styles(colors);
@@ -153,9 +157,9 @@ export function PhoneGate({
             </>
           )}
           {error ? <Text style={s.error}>{error}</Text> : null}
-          <Pressable onPress={onSignOut} accessibilityRole="button">
+          <Pressable onPress={onClose ?? onSignOut} accessibilityRole="button">
             <Text style={[s.small, { textDecorationLine: "underline" }]}>
-              Sign out
+              {onClose ? "Not now" : "Sign out"}
             </Text>
           </Pressable>
         </View>

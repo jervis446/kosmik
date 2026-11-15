@@ -27,7 +27,7 @@ import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { D1Profiles, MAX_PHOTO_BASE64, ProfileError, searchPlaces } from './profiles.ts';
 import { D1Ayurveda, PrakritiError, prakritiLabel } from './ayurveda.ts';
 import { purgeExpired } from './retention.ts';
-import { maskPhone, PhoneError, phoneCheckOn, relaySender, startPhone, verifiedPhone, verifyPhone } from './phones.ts';
+import { maskPhone, PhoneError, phoneCheckOn, relayReady, relaySender, startPhone, verifiedPhone, verifyPhone } from './phones.ts';
 import { D1AnswerCache, D1History, D1Library, D1Usage, MemoryVectorSearch, VectorizeSearch } from './store.ts';
 import type { Env } from './types.ts';
 
@@ -258,6 +258,7 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
     return json(req, env, {
       phone: phone ? maskPhone(phone) : null,
       phoneRequired: phoneCheckOn(env) && !phone,
+      phoneAvailable: relayReady(env),
       premiumUntil: until,
       usage: { used, limit: plan.limit },
       paymentsEnabled: paymentsEnabled(env),
@@ -267,7 +268,7 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
 
   if (path === '/api/phone/start' && req.method === 'POST') {
     const userId = await requireUser(req, env);
-    if (!phoneCheckOn(env)) throw new PhoneError('Number checks are not switched on yet.', 503);
+    if (!relayReady(env)) throw new PhoneError('Number checks are not switched on yet.', 503);
     return json(req, env, await startPhone(env.DB, userId, (await readJson(req)).phone, env.GUEST_SALT ?? 'kosmik', relaySender(env), now));
   }
   if (path === '/api/phone/verify' && req.method === 'POST') {

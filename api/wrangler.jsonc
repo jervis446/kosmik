@@ -33,6 +33,9 @@
     "CHAT_MODEL": "gemini-3.5-flash",
     // "open" while testing: chart readings give specific, dated predictions. Set to "safe" at launch.
     "ASTRO_MODE": "open",
+    // WhatsApp codes go through the Noha Pay relay; WA_RELAY_TOKEN is a secret. Set PHONE_REQUIRED to "1"
+    // to make a verified number mandatory before the first question.
+    "WA_RELAY_URL": "https://wa.peoplepitchers.com/send",
     // The web app is also served from GitHub Pages at this address and calls the API from there.
     "ALLOWED_ORIGINS": "https://kosmik.asanoha.co.in"
   }

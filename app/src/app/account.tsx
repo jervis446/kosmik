@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Header } from "../components/Header";
 import { BirthForm, PalmForm, tzLabel } from "../components/DetailsForms";
+import { PhoneGate } from "../components/PhoneGate";
 import { PrakritiBars, PrakritiQuiz } from "../components/Prakriti";
 import { api, type BirthDetails, type Me, type Prakriti } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -30,6 +31,7 @@ export default function Account() {
   const [palmKey, setPalmKey] = useState(0);
   const [prakriti, setPrakriti] = useState<Prakriti | null | undefined>();
   const [quiz, setQuiz] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -86,6 +88,24 @@ export default function Account() {
             </Text>
           </View>
         </View>
+
+        {me && !me.phone && me.phoneAvailable ? (
+          <Pressable
+            onPress={() => setVerifying(true)}
+            style={[s.choice, { alignSelf: "flex-start" }]}
+            accessibilityRole="button"
+          >
+            <Text style={s.choiceText}>✆ Verify WhatsApp number</Text>
+          </Pressable>
+        ) : null}
+        <PhoneGate
+          visible={verifying}
+          onDone={(phone) => {
+            setVerifying(false);
+            setMe((m) => (m ? { ...m, phone, phoneRequired: false } : m));
+          }}
+          onClose={() => setVerifying(false)}
+        />
 
         <View style={[s.card, premium && { borderColor: colors.primary }]}>
           <View style={s.row}>

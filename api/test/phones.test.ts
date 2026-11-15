@@ -46,3 +46,23 @@ test('phone check: five codes a day per account', async () => {
   for (let i = 0; i < 5; i++, now += 61_000) await startPhone(db, 'u1', '9876543210', 'salt', send, now);
   await assert.rejects(startPhone(db, 'u1', '9876543210', 'salt', send, now), /tomorrow/);
 });
+
+test('phone check: the relay\'s errors become clear messages', async () => {
+  const { relaySender } = await import('../src/phones.ts');
+  const real = globalThis.fetch;
+  try {
+    for (const [status, re] of [[400, /10-digit Indian mobile/], [429, /wait 10 minutes/], [503, /not going through/]] as const) {
+      globalThis.fetch = (async () => new Response('{}', { status })) as typeof fetch;
+      await assert.rejects(relaySender({ WA_RELAY_URL: 'https://wa.example/send', WA_RELAY_TOKEN: 't' } as never)('+919876543210', 'hi'), re);
+    }
+    let sent: { url: string; auth: string | null; body: unknown } | null = null;
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      sent = { url, auth: new Headers(init.headers).get('authorization'), body: JSON.parse(String(init.body)) };
+      return new Response('{"success":true,"delivered":true}', { status: 200 });
+    }) as typeof fetch;
+    await relaySender({ WA_RELAY_URL: 'https://wa.example/send', WA_RELAY_TOKEN: 't' } as never)('+919876543210', 'hi');
+    assert.deepEqual(sent, { url: 'https://wa.example/send', auth: 'Bearer t', body: { to: '919876543210', text: 'hi' } });
+  } finally {
+    globalThis.fetch = real;
+  }
+});
