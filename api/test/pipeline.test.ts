@@ -165,13 +165,24 @@ test('layer 1: a verse reference is answered without AI or embeddings', async ()
   assert.equal(f.history.length, 1);
 });
 
-test('layer 1: tarot draw uses the library meanings', async () => {
+test('tarot: face-down cards first (not counted); the pick is drawn and read for the question', async () => {
   const f = new Fakes();
-  const r = await ask(f.deps(), { question: 'pull a tarot card', identity: user });
-  const tarot = r.blocks.find((b) => b.type === 'tarot');
-  assert.equal(r.layer, 'direct');
-  assert.ok(tarot?.type === 'tarot' && tarot.cards.length === 1);
-  assert.equal(f.aiCalls, 0);
+  const offer = await ask(f.deps(), { question: 'Will I get the job? pull a tarot card', lang: 'en', identity: user });
+  const pick = offer.blocks.find((b) => b.type === 'tarot-pick');
+  assert.ok(pick?.type === 'tarot-pick' && pick.count === 1 && /job/.test(pick.question));
+  assert.equal(offer.remaining, 11);
+  const deps = f.deps();
+  const seen: { question: string; cards: { name: string; meaning: string }[] }[] = [];
+  deps.ai.tarot = async (question, _lang, cards) => {
+    seen.push({ question, cards });
+    return { answer: 'The cards lean yes for this job.', readings: ['The Star here means renewed hope for this role.'], advice: 'Send the follow-up email.', followUps: ['When will I hear back?'] };
+  };
+  const r = await ask(deps, { question: 'Will I get the job? pull a tarot card', lang: 'en', identity: user, tarot: { count: 1 } });
+  assert.deepEqual(r.blocks.map((b) => b.type), ['tarot', 'text', 'followups']);
+  const t = r.blocks[0];
+  assert.ok(t.type === 'tarot' && t.cards.length === 1 && t.cards[0].reading && t.advice === 'Send the follow-up email.');
+  assert.ok(/job/.test(seen[0].question) && seen[0].cards.length === 1, 'the model gets the question and the picked card');
+  assert.equal(r.remaining, 10);
 });
 
 test('only generic answers go in the shared cache', async () => {

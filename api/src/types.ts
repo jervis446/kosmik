@@ -5,7 +5,9 @@ export type Block =
   | { type: 'text'; text: string }
   | { type: 'verse'; ref: string; sanskrit: string; iast: string; translation: string; translator: string }
   | { type: 'meaning'; kind: string; key: string; title: string; body: string; reviewed: boolean }
-  | { type: 'tarot'; cards: { key: string; name: string; reversed: boolean; position: string; meaning: string }[] }
+  | { type: 'tarot'; cards: { key: string; name: string; reversed: boolean; position: string; meaning: string; reading?: string; arcana?: 'major' | 'minor'; number?: number; suit?: string }[]; advice?: string }
+  /** Face-down cards to pick from; picking one draws and reads it for the question. */
+  | { type: 'tarot-pick'; count: 1 | 3; question: string }
   | { type: 'palm'; lines: { name: string; reading: string }[] }
   | { type: 'chart'; lagna: string | null; moon: string; nakshatra: string; /** Running mahadasha–antardasha, e.g. "Rahu–Ketu until 19 April 2027". */ dasha?: string | null; rows: { graha: string; rashi: string; house: string | null; retrograde: boolean }[] }
   | {

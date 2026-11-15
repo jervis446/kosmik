@@ -171,6 +171,20 @@ export function Conversation({
     }
   };
 
+  // The person picked their tarot card(s): draw and read them for the question.
+  const pickTarot = async (q: string, count: 1 | 3) => {
+    if (busy) return;
+    setError(null);
+    setBusy("ask");
+    try {
+      received(await api.ask(q, lang, conversationId, { count }), q);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   // A question handed over from elsewhere (the first question at the end of onboarding).
   const pendingQuestion = shell.pending;
   useEffect(() => {
@@ -292,6 +306,11 @@ export function Conversation({
                     })
                   }
                   onAsk={(q) => send(q)}
+                  onTarotPick={
+                    t.id === turns[turns.length - 1]?.id && !busy
+                      ? pickTarot
+                      : undefined
+                  }
                 />
                 <View style={s.metaRow}>
                   {t.layer && LAYER_LABEL[t.layer] ? (

@@ -131,6 +131,8 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
         lang: typeof body.lang === 'string' ? body.lang : undefined,
         identity,
         conversationId: typeof body.conversationId === 'string' ? body.conversationId : null,
+        // The person picked tarot card(s) from the face-down fan.
+        tarot: body.tarot && typeof body.tarot === 'object' ? { count: (body.tarot as { count?: unknown }).count === 3 ? 3 : 1 } : undefined,
       },
     );
     return json(req, env, result);

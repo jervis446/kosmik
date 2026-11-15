@@ -57,6 +57,8 @@ export function summariseBlocks(blocks: Block[]): string {
         return [`[Based on: ${b.points.join('; ')}]`];
       case 'followups':
         return [];
+      case 'tarot-pick':
+        return [`[Offered ${b.count} face-down card${b.count === 3 ? 's' : ''} to pick]`];
       case 'ayur-intake':
         return [`[Kosmik asked: ${b.questions.join(' ')}]`];
       case 'ayur-plan':

@@ -4,6 +4,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import type { Block } from "../lib/api";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { PrakritiBars } from "./Prakriti";
+import { TarotPick, TarotReveal } from "./TarotCards";
 
 /** Planets, houses and dates in an answer, picked out in the highlight colour. */
 const MARK =
@@ -429,6 +430,7 @@ export function Blocks({
   onPrakriti,
   onVikriti,
   onAsk,
+  onTarotPick,
 }: {
   blocks: Block[];
   onSignIn?: () => void;
@@ -437,6 +439,8 @@ export function Blocks({
   onPalm?: () => void;
   onPrakriti?: () => void;
   onVikriti?: () => void;
+  /** Set only on the latest answer, so old fans can't be picked again. */
+  onTarotPick?: (question: string, count: 1 | 3) => void;
   /** Asks a follow-up question, e.g. tapping a herb in a list. */
   onAsk?: (question: string) => void;
 }) {
@@ -466,7 +470,16 @@ export function Blocks({
               </View>
             );
           case "tarot":
-            return <TarotSpread key={i} cards={b.cards} />;
+            return <TarotReveal key={i} cards={b.cards} advice={b.advice} />;
+          case "tarot-pick":
+            return (
+              <TarotPick
+                key={i}
+                count={b.count}
+                disabled={!onTarotPick}
+                onPick={() => onTarotPick?.(b.question, b.count)}
+              />
+            );
           case "chart":
             return (
               <View key={i} style={s.card} testID="chart">
@@ -839,64 +852,6 @@ function VerseCard({ block }: { block: Extract<Block, { type: "verse" }> }) {
         <Text style={s.ref}>Bhagavad Gita {block.ref.replace("BG ", "")}</Text>
         <Text style={s.small}>Translation: {block.translator}</Text>
       </View>
-    </View>
-  );
-}
-
-function TarotSpread({
-  cards,
-}: {
-  cards: Extract<Block, { type: "tarot" }>["cards"];
-}) {
-  const { colors } = useTheme();
-  const s = styles(colors);
-  const [open, setOpen] = useState<boolean[]>(() => cards.map(() => false));
-  return (
-    <View style={{ gap: 10 }}>
-      <View style={[s.row, { gap: 10 }]}>
-        {cards.map((c, i) => (
-          <Pressable
-            key={c.key + i}
-            onPress={() => setOpen((o) => o.map((v, j) => (j === i ? !v : v)))}
-            accessibilityRole="button"
-            accessibilityLabel={
-              open[i]
-                ? `${c.position}: ${c.name}${c.reversed ? ", reversed" : ""}`
-                : `Turn over the ${c.position.toLowerCase()} card`
-            }
-            style={[
-              s.tarot,
-              open[i]
-                ? { backgroundColor: colors.surface2 }
-                : { backgroundColor: colors.primary },
-            ]}
-          >
-            {open[i] ? (
-              <>
-                <Text style={s.tarotPos}>{c.position}</Text>
-                <Text style={s.tarotName}>{c.name}</Text>
-                {c.reversed ? <Text style={s.small}>Reversed</Text> : null}
-              </>
-            ) : (
-              <Text style={{ color: "#fff", fontSize: 26 }}>✦</Text>
-            )}
-          </Pressable>
-        ))}
-      </View>
-      {cards.map((c, i) =>
-        open[i] && c.meaning ? (
-          <Text key={i} style={s.body}>
-            <Text style={{ fontFamily: font.bold }}>
-              {c.name}
-              {c.reversed ? " (reversed)" : ""}:{" "}
-            </Text>
-            {c.meaning}
-          </Text>
-        ) : null,
-      )}
-      {open.some((o) => !o) ? (
-        <Text style={s.small}>Tap a card to turn it over.</Text>
-      ) : null}
     </View>
   );
 }

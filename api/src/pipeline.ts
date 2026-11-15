@@ -61,7 +61,17 @@ const T = {
     hi: 'भगवद गीता में 18 अध्याय हैं, और यह श्लोक संख्या हमारी लाइब्रेरी में नहीं है। जैसे गीता 2.47 लिखकर देखें।',
     hinglish: 'Bhagavad Gita mein 18 adhyay hain, aur yeh shlok number humari library mein nahi hai. Gita 2.47 jaisa likh kar dekhiye.',
   },
-  tarot: { en: 'Here are your cards. Read them as reflection, not a fixed fate.', hi: 'ये रहे आपके कार्ड। इन्हें मार्गदर्शन की तरह पढ़ें, तय भविष्य की तरह नहीं।', hinglish: 'Yeh rahe aapke cards. Inhe guidance ki tarah padhiye, fixed future ki tarah nahi.' },
+  tarot: { en: 'Here are your cards.', hi: 'ये रहे आपके कार्ड।', hinglish: 'Yeh rahe aapke cards.' },
+  tarotPick: {
+    en: 'Hold your question in mind, then pick the card you feel drawn to.',
+    hi: 'अपना सवाल मन में रखें, फिर वह कार्ड चुनें जिसकी ओर आप खिंचाव महसूस करें।',
+    hinglish: 'Apna sawaal mann mein rakhiye, phir woh card chuniye jiski taraf aap khinchav mehsoos karein.',
+  },
+  tarotPickThree: {
+    en: 'Hold your question in mind and pick three cards: past, present and future.',
+    hi: 'अपना सवाल मन में रखें और तीन कार्ड चुनें: अतीत, वर्तमान और भविष्य।',
+    hinglish: 'Apna sawaal mann mein rakhiye aur teen cards chuniye: past, present aur future.',
+  },
   meaning: { en: 'In Vedic tradition:', hi: 'वैदिक परंपरा में:', hinglish: 'Vedic parampara mein:' },
   tarotMeaning: { en: 'In tarot:', hi: 'टैरो में:', hinglish: 'Tarot mein:' },
   needsChart: {
@@ -213,7 +223,7 @@ const limitBlock = (turn: Turn, lang: Lang): Block[] => [
 
 export async function ask(
   deps: Deps,
-  input: { question: string; lang?: string; identity: Identity; conversationId?: string | null },
+  input: { question: string; lang?: string; identity: Identity; conversationId?: string | null; tarot?: { count: 1 | 3 } },
 ): Promise<AskResult> {
   const now = deps.now?.() ?? Date.now();
   const question = input.question.replace(/\s+/g, ' ').trim();
@@ -238,6 +248,18 @@ export async function ask(
     }
     return finish('ai', blocks, { count: blocks[0]?.type !== 'notice' });
   };
+
+  // The person picked their tarot card(s): draw them and read them for their question.
+  if (input.tarot) {
+    if (limitReached(turn)) return finish('limit', limitBlock(turn, lang), { count: false });
+    let blocks: Block[];
+    try {
+      blocks = await tarotReading(deps, question, lang, input.tarot.count, input.identity.kind === 'user' ? input.identity.id : null, input.conversationId ?? null);
+    } catch (err) {
+      return busy(err);
+    }
+    return finish('ai', blocks, { count: true });
+  }
 
   // Someone in distress gets a person to talk to, before anything else and free of charge.
   if (isCrisis(question)) {
@@ -355,7 +377,7 @@ export async function ask(
 
   // 1. Direct answers from the libraries.
   if (intent) {
-    const direct = await answerDirect(deps, intent, lang, now);
+    const direct = await answerDirect(deps, intent, lang, now, question);
     if (direct) return finish('direct', direct.blocks, { count: direct.counts });
   }
 
@@ -477,7 +499,7 @@ async function stillCurrent(deps: Deps, entry: CacheEntry): Promise<boolean> {
   return current;
 }
 
-async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number): Promise<{ blocks: Block[]; counts: boolean } | null> {
+async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number, question = ''): Promise<{ blocks: Block[]; counts: boolean } | null> {
   switch (intent.type) {
     case 'verse': {
       const v = await deps.library.verse(intent.chapter, intent.verse);
@@ -489,10 +511,9 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number)
       const v = await verseOfTheDay(deps.library, now);
       return v ? { blocks: [{ type: 'text', text: T.verseOfDay[lang] }, verseBlock(v)], counts: true } : null;
     }
-    case 'tarot-draw': {
-      const blocks = await drawTarot(deps, intent.count);
-      return { blocks: [{ type: 'text', text: T.tarot[lang] }, blocks], counts: true };
-    }
+    case 'tarot-draw':
+      // The person picks the card(s) themselves; nothing is drawn or counted until they do.
+      return { blocks: [{ type: 'text', text: intent.count === 3 ? T.tarotPickThree[lang] : T.tarotPick[lang] }, { type: 'tarot-pick', count: intent.count, question }], counts: false };
     case 'meaning': {
       const m = await deps.library.meaning(intent.kind, intent.key);
       if (!m) return null;
@@ -782,5 +803,24 @@ async function ayurConsult(deps: Deps, question: string, lang: Lang, userId: str
     redFlags: c.redFlags,
   });
   if (c.followUps.length) blocks.push({ type: 'followups', questions: c.followUps });
+  return blocks;
+}
+
+/** Draws the picked card(s) and reads them for the person's question. */
+async function tarotReading(deps: Deps, question: string, lang: Lang, count: 1 | 3, userId: string | null, conversationId: string | null): Promise<Block[]> {
+  const spread = (await drawTarot(deps, count)) as Extract<Block, { type: 'tarot' }>;
+  if (!deps.ai.tarot) return [{ type: 'text', text: T.tarot[lang] }, spread];
+  const profile = userId ? await deps.profiles.get(userId) : null;
+  const past = userId && conversationId ? await deps.history.recent(userId, conversationId, CONTEXT_MESSAGES) : [];
+  const context = profile?.name ? `PERSON: ${profile.name}${profile.gender ? `, ${profile.gender}` : ''}` : '';
+  const r = await deps.ai.tarot(question, lang, spread.cards, context, past.length ? describeConversation(past) : undefined);
+  const cards = spread.cards.map((c, i) => {
+    const t = TAROT.find((x) => x.key === c.key)!;
+    // The card shows its position and name, so drop a "Past — Justice:" lead-in from the reading.
+    const reading = r.readings[i]?.replace(new RegExp(`^[^:]{0,80}(${c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}|${c.position})[^:]{0,40}:\\s*`, 'i'), '');
+    return { ...c, reading, arcana: t.arcana, ...(t.arcana === 'major' ? { number: t.number } : { suit: t.suit }) };
+  });
+  const blocks: Block[] = [{ type: 'tarot', cards, ...(r.advice ? { advice: r.advice } : {}) }, { type: 'text', text: r.answer }];
+  if (r.followUps.length) blocks.push({ type: 'followups', questions: r.followUps });
   return blocks;
 }

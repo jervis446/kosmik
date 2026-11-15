@@ -33,8 +33,14 @@ export type Block =
         reversed: boolean;
         position: string;
         meaning: string;
+        reading?: string;
+        arcana?: "major" | "minor";
+        number?: number;
+        suit?: string;
       }[];
+      advice?: string;
     }
+  | { type: "tarot-pick"; count: 1 | 3; question: string }
   | { type: "palm"; lines: { name: string; reading: string }[] }
   | {
       type: "chart";
@@ -356,10 +362,11 @@ export const api = {
     question: string,
     lang: Lang | undefined,
     conversationId: string | null,
+    tarot?: { count: 1 | 3 },
   ) =>
     call<AskResult>("/api/ask", {
       method: "POST",
-      body: JSON.stringify({ question, lang, conversationId }),
+      body: JSON.stringify({ question, lang, conversationId, tarot }),
     }),
   profile: () =>
     call<{

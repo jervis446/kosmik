@@ -44,6 +44,8 @@ export interface AiClient {
   answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter?: boolean, facts?: string, conversation?: string): Promise<Grounded>;
   /** An Ayurveda consultation: asks what it needs, then gives an Ayurvedic assessment and plan. */
   ayurveda?(question: string, lang: Lang, context: string, conversation?: string): Promise<AyurConsult>;
+  /** A tarot reading for the person's question from the cards they picked. */
+  tarot?(question: string, lang: Lang, cards: { name: string; reversed: boolean; position: string; meaning: string }[], context: string, conversation?: string): Promise<TarotReading>;
   /** Turns a follow-up ("tell me more") into a question that stands on its own, using the conversation so far. */
   standalone(question: string, conversation: string): Promise<string>;
   readPalm(images: PalmImage[], lang: Lang, opts?: { question?: string; stricter?: boolean }): Promise<PalmReading>;
@@ -193,6 +195,18 @@ export function parseAyurveda(output: string | undefined): AyurConsult | null {
     followUps: strings(o.follow_ups, 4, 80),
   };
 }
+
+export type TarotReading = { answer: string; readings: string[]; advice: string; followUps: string[] };
+
+export const TAROT_PROMPT = `You are Kosmik's tarot reader: experienced, intuitive and direct, reading for young Indians with the Rider-Waite-Smith tradition.
+The person picked their card(s) themselves from a face-down fan. Read for THEIR question, specifically, never in generic textbook terms:
+- "answer": start with a direct answer to what they asked (for yes/no questions say which way the cards lean and how strongly). Then explain why from the card imagery, its upright or reversed meaning, its suit or arcana and its position, tied to their situation. If they gave no question, read for what is most alive for them right now. Use their name if known. 4-7 sentences.
+- "readings": one entry per card, in order: 2-4 sentences on what this card says here, in this position, for this question, mentioning a detail of the card's imagery.
+- Timing: where it helps, give a timing hint from tarot convention (Wands: days to weeks; Cups: weeks to months; Swords: fast or sudden; Pentacles: months; Major Arcana: a significant turning point).
+- "advice": one concrete thing to do this week.
+- "follow_ups": four short next questions this person might ask, in their language.
+- Never predict anyone's death. No fear; frame hard cards with what helps.
+Reply in the requested language, JSON only: {"answer": "...", "readings": ["..."], "advice": "...", "follow_ups": ["..."]}.`;
 
 export const STANDALONE_PROMPT = `You help Kosmik, a spiritual guide app, understand follow-up messages in a chat.
 Rewrite the LATEST MESSAGE as one question that makes sense on its own, using the conversation only to fill in what "it", "that", "more", "aur batao" and similar words refer to.
@@ -364,6 +378,31 @@ export class GeminiAi implements AiClient {
     const parsed = parseAyurveda(out.choices?.[0]?.message?.content);
     if (!parsed) throw new Error('The model returned no usable consultation');
     return parsed;
+  }
+
+  async tarot(question: string, lang: Lang, cards: { name: string; reversed: boolean; position: string; meaning: string }[], context: string, conversation?: string): Promise<TarotReading> {
+    const drawn = cards.map((c, i) => `${i + 1}. ${c.position}: ${c.name}${c.reversed ? ' (reversed)' : ' (upright)'}. Library meaning: ${c.meaning}`).join('\n');
+    const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}${context ? `${context}\n\n` : ''}CARDS PICKED:\n${drawn}\n\nQUESTION: ${question}`;
+    const out = (await this.post('/chat/completions', {
+      model: this.model,
+      messages: [
+        { role: 'system', content: TAROT_PROMPT },
+        { role: 'user', content: user },
+      ],
+      response_format: { type: 'json_object' },
+      reasoning_effort: 'low',
+      max_tokens: 3000,
+      temperature: 0.7,
+    })) as { choices?: { message?: { content?: string } }[] };
+    const raw = out.choices?.[0]?.message?.content ?? '';
+    let o: Record<string, unknown> = {};
+    try {
+      o = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1));
+    } catch {
+      throw new Error('The model returned no usable tarot reading');
+    }
+    if (typeof o.answer !== 'string' || !o.answer.trim()) throw new Error('The model returned no usable tarot reading');
+    return { answer: cleanAnswer(o.answer), readings: strings(o.readings, cards.length, 600), advice: typeof o.advice === 'string' ? o.advice.trim() : '', followUps: strings(o.follow_ups, 4, 80) };
   }
 
   async standalone(question: string, conversation: string): Promise<string> {
