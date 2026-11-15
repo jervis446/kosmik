@@ -54,6 +54,23 @@ export type Block =
       cusp: string | null;
       solarReturn: string;
     }
+  /** Intake questions from the Ayurveda consultation; the person answers in the chat. */
+  | { type: 'ayur-intake'; questions: string[] }
+  /** The Ayurveda consultation's assessment and plan. */
+  | {
+      type: 'ayur-plan';
+      assessment: { doshas: string; agni: string; nidana: string[]; notes: string } | null;
+      favour: string[];
+      avoid: string[];
+      lifestyle: string[];
+      remedies: { name: string; how: string }[];
+      formulations: { name: string; dose: string; anupana: string; when: string }[];
+      yoga: string[];
+      redFlags: string[];
+    }
+  /** A calculator result: a titled table. */
+  | { type: 'facts'; title: string; rows: [string, string][]; note?: string }
+  | { type: 'milan'; boy: string; girl: string; total: number; verdict: string; simplified: string; kootas: { name: string; got: number; max: number; boy: string; girl: string; note: string }[] }
   /** The chart (or prakriti) factors an answer rests on, shown folded under it. */
   | { type: 'behind'; points: string[] }
   /** Questions to ask next; tapping one asks it. */

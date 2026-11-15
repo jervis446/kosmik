@@ -31,6 +31,7 @@ import { aggravated, AGNI_LABEL, D1Ayurveda, PrakritiError, prakritiLabel } from
 import { purgeExpired } from './retention.ts';
 import { errorSummary, logError } from './errors.ts';
 import { snapshot } from './lib/snapshot.ts';
+import { CALCULATORS, type Calculator, meBirth, parseBirth, runCalculator } from './calculators.ts';
 import { calculateChart } from './lib/chart.ts';
 import { toBirth } from './profiles.ts';
 import { maskPhone, PhoneError, phoneCheckOn, relayReady, relaySender, startPhone, verifiedPhone, verifyPhone } from './phones.ts';
@@ -154,6 +155,25 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
       await ayurveda.deletePrakriti(userId);
       return json(req, env, { deleted: true });
     }
+  }
+
+  // Free calculators: for "me" (saved details) or details typed in for someone else (not stored).
+  if (path === '/api/calc' && req.method === 'POST') {
+    const userId = await requireUser(req, env);
+    const body = await readJson(req);
+    const kind = body.kind as Calculator;
+    if (!CALCULATORS.includes(kind)) return error(req, env, 'Unknown calculator.', 400);
+    const who = async (x: unknown) => {
+      if (x === 'me') {
+        const p = await new D1Profiles(env.DB).get(userId);
+        if (!p) throw new ProfileError('Add your birth details in Account → My details first.');
+        return meBirth(p);
+      }
+      return parseBirth(x);
+    };
+    const a = await who(body.a ?? 'me');
+    const b = kind === 'milan' ? await who(body.b) : null;
+    return json(req, env, { blocks: runCalculator(kind, a, b, new Date(now)) });
   }
 
   // The cosmic snapshot from the saved birth details (end of onboarding).

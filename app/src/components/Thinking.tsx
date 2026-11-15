@@ -70,6 +70,18 @@ export function stepsFor(question: string, kind: "ask" | "palm"): string[] {
       "Laying the coming months side by side",
     ];
   }
+  if (
+    /gut|stomach|digest|gas|bloat|acidity|constipat|loose motion|sleep|neend|skin|acne|hair|cough|cold|fever|pain|dard|weight|thyroid|pcos|period|sugar|bp|tired|fatigue|weak|kabz|pet|health|sehat|immunity/.test(
+      q,
+    )
+  ) {
+    return [
+      "Understanding your symptoms",
+      "Checking doshas, agni and ama",
+      "Matching remedies to this season",
+      "Writing your Ayurveda plan",
+    ];
+  }
   if (/dosha|prakriti|ayurved|herb|jadi|vata|pitta|kapha|diet/.test(q)) {
     return [
       "Opening the herb library",

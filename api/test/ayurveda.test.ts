@@ -42,9 +42,11 @@ test('intents: herbs, herb lists, doshas and prakriti are recognised; astrology 
   assert.deepEqual(matchIntent('What should I eat for my dosha?'), { type: 'prakriti-advice' });
   assert.deepEqual(matchIntent('Saturn in 7th house'), { type: 'meaning', kind: 'graha-house', key: 'saturn:7' });
   assert.deepEqual(matchIntent('Rohini nakshatra'), { type: 'meaning', kind: 'nakshatra', key: 'rohini' });
-  assert.deepEqual(matchIntent('which herb cures diabetes?'), { type: 'herb-health' });
-  assert.deepEqual(matchIntent('Can tulsi help with cold and cough?'), { type: 'herb-health', key: 'tulsi' });
-  assert.deepEqual(matchIntent('What dose of ashwagandha should I take?'), { type: 'herb-health', key: 'ashwagandha' });
+  assert.deepEqual(matchIntent('which herb cures diabetes?'), { type: 'ayur-consult' });
+  assert.deepEqual(matchIntent('Can tulsi help with cold and cough?'), { type: 'ayur-consult', herb: 'tulsi' });
+  assert.deepEqual(matchIntent('why recently my gut health is getting worse'), { type: 'ayur-consult' });
+  assert.deepEqual(matchIntent('What does my kundli say about my health?'), { type: 'needs-chart' });
+  assert.deepEqual(matchIntent('What dose of ashwagandha should I take?'), { type: 'ayur-consult', herb: 'ashwagandha' });
   assert.deepEqual(matchIntent('Which herbs balance Pitta?')?.type, 'herb-list');
   assert.deepEqual(matchIntent('What does the Gita say about pain?'), undefined);
   assert.equal(matchIntent('what is the meaning of life'), undefined);

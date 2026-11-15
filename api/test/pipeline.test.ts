@@ -482,14 +482,31 @@ test('ayurveda: diet for my prakriti goes to the model with the quiz result, nev
   assert.equal(r.remaining, 10);
 });
 
-test('ayurveda: a herb for a health problem or a dose gets no advice, the herb card, and is not counted', async () => {
+test('ayurveda: a health complaint gets a consultation (intake first), never the chart, and the reply continues it', async () => {
   const f = new Fakes();
-  const r = await ask(f.deps(), { question: 'Can tulsi help with cold and cough?', lang: 'en', identity: user });
-  assert.equal(r.layer, 'direct');
-  assert.match(r.blocks[0].type === 'text' ? r.blocks[0].text : '', /doctor or a qualified Ayurvedic practitioner/);
-  assert.ok(r.blocks.some((b) => b.type === 'herb' && b.key === 'tulsi'));
-  assert.equal(f.aiCalls, 0);
-  assert.equal(r.remaining, 11);
+  f.profile = birth;
+  const consults: { q: string; conversation?: string; context: string }[] = [];
+  const replies = [
+    { mode: 'ask' as const, reply: 'Let me understand your digestion first.', questions: ['Since when?', 'Worse after which meal?'] },
+    { mode: 'answer' as const, reply: 'Asha, this looks like Pitta in the stomach with weak agni.', questions: [] },
+  ];
+  const deps = f.deps();
+  deps.ai.ayurveda = async (q, _lang, context, conversation) => {
+    consults.push({ q, conversation, context });
+    const r = replies.shift()!;
+    return { ...r, assessment: r.mode === 'answer' ? { doshas: 'Pitta', agni: 'Tikshna', nidana: ['Late spicy dinners'], notes: '' } : null, favour: ['Rice'], avoid: ['Chilli'], lifestyle: [], remedies: [{ name: 'Jeera water', how: 'Boil and sip' }], formulations: [{ name: 'Avipattikar churna', dose: '3 g', anupana: 'water', when: 'before meals' }], yoga: [], redFlags: ['Blood in stool'], followUps: ['What should I eat?'] };
+  };
+  const first = await ask(deps, { question: 'Why is my gut health getting worse recently?', lang: 'en', identity: user });
+  assert.deepEqual(first.blocks.map((b) => b.type), ['text', 'ayur-intake']);
+  assert.equal(f.chartsSeen.length, 0, 'never the kundli');
+  assert.match(consults[0].context, /PERSON:[\s\S]*Name: Asha[\s\S]*SEASON:/);
+  f.past = [
+    { role: 'user', content: 'Why is my gut health getting worse recently?', blocks: null },
+    { role: 'assistant', content: '', blocks: first.blocks },
+  ];
+  const second = await ask(deps, { question: 'Two weeks, mostly after dinner, I eat late', lang: 'en', identity: user, conversationId: 'conv-1' });
+  assert.deepEqual(second.blocks.map((b) => b.type), ['text', 'ayur-plan', 'followups']);
+  assert.match(consults[1].conversation ?? '', /Kosmik asked: Since when\?/);
 });
 
 const angerChat: PastMessage[] = [

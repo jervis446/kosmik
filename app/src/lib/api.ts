@@ -128,6 +128,28 @@ export type Block =
       cusp: string | null;
       solarReturn: string;
     }
+  | { type: "ayur-intake"; questions: string[] }
+  | {
+      type: "ayur-plan";
+      assessment: {
+        doshas: string;
+        agni: string;
+        nidana: string[];
+        notes: string;
+      } | null;
+      favour: string[];
+      avoid: string[];
+      lifestyle: string[];
+      remedies: { name: string; how: string }[];
+      formulations: {
+        name: string;
+        dose: string;
+        anupana: string;
+        when: string;
+      }[];
+      yoga: string[];
+      redFlags: string[];
+    }
   | { type: "behind"; points: string[] }
   | { type: "followups"; questions: string[] }
   | {

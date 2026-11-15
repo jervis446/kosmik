@@ -277,7 +277,26 @@ export async function ask(
       }
     }
   }
-  const intent = q === question ? ownIntent : matchIntent(q);
+  let intent = q === question ? ownIntent : matchIntent(q);
+  // A reply to the consultation's intake questions continues the consultation.
+  if (userId && input.conversationId && intent?.type !== 'ayur-consult') {
+    const last = (await deps.history.recent(userId, input.conversationId, 1))[0];
+    if (last?.role === 'assistant' && last.blocks?.some((b) => b.type === 'ayur-intake')) {
+      intent = { type: 'ayur-consult' };
+      if (!conversation) conversation = describeConversation(await deps.history.recent(userId, input.conversationId, CONTEXT_MESSAGES));
+    }
+  }
+
+  // Health and wellness: an Ayurveda consultation, never the birth chart.
+  if (intent?.type === 'ayur-consult') {
+    let blocks: Block[];
+    try {
+      blocks = await ayurConsult(deps, q, lang, userId, intent.herb, conversation, now);
+    } catch (err) {
+      return busy(err);
+    }
+    return finish('ai', blocks, { count: true });
+  }
 
   // Palm questions read the person's saved palm photos.
   if (intent?.type === 'palm') {
@@ -486,10 +505,6 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number)
         ? { blocks: [{ type: 'text', text: T.herbIntro[lang] }, herbBlock(h)], counts: true }
         : { blocks: [{ type: 'text', text: T.herbMissing[lang] }], counts: false };
     }
-    case 'herb-health': {
-      const h = intent.key ? await deps.ayurveda.herb(intent.key) : null;
-      return { blocks: [{ type: 'text', text: T.herbHealth[lang] }, ...(h ? [herbBlock(h)] : [])], counts: false };
-    }
     case 'herb-list': {
       const filter: HerbFilter = { dosha: intent.dosha, effect: intent.effect, virya: intent.virya, rasa: intent.rasa, guna: intent.guna, vipaka: intent.vipaka };
       const { herbs, total } = await deps.ayurveda.findHerbs(filter, HERB_LIST);
@@ -540,6 +555,7 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number)
       };
     }
     case 'zodiac':
+    case 'ayur-consult':
     case 'needs-chart':
     case 'palm':
     case 'prakriti':
@@ -657,7 +673,8 @@ async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Pr
 /** Reads the person's saved palm photos, with their question in mind. */
 async function palmAnswer(deps: Deps, question: string, lang: Lang, photos: { hand: 'left' | 'right'; mime: string; data: string }[]): Promise<Block[]> {
   const images = photos.map((p) => ({ data: p.data, mime: p.mime, hand: p.hand }));
-  const safe = (r: { overview: string; lines: { reading: string }[] }) => ![r.overview, ...r.lines.map((l) => l.reading)].some((t) => contentProblems(t).length);
+  const open = deps.astroMode === 'open';
+  const safe = (r: { overview: string; lines: { reading: string }[] }) => ![r.overview, ...r.lines.map((l) => l.reading)].some((t) => contentProblems(t, [], { open }).length);
   let reading = await deps.ai.readPalm(images, lang, { question });
   if (reading.isPalm && !safe(reading)) reading = await deps.ai.readPalm(images, lang, { question, stricter: true });
   if (!reading.isPalm) return [{ type: 'notice', kind: 'retake', text: `${T.palmRetake[lang]} ${reading.overview}` }];
@@ -665,7 +682,6 @@ async function palmAnswer(deps: Deps, question: string, lang: Lang, photos: { ha
   return [
     { type: 'text', text: `${T.palmIntro[lang]} ${reading.overview}` },
     { type: 'palm', lines: reading.lines },
-    { type: 'text', text: T.palmNote[lang] },
   ];
 }
 
@@ -724,4 +740,47 @@ async function prakritiAdvice(deps: Deps, question: string, lang: Lang, p: Prakr
   if (contentProblems(grounded.answer).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
   const cited = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 3);
   return [{ type: 'text', text: grounded.answer }, prakritiBlock(p), ...(await meaningBlocks(deps, cited)), ...extras(grounded)];
+}
+
+/** An Ayurveda consultation turn: intake questions first if needed, then an assessment and plan. */
+async function ayurConsult(deps: Deps, question: string, lang: Lang, userId: string | null, herb: string | undefined, conversation: string | undefined, now: number): Promise<Block[]> {
+  if (!deps.ai.ayurveda) throw new Error('Ayurveda consultations are not available');
+  const [profile, prakriti, vikriti] = userId ? await Promise.all([deps.profiles.get(userId), deps.ayurveda.prakriti(userId), deps.ayurveda.vikriti(userId)]) : [null, null, null];
+  const embedding = await deps.ai.embed(question);
+  const hits = await deps.vectors.search('meanings', embedding, 10, 0.4);
+  const ids = [...(herb ? [`herb/${herb}`] : []), ...hits.map((h) => h.id).filter((id) => /^(herb|ayurveda|dosha|prakriti-care)\//.test(id))].slice(0, 8);
+  const meanings = await deps.library.meanings(ids);
+  const ritu = rituAt(new Date(now)).now;
+  const age = profile ? Math.floor((now - Date.parse(profile.birthDate)) / (365.25 * 86_400_000)) : null;
+  const person = [
+    profile?.name ? `Name: ${profile.name}` : null,
+    profile?.gender ? `Gender: ${profile.gender}` : null,
+    age !== null ? `Age: ${age}` : null,
+    prakriti ? `Prakriti (quiz): Vata ${prakriti.vata}%, Pitta ${prakriti.pitta}%, Kapha ${prakriti.kapha}% (${prakritiLabel(prakriti)})` : null,
+    vikriti ? `Vikriti (check, signs of 10): Vata ${vikriti.vata}, Pitta ${vikriti.pitta}, Kapha ${vikriti.kapha}; ${AGNI_LABEL[vikriti.agni]}` : null,
+  ].filter(Boolean);
+  const context = [
+    person.length ? `PERSON:\n${person.join('\n')}` : 'PERSON: not known',
+    `SEASON: ${ritu.ritu}; ${ritu.doshas}; ${ritu.rasa}`,
+    `SOURCES:\n${meanings.map((m) => `[${m.kind}/${m.key}] ${m.title}: ${m.body}`).join('\n') || '(none)'}`,
+  ].join('\n\n');
+  const c = await deps.ai.ayurveda(question, lang, context, conversation);
+  const blocks: Block[] = [{ type: 'text', text: c.reply }];
+  if (c.mode === 'ask') {
+    blocks.push({ type: 'ayur-intake', questions: c.questions });
+    return blocks;
+  }
+  blocks.push({
+    type: 'ayur-plan',
+    assessment: c.assessment,
+    favour: c.favour,
+    avoid: c.avoid,
+    lifestyle: c.lifestyle,
+    remedies: c.remedies,
+    formulations: c.formulations,
+    yoga: c.yoga,
+    redFlags: c.redFlags,
+  });
+  if (c.followUps.length) blocks.push({ type: 'followups', questions: c.followUps });
+  return blocks;
 }

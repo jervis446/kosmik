@@ -57,6 +57,14 @@ export function summariseBlocks(blocks: Block[]): string {
         return [`[Based on: ${b.points.join('; ')}]`];
       case 'followups':
         return [];
+      case 'ayur-intake':
+        return [`[Kosmik asked: ${b.questions.join(' ')}]`];
+      case 'ayur-plan':
+        return [`[Ayurveda plan: ${b.assessment?.doshas ?? ''}; remedies ${b.remedies.map((r) => r.name).join(', ')}; formulations ${b.formulations.map((f) => f.name).join(', ')}]`];
+      case 'facts':
+        return [`[${b.title}: ${b.rows.map(([k, v]) => `${k} ${v}`).join('; ')}]`];
+      case 'milan':
+        return [`[Kundli milan ${b.boy} and ${b.girl}: ${b.total}/36]`];
       case 'zodiac':
         return [`[Their Western signs: Sun ${b.sun.sign}, Moon ${b.moon.sign}${b.rising ? `, Rising ${b.rising.sign}` : ''}; solar return ${b.solarReturn}]`];
       case 'herb-compare':

@@ -25,6 +25,159 @@ export function highlight(text: string, color: string): ReactNode[] {
   return out;
 }
 
+/** A titled bullet list inside the Ayurveda plan. */
+function PlanList({
+  label,
+  items,
+  dot,
+}: {
+  label: string;
+  items: string[];
+  dot: string;
+}) {
+  const { colors } = useTheme();
+  const s = styles(colors);
+  if (!items.length) return null;
+  return (
+    <View style={{ gap: 4 }}>
+      <Text style={s.mono}>{label}</Text>
+      {items.map((x) => (
+        <Text key={x} style={[s.body, { fontSize: 15 }]}>
+          <Text style={{ color: dot }}>• </Text>
+          {x}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+/** The Ayurveda consultation's assessment and plan. */
+function AyurPlan({ b }: { b: Extract<Block, { type: "ayur-plan" }> }) {
+  const { colors } = useTheme();
+  const s = styles(colors);
+  return (
+    <View style={s.card} testID="ayur-plan">
+      <Text style={s.mono}>AYURVEDA · YOUR PLAN</Text>
+      {b.assessment ? (
+        <View style={s.sunBox}>
+          <Text style={s.mono}>ASSESSMENT</Text>
+          {b.assessment.doshas ? (
+            <Text style={[s.body, { fontSize: 15 }]}>
+              <Text style={{ fontFamily: font.semibold }}>Doshas: </Text>
+              {b.assessment.doshas}
+            </Text>
+          ) : null}
+          {b.assessment.agni ? (
+            <Text style={[s.body, { fontSize: 15 }]}>
+              <Text style={{ fontFamily: font.semibold }}>Agni and ama: </Text>
+              {b.assessment.agni}
+            </Text>
+          ) : null}
+          {b.assessment.nidana.length ? (
+            <Text style={[s.body, { fontSize: 15 }]}>
+              <Text style={{ fontFamily: font.semibold }}>
+                Nidana (causes):{" "}
+              </Text>
+              {b.assessment.nidana.join("; ")}
+            </Text>
+          ) : null}
+          {b.assessment.notes ? (
+            <Text style={[s.body, { fontSize: 15, color: colors.muted }]}>
+              {b.assessment.notes}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
+        <View style={{ flexBasis: 240, flexGrow: 1 }}>
+          <PlanList
+            label="FAVOUR (PATHYA)"
+            items={b.favour}
+            dot={colors.success}
+          />
+        </View>
+        <View style={{ flexBasis: 240, flexGrow: 1 }}>
+          <PlanList
+            label="AVOID (APATHYA)"
+            items={b.avoid}
+            dot={colors.danger}
+          />
+        </View>
+      </View>
+      {b.remedies.length ? (
+        <View style={{ gap: 6 }}>
+          <Text style={s.mono}>KITCHEN REMEDIES</Text>
+          {b.remedies.map((r) => (
+            <View key={r.name} style={{ gap: 2 }}>
+              <Text
+                style={[
+                  s.body,
+                  {
+                    fontFamily: font.semibold,
+                    fontSize: 15,
+                    color: colors.highlight,
+                  },
+                ]}
+              >
+                {r.name}
+              </Text>
+              <Text style={[s.body, { fontSize: 15 }]}>{r.how}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {b.formulations.length ? (
+        <View style={{ gap: 4 }}>
+          <Text style={s.mono}>CLASSICAL FORMULATIONS</Text>
+          {b.formulations.map((f) => (
+            <View key={f.name} style={s.factRow}>
+              <Text
+                style={[
+                  s.body,
+                  { flex: 1.2, fontSize: 15, fontFamily: font.semibold },
+                ]}
+              >
+                {f.name}
+              </Text>
+              <Text style={[s.small, { flex: 1.6 }]}>
+                {f.dose}
+                {f.anupana ? ` · ${f.anupana}` : ""}
+                {f.when ? ` · ${f.when}` : ""}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      <PlanList
+        label="DAILY ROUTINE"
+        items={b.lifestyle}
+        dot={colors.highlight}
+      />
+      <PlanList
+        label="YOGA AND PRANAYAMA"
+        items={b.yoga}
+        dot={colors.highlight}
+      />
+      {b.redFlags.length ? (
+        <View style={[s.sunBox, { backgroundColor: "rgba(248,113,113,0.10)" }]}>
+          <Text style={[s.mono, { color: colors.danger }]}>
+            SEE A DOCTOR PROMPTLY IF
+          </Text>
+          {b.redFlags.map((x) => (
+            <Text key={x} style={[s.body, { fontSize: 15 }]}>
+              • {x}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      <Text style={s.small}>
+        From Kosmik’s Ayurveda assistant by Asanoha (AYUSH licensed). Doses are
+        the usual adult ones; a vaidya can tailor them to you.
+      </Text>
+    </View>
+  );
+}
+
 /** Western (tropical) big three, the Sun on the birthday and the solar return. */
 function ZodiacCard({ b }: { b: Extract<Block, { type: "zodiac" }> }) {
   const { colors } = useTheme();
@@ -484,6 +637,31 @@ export function Blocks({
                 ) : null}
               </View>
             );
+          case "ayur-intake":
+            return (
+              <View key={i} style={s.card} testID="ayur-intake">
+                <Text style={s.mono}>A FEW QUESTIONS FIRST</Text>
+                {b.questions.map((q, n) => (
+                  <View key={q} style={{ flexDirection: "row", gap: 10 }}>
+                    <Text
+                      style={[
+                        s.mono,
+                        { color: colors.highlight, fontSize: 13 },
+                      ]}
+                    >
+                      {n + 1}
+                    </Text>
+                    <Text style={[s.body, { flex: 1, fontSize: 15 }]}>{q}</Text>
+                  </View>
+                ))}
+                <Text style={s.small}>
+                  Answer them in one message below. The more detail, the better
+                  the plan.
+                </Text>
+              </View>
+            );
+          case "ayur-plan":
+            return <AyurPlan key={i} b={b} />;
           case "zodiac":
             return <ZodiacCard key={i} b={b} />;
           case "herb-compare":

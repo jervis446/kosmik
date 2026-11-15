@@ -27,8 +27,8 @@ export type Intent =
   | { type: 'vikriti'; quiz: boolean }
   /** The person's own prakriti: show it, or (quiz) open the quiz. */
   | { type: 'prakriti'; quiz: boolean }
-  /** A herb for a health problem, or a dose: Kosmik doesn't advise; it shows the herb card if one is named. */
-  | { type: 'herb-health'; key?: string }
+  /** A health complaint or wellness question: an Ayurveda consultation (intake questions, then a plan). */
+  | { type: 'ayur-consult'; herb?: string }
   /** Diet, routine or herbs for the person's own prakriti: an AI answer from their quiz result. */
   | { type: 'prakriti-advice' };
 
@@ -195,7 +195,7 @@ function ayurvedaIntent(text: string): Intent | undefined {
   }
   if ((RITU.test(text) && NOW.test(text)) || (/\britucharya\b/.test(text) && !DEFINE.test(text))) return { type: 'ritu' };
   const named = findHerb(text, true);
-  if (HEALTH.test(text) && (named || HERB_WORD.test(text) || /\b(ayurved\w*)\b|आयुर्वेद/.test(text))) return named ? { type: 'herb-health', key: named } : { type: 'herb-health' };
+  if (HEALTH.test(text) && (named || HERB_WORD.test(text) || /\b(ayurved\w*)\b|आयुर्वेद/.test(text))) return named ? { type: 'ayur-consult', herb: named } : { type: 'ayur-consult' };
   const both = findHerbs(text);
   if (both.length >= 2 && /\b(compare|comparison|vs|versus|difference|differ|better|or|ya|aur|and|between|kaun)\b/.test(text)) return { type: 'herb-compare', keys: both.slice(0, 3) };
   const dosha = doshaIn(text);
@@ -223,6 +223,11 @@ function ayurvedaIntent(text: string): Intent | undefined {
   if (herb && (context || words <= 3)) return { type: 'herb', key: herb };
   return undefined;
 }
+
+/** Body and health words: an Ayurveda consultation, unless the question is about the chart. */
+const SYMPTOMS =
+  /\b(gut|stomach|tummy|digestion|digestive|indigestion|gas|gassy|bloat\w*|acidity|acid reflux|heartburn|constipat\w*|loose motion\w*|diarrh\w*|ibs|appetite|nausea|vomit\w*|piles|hemorrhoids|ulcer|liver|fatty liver|sleep|insomnia|neend|fatigue|tired\w*|weakness|thakan|low energy|skin|acne|pimple\w*|eczema|psoriasis|rash\w*|itch\w*|hair ?fall|hair loss|dandruff|grey hair|cold|cough|khansi|zukam|sinus|allergy|allerg\w*|fever|bukhar|headache|migraine|joint\w*|knee|back ?pain|neck pain|arthritis|pain|dard|weight|obes\w*|thyroid|pcos|pcod|period\w*|menstru\w*|diabet\w*|sugar level|blood pressure|bp|cholesterol|urine|uti|kidney|eyes?|immunity|health|sehat|body heat|pet|kabz|mouth ulcer\w*|bad breath|sweating|swelling)\b|पेट|कब्ज|गैस|एसिडिटी|नींद|खांसी|बुखार|दर्द|सेहत/;
+const ASTRO_WORDS = /\b(spiritual\w*|soul|mind|karma|dharma|kundli|kundali|chart|horoscope|dasha|mahadasha|planet\w*|graha|house|bhava|rashi|nakshatra|lagna|ascendant|saturn|shani|rahu|ketu|jupiter|guru|transit|zodiac|sun sign|tarot|card|palm|hast ?rekha|gita|geeta|krishna)\b|कुंडली|ग्रह/;
 
 /** Western astrology words: answered with the tropical zodiac card. */
 const WESTERN = /\b(sun sign|star sign|zodiac sign|zodiac|western|tropical|big three|big 3|rising sign|ascendant sign|sun moon (and )?rising|solar return|birthday sun|sun on my birthday|cusp|what sign am i|my sign)\b/;
@@ -260,6 +265,10 @@ export function matchIntent(question: string): Intent | undefined {
   if (graha && rashi) return { type: 'meaning', kind: 'graha-rashi', key: `${graha.key}:${rashi.key}` };
 
   if (PRAKRITI_SELF.test(text) || VIKRITI_SELF.test(text)) return ayurvedaIntent(text);
+  if (SYMPTOMS.test(text) && !ASTRO_WORDS.test(text) && !/\b(what is|whats|kya hai|meaning of)\b/.test(text.replace(/\b(my|mera|meri|mere)\b.*/, ''))) {
+    const herb = findHerb(text, true);
+    return herb ? { type: 'ayur-consult', herb } : { type: 'ayur-consult' };
+  }
   if (WESTERN.test(text) && /\b(my|mera|meri|mere|am i|i am|im|me)\b/.test(text)) return { type: 'zodiac' };
   if (PALM.test(text)) return { type: 'palm' };
   if (PERSONAL.test(text)) return { type: 'needs-chart' };
