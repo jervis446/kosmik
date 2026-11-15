@@ -9,6 +9,7 @@ import {
 
 import { api, ApiError, type Prakriti } from "../lib/api";
 import { type Colors, font, useTheme } from "../lib/theme";
+import { track } from "../lib/analytics";
 
 type Choice = "v" | "p" | "k";
 
@@ -123,7 +124,9 @@ export function PrakritiQuiz({ onSaved }: { onSaved: (p: Prakriti) => void }) {
     setSaving(true);
     setError(null);
     try {
-      onSaved((await api.savePrakriti(answers as Choice[])).prakriti);
+      const r = await api.savePrakriti(answers as Choice[]);
+      track("details/prakriti-saved");
+      onSaved(r.prakriti);
     } catch (e) {
       setError(message(e));
     } finally {

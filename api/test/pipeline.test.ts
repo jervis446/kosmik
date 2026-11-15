@@ -354,7 +354,7 @@ const bothHands: PalmPhoto[] = [
   { hand: 'left', mime: 'image/jpeg', data: 'TEZU' },
   { hand: 'right', mime: 'image/jpeg', data: 'UklHSFQ=' },
 ];
-const birth: Profile = { name: 'Asha', birthDate: '1998-03-14', birthTime: '06:45', place: 'Lucknow, Uttar Pradesh, India', lat: 26.85, lon: 80.95, tzOffsetMin: 330 };
+const birth: Profile = { name: 'Asha', gender: 'female', birthDate: '1998-03-14', birthTime: '06:45', place: 'Lucknow, Uttar Pradesh, India', lat: 26.85, lon: 80.95, tzOffsetMin: 330 };
 
 test('palm question without saved photos: asks for them, not counted, no AI call', async () => {
   const f = new Fakes();

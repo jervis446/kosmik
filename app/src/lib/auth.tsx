@@ -8,6 +8,7 @@ import React, {
 } from "react";
 
 import { supabase } from "./supabase";
+import { track } from "./analytics";
 
 type AuthCtx = {
   session: Session | null;
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           options: { shouldCreateUser: true },
         });
         if (error) throw new Error(friendly(error.message));
+        track("sign-in/email-code-sent");
       },
       async verifyCode(email, code) {
         if (!supabase) throw new Error("Sign-in isn’t set up in this build.");
@@ -68,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           type: "email",
         });
         if (error) throw new Error(friendly(error.message));
+        track("sign-in/email");
       },
       async signInWithGoogle() {
         if (!supabase) throw new Error("Sign-in isn’t set up in this build.");
@@ -82,8 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         if (error)
           throw new Error("Google sign-in didn’t start. Please try again.");
+        track("sign-in/google-started");
       },
       async signOut() {
+        track("sign-out");
         await supabase?.auth.signOut();
       },
     }),

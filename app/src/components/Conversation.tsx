@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -27,6 +27,7 @@ import { Blocks } from "./Blocks";
 import { DetailsModal } from "./DetailsForms";
 import { Engines } from "./Engines";
 import { Thinking } from "./Thinking";
+import { track } from "../lib/analytics";
 
 export type Turn =
   | { id: string; role: "user"; text: string }
@@ -99,6 +100,13 @@ export function Conversation({
   const scroll = useRef<ScrollViewInstance>(null);
 
   const received = (r: AskResult, question: string) => {
+    // What was asked about, never the question itself.
+    track(`ask/${r.layer}`);
+    const card = r.blocks.find((b) => b.type !== "text");
+    if (card)
+      track(
+        `answer/${card.type === "notice" ? `notice-${card.kind}` : card.type}`,
+      );
     if (r.conversationId && r.conversationId !== conversationId) {
       setConversationId(r.conversationId);
       shell.setActiveId(r.conversationId);
@@ -159,6 +167,18 @@ export function Conversation({
       setBusy(null);
     }
   };
+
+  // A question handed over from elsewhere (the first question at the end of onboarding).
+  const pendingQuestion = shell.pending;
+  useEffect(() => {
+    if (!pendingQuestion || turns.length) return;
+    const t = setTimeout(() => {
+      shell.clearPending();
+      send(pendingQuestion);
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingQuestion]);
 
   const rate = async (turnId: string, messageId: string, value: 1 | -1) => {
     const set = (v: 1 | -1 | null) =>
@@ -400,9 +420,9 @@ const styles = (c: Colors) =>
     },
     hello: {
       color: c.text,
-      fontFamily: font.heavy,
-      fontSize: 28,
-      lineHeight: 36,
+      fontFamily: font.display,
+      fontSize: 34,
+      lineHeight: 42,
     },
     sub: {
       color: c.muted,

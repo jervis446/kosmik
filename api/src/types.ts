@@ -80,6 +80,8 @@ export interface Env {
   REASONING_EFFORT?: string;
   /** 'open' while testing: chart readings give specific, dated predictions. 'safe' (default) after launch. */
   ASTRO_MODE?: string;
+  /** Comma-separated account ids that can read the error log at /admin. */
+  ADMIN_USER_IDS?: string;
   /** "1" to require a verified WhatsApp number before asking (needs the relay below). */
   PHONE_REQUIRED?: string;
   /** WhatsApp relay that sends the codes (POST {to, text}); its bearer token is a secret. */

@@ -67,14 +67,14 @@ test('daily clean-up removes old counts, old chats with their messages and feedb
   cached.run('popular', 'c4', now - 300 * day, now - 2 * day, 0);
 
   const purged = await purgeExpired(db, now);
-  assert.deepEqual(purged, { usage: 2, chats: 1, messages: 1, cachedAnswers: 2 });
+  assert.deepEqual(purged, { usage: 2, chats: 1, messages: 1, cachedAnswers: 2, errors: 0 });
   assert.deepEqual(raw.prepare('SELECT period FROM usage ORDER BY period').all().map((r) => r.period), ['d:2027-06-15', 'w:2027-06-14']);
   assert.deepEqual(raw.prepare('SELECT id FROM conversations').all().map((r) => r.id), ['recent']);
   assert.deepEqual(raw.prepare('SELECT id FROM messages').all().map((r) => r.id), ['m-recent']);
   assert.equal(raw.prepare('SELECT COUNT(*) AS n FROM feedback').get()?.n, 0);
   assert.deepEqual(raw.prepare('SELECT question FROM answer_cache ORDER BY id').all().map((r) => r.question), ['reviewed', 'popular']);
 
-  assert.deepEqual(await purgeExpired(db, now), { usage: 0, chats: 0, messages: 0, cachedAnswers: 0 }, 'running twice is harmless');
+  assert.deepEqual(await purgeExpired(db, now), { usage: 0, chats: 0, messages: 0, cachedAnswers: 0, errors: 0 }, 'running twice is harmless');
 });
 
 test('history: recent messages come oldest first, and only from your own chat', async () => {

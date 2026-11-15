@@ -15,6 +15,7 @@ import { Header } from "../components/Header";
 import { useAuth } from "../lib/auth";
 import { authConfigured } from "../lib/supabase";
 import { font, useTheme } from "../lib/theme";
+import { Sky } from "../components/Sky";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -52,7 +53,7 @@ export default function SignIn() {
       width: "100%",
       alignSelf: "center",
     },
-    h: { color: colors.text, fontFamily: font.heavy, fontSize: 26 },
+    h: { color: colors.text, fontFamily: font.display, fontSize: 30 },
     p: {
       color: colors.muted,
       fontFamily: font.body,
@@ -117,7 +118,11 @@ export default function SignIn() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      edges={["top", "bottom"]}
+    >
+      <Sky />
       <Header title="Sign in" back />
       <View style={s.wrap}>
         <Text style={s.h}>

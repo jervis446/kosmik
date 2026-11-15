@@ -233,8 +233,8 @@ const styles = (c: Colors) =>
     },
     brand: {
       color: c.text,
-      fontFamily: font.heavy,
-      fontSize: 20,
+      fontFamily: font.display,
+      fontSize: 22,
       letterSpacing: -0.3,
     },
     by: { color: c.muted, fontFamily: font.semibold, fontSize: 11 },

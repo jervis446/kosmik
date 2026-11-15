@@ -5,7 +5,8 @@
 import type { BirthDetails } from './lib/chart.ts';
 
 export type Hand = 'left' | 'right';
-export type Profile = { name: string | null; birthDate: string; birthTime: string | null; place: string; lat: number; lon: number; tzOffsetMin: number };
+export type Gender = 'female' | 'male' | 'other';
+export type Profile = { name: string | null; gender: Gender | null; birthDate: string; birthTime: string | null; place: string; lat: number; lon: number; tzOffsetMin: number };
 export type PalmPhoto = { hand: Hand; mime: string; data: string };
 
 export class ProfileError extends Error {}
@@ -17,7 +18,7 @@ export interface Profiles {
   palms(userId: string): Promise<PalmPhoto[]>;
 }
 
-type Row = { name: string | null; birth_date: string; birth_time: string | null; place: string; lat: number; lon: number; tz_offset_min: number };
+type Row = { name: string | null; gender: Gender | null; birth_date: string; birth_time: string | null; place: string; lat: number; lon: number; tz_offset_min: number };
 
 const b64 = (bytes: ArrayBuffer | Uint8Array | number[]) => {
   const u = bytes instanceof Uint8Array ? bytes : Array.isArray(bytes) ? Uint8Array.from(bytes) : new Uint8Array(bytes);
@@ -33,8 +34,8 @@ export class D1Profiles implements Profiles {
     this.db = db;
   }
   async get(userId: string): Promise<Profile | null> {
-    const r = await this.db.prepare('SELECT name, birth_date, birth_time, place, lat, lon, tz_offset_min FROM profiles WHERE user_id = ?').bind(userId).first<Row>();
-    return r ? { name: r.name, birthDate: r.birth_date, birthTime: r.birth_time, place: r.place, lat: r.lat, lon: r.lon, tzOffsetMin: r.tz_offset_min } : null;
+    const r = await this.db.prepare('SELECT name, gender, birth_date, birth_time, place, lat, lon, tz_offset_min FROM profiles WHERE user_id = ?').bind(userId).first<Row>();
+    return r ? { name: r.name, gender: r.gender, birthDate: r.birth_date, birthTime: r.birth_time, place: r.place, lat: r.lat, lon: r.lon, tzOffsetMin: r.tz_offset_min } : null;
   }
   async palms(userId: string): Promise<PalmPhoto[]> {
     const { results } = await this.db.prepare('SELECT hand, mime, data FROM palm_photos WHERE user_id = ? ORDER BY hand').bind(userId).all<{ hand: Hand; mime: string; data: ArrayBuffer }>();
@@ -52,12 +53,12 @@ export class D1Profiles implements Profiles {
     const p = parseProfile(body);
     await this.db
       .prepare(
-        `INSERT INTO profiles (user_id, name, birth_date, birth_time, place, lat, lon, tz_offset_min, consent_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT (user_id) DO UPDATE SET name = excluded.name, birth_date = excluded.birth_date, birth_time = excluded.birth_time,
+        `INSERT INTO profiles (user_id, name, gender, birth_date, birth_time, place, lat, lon, tz_offset_min, consent_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (user_id) DO UPDATE SET name = excluded.name, gender = excluded.gender, birth_date = excluded.birth_date, birth_time = excluded.birth_time,
            place = excluded.place, lat = excluded.lat, lon = excluded.lon, tz_offset_min = excluded.tz_offset_min, updated_at = excluded.updated_at`,
       )
-      .bind(userId, p.name, p.birthDate, p.birthTime, p.place, p.lat, p.lon, p.tzOffsetMin, now, now)
+      .bind(userId, p.name, p.gender, p.birthDate, p.birthTime, p.place, p.lat, p.lon, p.tzOffsetMin, now, now)
       .run();
     return p;
   }
@@ -100,7 +101,8 @@ export function parseProfile(b: Record<string, unknown>): Profile {
   if (!place || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw new ProfileError('Choose your place of birth from the search results.');
   if (!Number.isInteger(tz) || tz < -720 || tz > 840 || tz % 15 !== 0) throw new ProfileError('Choose the time zone at the place of birth.');
   const name = typeof b.name === 'string' && b.name.trim() ? b.name.trim().slice(0, 80) : null;
-  return { name, birthDate, birthTime, place, lat, lon, tzOffsetMin: tz };
+  const gender = b.gender === 'female' || b.gender === 'male' || b.gender === 'other' ? b.gender : null;
+  return { name, gender, birthDate, birthTime, place, lat, lon, tzOffsetMin: tz };
 }
 
 export type Place = { name: string; lat: number; lon: number; country: string; tzOffsetMin: number | null };

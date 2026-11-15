@@ -41,6 +41,8 @@ export type Deps = {
   ai: AiClient;
   profiles: Profiles;
   ayurveda: Ayurveda;
+  /** Records a failure in the error log (the AI model being down, for example). */
+  report?: (kind: string, message: string) => void;
   /** 'open' (testing): chart readings may predict events and dates; see ai.ts. */
   astroMode?: AstroMode;
   now?: () => number;
@@ -201,6 +203,7 @@ export async function ask(
   // The AI layer failing never costs a question: say so politely instead.
   const busy = (err: unknown) => {
     console.error('ai layer failed', err instanceof Error ? err.message : err);
+    deps.report?.('ai', err instanceof Error ? err.message : String(err));
     return finish('ai', [{ type: 'notice', kind: 'busy', text: T.busy[lang] }], { count: false });
   };
   const chartOutcome = async (profile: Profile) => {
@@ -313,6 +316,7 @@ export async function ask(
     outcome = await semanticOrGenerated();
   } catch (err) {
     console.error('ai layer failed', err instanceof Error ? err.message : err);
+    deps.report?.('ai', err instanceof Error ? err.message : String(err));
     outcome = { layer: 'ai', blocks: [{ type: 'notice', kind: 'busy', text: T.busy[lang] }], count: false, cacheId: null };
   }
   // The model found the question is about the person: answer from their chart if we have it.

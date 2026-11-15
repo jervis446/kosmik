@@ -11,6 +11,7 @@ import {
 
 import { api, ApiError } from "../lib/api";
 import { type Colors, font, useTheme } from "../lib/theme";
+import { track } from "../lib/analytics";
 
 const message = (e: unknown) =>
   e instanceof ApiError ? e.message : "Something went wrong. Please try again.";
@@ -19,19 +20,7 @@ const message = (e: unknown) =>
  * Asks for a WhatsApp number once, before the first question. It can't be skipped: one number
  * per account keeps the free questions fair.
  */
-export function PhoneGate({
-  visible,
-  onDone,
-  onSignOut,
-  onClose,
-}: {
-  visible: boolean;
-  onDone: (phone: string) => void;
-  /** Shown when the number is mandatory. */
-  onSignOut?: () => void;
-  /** Shown when the number is optional (from Account). */
-  onClose?: () => void;
-}) {
+export function PhoneForm({ onDone }: { onDone: (phone: string) => void }) {
   const { colors } = useTheme();
   const s = styles(colors);
   const [phone, setPhone] = useState("");
@@ -54,109 +43,133 @@ export function PhoneGate({
   const send = () =>
     run(async () => {
       setSentTo((await api.startPhone(phone)).phone);
+      track("phone/code-sent");
       setCode("");
     });
   const verify = () =>
-    run(async () => onDone((await api.verifyPhone(code)).phone));
+    run(async () => {
+      const r = await api.verifyPhone(code);
+      track("phone/verified");
+      onDone(r.phone);
+    });
 
+  return (
+    <View style={{ gap: 12 }}>
+      <Text style={s.glyph}>✆</Text>
+      <Text style={s.title} role="heading">
+        Add your WhatsApp number
+      </Text>
+      <Text style={s.small}>
+        Kosmik sends a 6-digit code on WhatsApp. One number per account keeps
+        the free questions fair. We never share it or send marketing.
+      </Text>
+
+      {sentTo === null ? (
+        <>
+          <View style={s.phoneRow}>
+            <Text style={s.prefix}>+91</Text>
+            <TextInput
+              value={phone}
+              onChangeText={(t) => setPhone(t.replace(/[^\d ]/g, ""))}
+              placeholder="98765 43210"
+              placeholderTextColor={colors.muted}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              maxLength={12}
+              style={s.input}
+              accessibilityLabel="WhatsApp number"
+              onSubmitEditing={send}
+            />
+          </View>
+          <Pressable
+            onPress={send}
+            disabled={busy || phone.replace(/\D/g, "").length !== 10}
+            style={[
+              s.primary,
+              (busy || phone.replace(/\D/g, "").length !== 10) && {
+                opacity: 0.4,
+              },
+            ]}
+            accessibilityRole="button"
+          >
+            {busy ? (
+              <ActivityIndicator color={colors.onPrimary} />
+            ) : (
+              <Text style={s.primaryText}>Send code on WhatsApp</Text>
+            )}
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <Text style={s.small}>
+            Code sent to {sentTo} on WhatsApp. It may take a minute.
+          </Text>
+          <TextInput
+            value={code}
+            onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))}
+            placeholder="6-digit code"
+            placeholderTextColor={colors.muted}
+            keyboardType="number-pad"
+            autoComplete="one-time-code"
+            style={[s.input, s.codeInput]}
+            accessibilityLabel="WhatsApp code"
+            onSubmitEditing={verify}
+          />
+          <Pressable
+            onPress={verify}
+            disabled={busy || code.length !== 6}
+            style={[s.primary, (busy || code.length !== 6) && { opacity: 0.4 }]}
+            accessibilityRole="button"
+          >
+            {busy ? (
+              <ActivityIndicator color={colors.onPrimary} />
+            ) : (
+              <Text style={s.primaryText}>Verify</Text>
+            )}
+          </Pressable>
+          <View style={{ flexDirection: "row", gap: 16 }}>
+            <Pressable
+              onPress={send}
+              disabled={busy}
+              accessibilityRole="button"
+            >
+              <Text style={s.link}>Send again</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setSentTo(null)}
+              disabled={busy}
+              accessibilityRole="button"
+            >
+              <Text style={s.link}>Change number</Text>
+            </Pressable>
+          </View>
+        </>
+      )}
+      {error ? <Text style={s.error}>{error}</Text> : null}
+    </View>
+  );
+}
+
+export function PhoneGate({
+  visible,
+  onDone,
+  onSignOut,
+  onClose,
+}: {
+  visible: boolean;
+  onDone: (phone: string) => void;
+  /** Shown when the number is mandatory. */
+  onSignOut?: () => void;
+  /** Shown when the number is optional (from Account). */
+  onClose?: () => void;
+}) {
+  const { colors } = useTheme();
+  const s = styles(colors);
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={s.backdrop}>
         <View style={s.sheet} accessibilityViewIsModal testID="phone-gate">
-          <Text style={s.glyph}>✆</Text>
-          <Text style={s.title} role="heading">
-            Add your WhatsApp number
-          </Text>
-          <Text style={s.small}>
-            Kosmik sends a 6-digit code on WhatsApp. One number per account
-            keeps the free questions fair. We never share it or send marketing.
-          </Text>
-
-          {sentTo === null ? (
-            <>
-              <View style={s.phoneRow}>
-                <Text style={s.prefix}>+91</Text>
-                <TextInput
-                  value={phone}
-                  onChangeText={(t) => setPhone(t.replace(/[^\d ]/g, ""))}
-                  placeholder="98765 43210"
-                  placeholderTextColor={colors.muted}
-                  keyboardType="phone-pad"
-                  autoComplete="tel"
-                  maxLength={12}
-                  style={s.input}
-                  accessibilityLabel="WhatsApp number"
-                  onSubmitEditing={send}
-                />
-              </View>
-              <Pressable
-                onPress={send}
-                disabled={busy || phone.replace(/\D/g, "").length !== 10}
-                style={[
-                  s.primary,
-                  (busy || phone.replace(/\D/g, "").length !== 10) && {
-                    opacity: 0.4,
-                  },
-                ]}
-                accessibilityRole="button"
-              >
-                {busy ? (
-                  <ActivityIndicator color={colors.onPrimary} />
-                ) : (
-                  <Text style={s.primaryText}>Send code on WhatsApp</Text>
-                )}
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={s.small}>
-                Code sent to {sentTo} on WhatsApp. It may take a minute.
-              </Text>
-              <TextInput
-                value={code}
-                onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))}
-                placeholder="6-digit code"
-                placeholderTextColor={colors.muted}
-                keyboardType="number-pad"
-                autoComplete="one-time-code"
-                style={[s.input, s.codeInput]}
-                accessibilityLabel="WhatsApp code"
-                onSubmitEditing={verify}
-              />
-              <Pressable
-                onPress={verify}
-                disabled={busy || code.length !== 6}
-                style={[
-                  s.primary,
-                  (busy || code.length !== 6) && { opacity: 0.4 },
-                ]}
-                accessibilityRole="button"
-              >
-                {busy ? (
-                  <ActivityIndicator color={colors.onPrimary} />
-                ) : (
-                  <Text style={s.primaryText}>Verify</Text>
-                )}
-              </Pressable>
-              <View style={{ flexDirection: "row", gap: 16 }}>
-                <Pressable
-                  onPress={send}
-                  disabled={busy}
-                  accessibilityRole="button"
-                >
-                  <Text style={s.link}>Send again</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setSentTo(null)}
-                  disabled={busy}
-                  accessibilityRole="button"
-                >
-                  <Text style={s.link}>Change number</Text>
-                </Pressable>
-              </View>
-            </>
-          )}
-          {error ? <Text style={s.error}>{error}</Text> : null}
+          <PhoneForm onDone={onDone} />
           <Pressable onPress={onClose ?? onSignOut} accessibilityRole="button">
             <Text style={[s.small, { textDecorationLine: "underline" }]}>
               {onClose ? "Not now" : "Sign out"}
@@ -186,7 +199,7 @@ const styles = (c: Colors) =>
       alignSelf: "center",
     },
     glyph: { fontSize: 30, color: c.success },
-    title: { color: c.text, fontFamily: font.heavy, fontSize: 21 },
+    title: { color: c.text, fontFamily: font.display, fontSize: 26 },
     small: {
       color: c.muted,
       fontFamily: font.body,

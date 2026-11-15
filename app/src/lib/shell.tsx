@@ -29,6 +29,11 @@ type Shell = {
   chatKey: number;
   newChat: () => void;
   openChat: (id: string) => void;
+  /** Starts a new chat with this question (e.g. the first question from onboarding). */
+  askNew: (question: string) => void;
+  /** A question waiting for the chat screen to send it. */
+  pending: string | null;
+  clearPending: () => void;
 };
 
 const ShellCtx = createContext<Shell | null>(null);
@@ -42,6 +47,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [activeId, setActiveIdState] = useState<string | null>(null);
   const [chatKey, setChatKey] = useState(0);
   const [version, setVersion] = useState(0);
+  const [pending, setPending] = useState<string | null>(null);
 
   const userId = session?.user.id ?? null;
   useEffect(() => {
@@ -88,6 +94,15 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
         setVersion((v) => v + 1);
       },
       chatKey,
+      pending,
+      clearPending: () => setPending(null),
+      askNew: (question) => {
+        setActiveIdState(null);
+        setChatKey((k) => k + 1);
+        setPending(question);
+        closeDrawer();
+        router.navigate("/chat");
+      },
       newChat: () => {
         setActiveIdState(null);
         setChatKey((k) => k + 1);
@@ -107,7 +122,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
         router.navigate({ pathname: "/chat/[id]", params: { id } });
       },
     };
-  }, [wide, drawerOpen, chats, userId, activeId, chatKey]);
+  }, [wide, drawerOpen, chats, userId, activeId, chatKey, pending]);
 
   return <ShellCtx.Provider value={value}>{children}</ShellCtx.Provider>;
 }

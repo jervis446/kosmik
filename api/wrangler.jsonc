@@ -37,6 +37,8 @@
     // to make a verified number mandatory before the first question.
     "WA_RELAY_URL": "https://wa.peoplepitchers.com/send",
     "PHONE_REQUIRED": "1",
+    // Accounts that can read the error log at /admin (prime.adarsh108@gmail.com).
+    "ADMIN_USER_IDS": "9a7d50cf-03d0-4a43-8d21-e6c4fe845f61",
     // The web app is also served from GitHub Pages at this address and calls the API from there.
     "ALLOWED_ORIGINS": "https://kosmik.asanoha.co.in"
   }

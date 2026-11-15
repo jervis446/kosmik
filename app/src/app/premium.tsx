@@ -21,6 +21,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { OPERATOR } from "../lib/legal";
 import { font, useTheme } from "../lib/theme";
+import { Sky } from "../components/Sky";
 
 const POLL_MS = 4000;
 const POLL_TRIES = 45; // about 3 minutes; after that the page explains and stops asking
@@ -112,7 +113,11 @@ export default function Premium() {
   const active = until !== null;
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      edges={["top", "bottom"]}
+    >
+      <Sky />
       <Header title="Premium" back />
       <ScrollView
         contentContainerStyle={{
@@ -163,7 +168,7 @@ export default function Premium() {
           <Text
             style={{
               color: colors.text,
-              fontFamily: font.heavy,
+              fontFamily: font.display,
               fontSize: 26,
             }}
             role="heading"
@@ -201,7 +206,7 @@ export default function Premium() {
               <Text
                 style={{
                   color: colors.text,
-                  fontFamily: font.heavy,
+                  fontFamily: font.display,
                   fontSize: 24,
                 }}
               >

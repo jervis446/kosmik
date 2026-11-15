@@ -22,7 +22,7 @@ export function Header({ title, back }: { title?: string; back?: boolean }) {
       fontSize: 12,
       letterSpacing: 1,
     },
-    name: { color: colors.text, fontFamily: font.heavy, fontSize: 20 },
+    name: { color: colors.text, fontFamily: font.display, fontSize: 20 },
     btn: {
       minWidth: 44,
       minHeight: 44,

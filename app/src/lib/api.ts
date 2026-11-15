@@ -1,4 +1,5 @@
 /** Calls to the Kosmik API. The web app is served by the API, so the base URL is usually empty. */
+import { reportError, track } from "./analytics";
 import { supabase } from "./supabase";
 
 const BASE = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
@@ -131,6 +132,8 @@ export type Me = {
   phoneRequired: boolean;
   /** WhatsApp codes can be sent. */
   phoneAvailable: boolean;
+  /** Can read the error log at /admin. */
+  admin?: boolean;
   premiumUntil: number | null;
   usage: { used: number; limit: number | null };
   paymentsEnabled: boolean;
@@ -142,6 +145,32 @@ export type PaymentState = {
   premiumUntil: number | null;
 };
 
+export type AdminErrors = {
+  groups: {
+    fingerprint: string;
+    source: "client" | "server";
+    kind: string;
+    message: string;
+    detail: string | null;
+    path: string | null;
+    count: number;
+    first_at: number;
+    last_at: number;
+  }[];
+  days: { day: string; source: string; count: number }[];
+};
+
+export type Snapshot = {
+  name: string | null;
+  lines: {
+    kind: "mind" | "work" | "presence";
+    title: string;
+    tag: string;
+    text: string;
+  }[];
+  dasha: string | null;
+};
+
 export type Hand = "left" | "right";
 export type Prakriti = {
   vata: number;
@@ -150,8 +179,10 @@ export type Prakriti = {
   label: string;
   takenAt: number;
 };
+export type Gender = "female" | "male" | "other";
 export type BirthDetails = {
   name: string | null;
+  gender?: Gender | null;
   birthDate: string;
   birthTime: string | null;
   place: string;
@@ -194,7 +225,11 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
         ...(init.headers ?? {}),
       },
     });
-  } catch {
+  } catch (e) {
+    reportError(
+      "network",
+      `${init.method ?? "GET"} ${path.split("?")[0]}: ${(e as Error).message}`,
+    );
     throw new ApiError(
       "You seem to be offline. Check your connection and try again.",
       0,
@@ -205,6 +240,11 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
     code?: string;
   };
   if (res.status === 403 && body.code === "phone-required") phoneNeeded?.();
+  if (res.status >= 500)
+    reportError(
+      "api",
+      `${init.method ?? "GET"} ${path.split("?")[0]} ${res.status}: ${body.error ?? ""}`,
+    );
   if (!res.ok)
     throw new ApiError(
       body.error ?? "Something went wrong. Please try again.",
@@ -239,6 +279,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ code }),
     }),
+  snapshot: () => call<Snapshot>("/api/snapshot"),
   savePrakriti: (answers: ("v" | "p" | "k")[]) =>
     call<{ prakriti: Prakriti }>("/api/prakriti", {
       method: "PUT",
@@ -277,7 +318,11 @@ export const api = {
     call<{ orderId: string; checkoutUrl: string }>("/api/pay", {
       method: "POST",
       body: JSON.stringify({ plan }),
+    }).then((r) => {
+      track(`premium/checkout-${plan}`);
+      return r;
     }),
+  adminErrors: () => call<AdminErrors>("/api/admin/errors"),
   payment: (id: string) => call<PaymentState>(`/api/pay/${id}`),
   feedback: (messageId: string, value: 1 | -1) =>
     call<{ saved: boolean }>("/api/feedback", {

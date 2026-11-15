@@ -42,3 +42,14 @@ test('yogas: found from the chart', () => {
   assert.match(ys, /Mangal dosha/);
   assert.match(ys, /Raj yoga/);
 });
+
+test('snapshot: three personal lines and the running dasha', async () => {
+  const { snapshot } = await import('../src/lib/snapshot.ts');
+  const chart = calculateChart({ date: '1998-03-14', time: '06:45', tzOffsetMin: 330, lat: 26.85, lon: 80.95 });
+  const s = snapshot(chart, new Date('2026-11-15T06:00:00Z'), 'Asha');
+  assert.deepEqual(s.lines.map((l) => l.tag), ['Moon · Kanya (Virgo)', 'Sun · Kumbh (Aquarius)', 'Lagna · Meen (Pisces)']);
+  assert.ok(s.lines.every((l) => l.text.length > 20));
+  assert.match(s.dasha ?? '', /^Rahu–Ketu until 19 April 2027$/);
+  const noTime = snapshot(calculateChart({ date: '1998-03-14', time: null, tzOffsetMin: 330, lat: 26.85, lon: 80.95 }), new Date(), null);
+  assert.equal(noTime.lines.length, 2, 'no lagna without a birth time');
+});

@@ -392,7 +392,7 @@ const styles = (c: Colors) =>
       lineHeight: 24,
     },
     small: { color: c.muted, fontFamily: font.medium, fontSize: 13 },
-    title: { color: c.text, fontFamily: font.bold, fontSize: 16 },
+    title: { color: c.text, fontFamily: font.display, fontSize: 18 },
     row: { flexDirection: "row", alignItems: "center" },
     card: {
       backgroundColor: c.surface2,

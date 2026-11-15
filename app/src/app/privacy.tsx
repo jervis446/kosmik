@@ -38,6 +38,8 @@ export default function Privacy() {
           h: "What we don’t do",
           p: [
             "Your WhatsApp number, which you verify with a code we send on WhatsApp. Each number can belong to one Kosmik account, so the free questions stay fair. We keep it while your account exists, only use it for sign-in checks, and never share it or send marketing.",
+            "To see which parts of Kosmik are used, we count page visits and actions (for example “a question was answered from the library” or “a number was verified”) with GoatCounter, which uses no cookies and keeps no personal data. Your questions, details and number are never sent to it.",
+            "When something breaks, the app sends us a technical error report (what failed and where, and your account id if you’re signed in). Anything that looks like an email, phone number or key is removed first. Error reports are deleted after 30 days.",
             "We don’t sell your data, show ads, or use your chats, birth details, palm photos or prakriti for anything except answering you.",
           ],
         },

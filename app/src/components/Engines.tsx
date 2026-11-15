@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { type Colors, font, useTheme } from "../lib/theme";
+import { track } from "../lib/analytics";
 
 type Engine = {
   glyph: string;
@@ -214,7 +215,10 @@ function Chip({
   const [hover, setHover] = useState(false);
   return (
     <Pressable
-      onPress={() => onAsk(q)}
+      onPress={() => {
+        track("home/example");
+        onAsk(q);
+      }}
       onHoverIn={() => setHover(true)}
       onHoverOut={() => setHover(false)}
       style={[
@@ -273,7 +277,7 @@ const styles = (c: Colors) =>
     },
     glyph: { fontFamily: font.verse, fontSize: 24 },
     glyphSmall: { fontFamily: font.verse, fontSize: 16 },
-    title: { color: c.text, fontFamily: font.heavy, fontSize: 17 },
+    title: { color: c.text, fontFamily: font.display, fontSize: 19 },
     titleSmall: { color: c.text, fontFamily: font.bold, fontSize: 14 },
     tagline: { color: c.muted, fontFamily: font.medium, fontSize: 13 },
     detail: {

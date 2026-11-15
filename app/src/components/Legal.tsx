@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { font, useTheme } from "../lib/theme";
 import { Header } from "./Header";
 import { OPERATOR } from "../lib/legal";
+import { Sky } from "./Sky";
 
 export type Section = { h: string; p: string[] };
 
@@ -18,7 +19,11 @@ export function Legal({
 }) {
   const { colors } = useTheme();
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      edges={["top", "bottom"]}
+    >
+      <Sky />
       <Header title={title} back />
       <ScrollView
         contentContainerStyle={{

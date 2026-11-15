@@ -14,9 +14,11 @@ import { useAuth } from "../lib/auth";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { api, onPhoneRequired } from "../lib/api";
-import { PhoneGate } from "./PhoneGate";
+import { Onboarding } from "./Onboarding";
 import { Sidebar } from "./Sidebar";
+import { Sky } from "./Sky";
 
+const ONBOARDED = "kosmik-onboarded";
 const SIDE_MIN = 220;
 const SIDE_MAX = 440;
 const SIDE_DEFAULT = 280;
@@ -67,15 +69,29 @@ export function Shell({
   const shell = useShell();
   const { session, ready, signOut } = useAuth();
   const [needPhone, setNeedPhone] = useState(false);
-  // A verified WhatsApp number is needed before the first question (when Kosmik requires one).
+  const [journey, setJourney] = useState(false);
+  // First visit: the onboarding journey (WhatsApp number when required, about you, birth details,
+  // snapshot). The number can't be skipped; the rest can, and isn't offered again on this device.
   useEffect(() => {
     if (!session) return;
     let stopped = false;
-    api
-      .me()
-      .then((m) => !stopped && setNeedPhone(m.phoneRequired))
+    let seen = false;
+    try {
+      seen = globalThis.localStorage?.getItem(ONBOARDED) === "1";
+    } catch {
+      // storage unavailable: offer the journey
+    }
+    Promise.all([api.me(), api.profile()])
+      .then(([m, p]) => {
+        if (stopped) return;
+        setNeedPhone(m.phoneRequired);
+        setJourney(m.phoneRequired || (!p.details && !seen));
+      })
       .catch(() => {});
-    onPhoneRequired(() => setNeedPhone(true));
+    onPhoneRequired(() => {
+      setNeedPhone(true);
+      setJourney(true);
+    });
     return () => {
       stopped = true;
       onPhoneRequired(null);
@@ -145,6 +161,7 @@ export function Shell({
       style={{ flex: 1, flexDirection: "row", backgroundColor: colors.bg }}
       edges={["top", "bottom"]}
     >
+      <Sky />
       {showSide ? (
         <View
           style={[s.sideWide, { width: sideWidth, opacity: closing ? 0.5 : 1 }]}
@@ -219,11 +236,33 @@ export function Shell({
         {children}
       </View>
 
-      <PhoneGate
-        visible={needPhone}
-        onDone={() => setNeedPhone(false)}
-        onSignOut={() => signOut().then(() => globalThis.location?.assign("/"))}
-      />
+      {journey ? (
+        <Onboarding
+          visible
+          needPhone={needPhone}
+          onPhoneVerified={() => setNeedPhone(false)}
+          onClose={() => {
+            setJourney(false);
+            try {
+              globalThis.localStorage?.setItem(ONBOARDED, "1");
+            } catch {
+              // not remembered; harmless
+            }
+          }}
+          onAsk={(q) => {
+            setJourney(false);
+            try {
+              globalThis.localStorage?.setItem(ONBOARDED, "1");
+            } catch {
+              // not remembered; harmless
+            }
+            shell.askNew(q);
+          }}
+          onSignOut={() =>
+            signOut().then(() => globalThis.location?.assign("/"))
+          }
+        />
+      ) : null}
 
       {shell.drawerOpen ? (
         <View style={StyleSheet.absoluteFill}>

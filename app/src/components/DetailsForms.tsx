@@ -21,6 +21,7 @@ import {
 import { pickPalmPhoto } from "../lib/palm";
 import { PrakritiQuiz } from "./Prakriti";
 import { type Colors, font, useTheme } from "../lib/theme";
+import { track } from "../lib/analytics";
 
 const message = (e: unknown) =>
   e instanceof ApiError
@@ -169,6 +170,7 @@ export function BirthForm({
       return setError("Please agree to Kosmik keeping your birth details.");
     setBusy("save");
     try {
+      track("details/birth-saved");
       const r = await api.saveProfile({
         name: name.trim() || null,
         birthDate,
@@ -398,6 +400,7 @@ export function PalmForm({
       const photo = await pickPalmPhoto(source);
       if (!photo) return;
       await api.savePalmPhoto(hand, photo.base64, photo.mime);
+      track(`details/palm-${hand}`);
       const next = {
         ...saved,
         [hand]: `data:${photo.mime};base64,${photo.base64}`,
@@ -684,8 +687,8 @@ const styles = (c: Colors) =>
     sheetTitle: {
       flex: 1,
       color: c.text,
-      fontFamily: font.heavy,
-      fontSize: 20,
+      fontFamily: font.display,
+      fontSize: 24,
     },
     close: {
       width: 40,

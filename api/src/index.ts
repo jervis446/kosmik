@@ -16,6 +16,8 @@
  *   POST /api/pay                 start a Premium payment (Noha Pay, UPI); see payments.ts
  *   GET  /api/pay/:id             a payment's status
  *   POST /api/pay/webhook         Noha Pay confirms a payment
+ *   POST /api/log                 an error report from the app (technical details only)
+ *   GET  /api/admin/errors        the error log, for the owner
  *   GET  /api/health
  * / is the landing page; everything else is the web app (static files, single-page fallback).
  */
@@ -27,6 +29,10 @@ import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { D1Profiles, MAX_PHOTO_BASE64, ProfileError, searchPlaces } from './profiles.ts';
 import { D1Ayurveda, PrakritiError, prakritiLabel } from './ayurveda.ts';
 import { purgeExpired } from './retention.ts';
+import { errorSummary, logError } from './errors.ts';
+import { snapshot } from './lib/snapshot.ts';
+import { calculateChart } from './lib/chart.ts';
+import { toBirth } from './profiles.ts';
 import { maskPhone, PhoneError, phoneCheckOn, relayReady, relaySender, startPhone, verifiedPhone, verifyPhone } from './phones.ts';
 import { D1AnswerCache, D1History, D1Library, D1Usage, MemoryVectorSearch, VectorizeSearch } from './store.ts';
 import type { Env } from './types.ts';
@@ -79,7 +85,7 @@ async function requireUser(req: Request, env: Env): Promise<string> {
   return id;
 }
 
-async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
+async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContext): Promise<Response> {
   const path = url.pathname;
   const now = Date.now();
 
@@ -117,6 +123,7 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
         profiles: new D1Profiles(env.DB),
         ayurveda: new D1Ayurveda(env.DB),
         astroMode: astroMode(env),
+        report: (kind, message) => logError(env.DB, { source: 'server', kind, message, path: '/api/ask', userId }, now, ctx),
       },
       {
         question: body.question,
@@ -140,6 +147,14 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
       await ayurveda.deletePrakriti(userId);
       return json(req, env, { deleted: true });
     }
+  }
+
+  // The cosmic snapshot from the saved birth details (end of onboarding).
+  if (path === '/api/snapshot' && req.method === 'GET') {
+    const userId = await requireUser(req, env);
+    const p = await new D1Profiles(env.DB).get(userId);
+    if (!p) return error(req, env, 'Add your birth details first.', 404);
+    return json(req, env, snapshot(calculateChart(toBirth(p)), new Date(now), p.name));
   }
 
   // My details: birth details for the kundli and photos of both palms.
@@ -259,11 +274,26 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
       phone: phone ? maskPhone(phone) : null,
       phoneRequired: phoneCheckOn(env) && !phone,
       phoneAvailable: relayReady(env),
+      admin: (env.ADMIN_USER_IDS ?? '').split(',').map((x) => x.trim()).includes(userId),
       premiumUntil: until,
       usage: { used, limit: plan.limit },
       paymentsEnabled: paymentsEnabled(env),
       plans: Object.entries(PLANS).map(([id, p]) => ({ id, ...p })),
     });
+  }
+
+  // Error reports from the app. Signed-in or not; the rate limiter above applies.
+  if (path === '/api/log' && req.method === 'POST') {
+    const body = await readJson(req);
+    const userId = await userFromRequest(req, env).catch(() => null);
+    logError(env.DB, { source: 'client', kind: String(body.kind ?? 'other'), message: String(body.message ?? ''), detail: body.detail as string, path: body.path as string, release: body.release as string, userId }, now, ctx);
+    return new Response(null, { status: 204, headers: corsHeaders(req, env) });
+  }
+  if (path === '/api/admin/errors' && req.method === 'GET') {
+    const userId = await requireUser(req, env);
+    const admins = (env.ADMIN_USER_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (!admins.includes(userId)) return error(req, env, 'Not found', 404);
+    return json(req, env, await errorSummary(env.DB, now));
   }
 
   if (path === '/api/phone/start' && req.method === 'POST') {
@@ -301,7 +331,7 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
 }
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
     // The landing page; the app is at /chat.
     if (url.pathname === '/' && (req.method === 'GET' || req.method === 'HEAD') && env.ASSETS) {
@@ -312,19 +342,30 @@ export default {
     }
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req, env) });
     try {
-      return await handleApi(req, env, url);
+      return await handleApi(req, env, url, ctx);
     } catch (e) {
+      const report = (kind: string) =>
+        logError(env.DB, { source: 'server', kind, message: (e as Error).message ?? String(e), detail: (e as Error).stack ?? null, path: `${req.method} ${url.pathname}` }, Date.now(), ctx);
       if (e instanceof BadQuestion) return error(req, env, e.message, 400);
       if (e instanceof Unauthorized) return error(req, env, e.message, 401);
-      if (e instanceof PaymentError) return error(req, env, e.message, e.status);
+      if (e instanceof PaymentError) {
+        if (e.status >= 500) report('payment');
+        return error(req, env, e.message, e.status);
+      }
       if (e instanceof ProfileError || e instanceof PrakritiError) return error(req, env, e.message, 400);
+      if (e instanceof PhoneError && e.status === 503) report('relay');
       if (e instanceof PhoneError) return json(req, env, { error: e.message, code: e.status === 403 ? 'phone-required' : undefined }, e.status);
       console.error('api error', (e as Error).message);
+      report('worker');
       return error(req, env, 'Something went wrong. Please try again.', 500);
     }
   },
 
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(purgeExpired(env.DB, Date.now()).then((purged) => console.log('retention', JSON.stringify(purged))));
+    ctx.waitUntil(
+      purgeExpired(env.DB, Date.now())
+        .then((purged) => console.log('retention', JSON.stringify(purged)))
+        .catch((e) => logError(env.DB, { source: 'server', kind: 'worker', message: `retention: ${(e as Error).message}`, path: 'cron' }, Date.now(), ctx)),
+    );
   },
 } satisfies ExportedHandler<Env>;

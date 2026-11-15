@@ -11,6 +11,7 @@ import { api, type BirthDetails, type Me, type Prakriti } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { GRIEVANCE } from "../lib/legal";
 import { type Colors, font, type ThemePref, useTheme } from "../lib/theme";
+import { Sky } from "../components/Sky";
 
 const date = (ms: number) =>
   new Date(ms).toLocaleDateString("en-IN", {
@@ -71,6 +72,7 @@ export default function Account() {
       style={{ flex: 1, backgroundColor: colors.bg }}
       edges={["top", "bottom"]}
     >
+      <Sky />
       <Header title="Account" back />
       <ScrollView contentContainerStyle={s.page}>
         <View style={s.profile}>
@@ -337,10 +339,13 @@ export default function Account() {
           {[
             ["Privacy", "/privacy"],
             ["Terms", "/terms"],
+            ...(me?.admin ? [["Admin: errors and analytics", "/admin"]] : []),
           ].map(([label, href]) => (
             <Pressable
               key={href}
-              onPress={() => router.push(href as "/privacy" | "/terms")}
+              onPress={() =>
+                router.push(href as "/privacy" | "/terms" | "/admin")
+              }
               style={s.link}
               accessibilityRole="link"
             >
@@ -429,7 +434,7 @@ const styles = (c: Colors) =>
       fontSize: 15,
       lineHeight: 22,
     },
-    cardTitle: { color: c.text, fontFamily: font.bold, fontSize: 17 },
+    cardTitle: { color: c.text, fontFamily: font.display, fontSize: 19 },
     badge: {
       color: c.text,
       backgroundColor: c.surface2,

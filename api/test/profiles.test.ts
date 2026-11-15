@@ -13,7 +13,7 @@ test('birth details: saved, updated in place, and read back', async () => {
   assert.equal(await p.get('u1'), null);
   await p.save('u1', details, NOW);
   await p.save('u1', { ...details, birthTime: null, name: '' }, NOW + 1);
-  assert.deepEqual(await p.get('u1'), { name: null, birthDate: '1998-03-14', birthTime: null, place: 'Lucknow, Uttar Pradesh, India', lat: 26.85, lon: 80.95, tzOffsetMin: 330 });
+  assert.deepEqual(await p.get('u1'), { name: null, gender: null, birthDate: '1998-03-14', birthTime: null, place: 'Lucknow, Uttar Pradesh, India', lat: 26.85, lon: 80.95, tzOffsetMin: 330 });
   assert.equal(await p.get('u2'), null, 'one person never sees another’s details');
 });
 
