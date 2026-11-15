@@ -6,7 +6,7 @@
   "scripts": {
     "start": "expo start",
     "web": "expo start --web",
-    "build:web": "expo export --platform web",
+    "build:web": "node scripts/stamp-version.mjs && expo export --platform web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "build:pages": "node scripts/build-pages.mjs"

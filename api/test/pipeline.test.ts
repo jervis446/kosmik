@@ -505,7 +505,7 @@ test('ayurveda: a health complaint gets a consultation (intake first), never the
   deps.ai.ayurveda = async (q, _lang, context, conversation) => {
     consults.push({ q, conversation, context });
     const r = replies.shift()!;
-    return { ...r, assessment: r.mode === 'answer' ? { doshas: 'Pitta', agni: 'Tikshna', nidana: ['Late spicy dinners'], notes: '' } : null, favour: ['Rice'], avoid: ['Chilli'], lifestyle: [], remedies: [{ name: 'Jeera water', how: 'Boil and sip' }], formulations: [{ name: 'Avipattikar churna', dose: '3 g', anupana: 'water', when: 'before meals' }], yoga: [], redFlags: ['Blood in stool'], followUps: ['What should I eat?'] };
+    return { ...r, assessment: r.mode === 'answer' ? { doshas: 'Pitta', agni: 'Tikshna', nidana: ['Late spicy dinners'], notes: '' } : null, favour: ['Rice'], avoid: ['Chilli'], lifestyle: [], remedies: [{ name: 'Jeera water', how: 'Boil and sip' }], formulations: [{ name: 'Avipattikar churna', dose: '3 g', anupana: 'water', when: 'before meals' }], yoga: [], redFlags: ['Blood in stool'], shloka: null, followUps: ['What should I eat?'] };
   };
   const first = await ask(deps, { question: 'Why is my gut health getting worse recently?', lang: 'en', identity: user });
   assert.deepEqual(first.blocks.map((b) => b.type), ['text', 'ayur-intake']);

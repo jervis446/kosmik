@@ -59,6 +59,20 @@ function AyurPlan({ b }: { b: Extract<Block, { type: "ayur-plan" }> }) {
   return (
     <View style={s.card} testID="ayur-plan">
       <Text style={s.mono}>AYURVEDA · YOUR PLAN</Text>
+      {b.shloka?.sanskrit ? (
+        <View style={[s.sunBox, { gap: 4 }]} testID="ayur-shloka">
+          <Text style={s.mono}>FROM THE SAMHITAS</Text>
+          <Text style={{ color: colors.text, fontFamily: font.verse, fontSize: 17, lineHeight: 28 }} selectable>
+            {b.shloka.sanskrit}
+          </Text>
+          {b.shloka.meaning ? (
+            <Text style={[s.body, { fontSize: 15 }]}>{b.shloka.meaning}</Text>
+          ) : null}
+          {b.shloka.source ? (
+            <Text style={[s.mono, { color: colors.muted }]}>{b.shloka.source.toUpperCase()}</Text>
+          ) : null}
+        </View>
+      ) : null}
       {b.assessment ? (
         <View style={s.sunBox}>
           <Text style={s.mono}>ASSESSMENT</Text>
@@ -824,6 +838,18 @@ export function Blocks({
                   </Pressable>
                 ) : null}
               </View>
+            );
+          default:
+            // A newer Kosmik sent something this version can't show.
+            return (
+              <Pressable
+                key={i}
+                onPress={() => globalThis.location?.reload()}
+                style={s.outlineBtn}
+                accessibilityRole="button"
+              >
+                <Text style={s.outlineBtnText}>Refresh Kosmik to see this</Text>
+              </Pressable>
             );
         }
       })}

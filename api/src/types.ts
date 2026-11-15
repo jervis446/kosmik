@@ -69,6 +69,7 @@ export type Block =
       formulations: { name: string; dose: string; anupana: string; when: string }[];
       yoga: string[];
       redFlags: string[];
+      shloka?: { sanskrit: string; source: string; meaning: string } | null;
     }
   /** A calculator result: a titled table. */
   | { type: 'facts'; title: string; rows: [string, string][]; note?: string }

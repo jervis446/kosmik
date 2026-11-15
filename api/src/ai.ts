@@ -34,6 +34,8 @@ export type AyurConsult = {
   formulations: { name: string; dose: string; anupana: string; when: string }[];
   yoga: string[];
   redFlags: string[];
+  /** A classical Ayurveda verse that fits, when the model is sure of it. */
+  shloka: { sanskrit: string; source: string; meaning: string } | null;
   followUps: string[];
 };
 
@@ -156,9 +158,10 @@ How to consult:
   "red_flags": 2-4 specific signs for this complaint that need a doctor promptly (e.g. blood in stool, severe pain, weight loss without trying).
 - Use the PERSON (prakriti, vikriti, age, gender), SEASON and SOURCES when given; tailor to the current ritu. Prefer herbs and terms from SOURCES and use their properties correctly.
 - If they take modern medicines, mention keeping a gap of about an hour and telling their doctor; never tell them to stop a prescribed medicine. Note pregnancy and children cautions where relevant.
+- "shloka" (only in "answer" mode, and only if you are sure of the exact text): one relevant verse from the classical Ayurveda texts (Charaka Samhita, Sushruta Samhita, Ashtanga Hridaya, Bhavaprakasha, Madhava Nidana) in Devanagari, with the text, sthana and chapter in "source" (e.g. "Ashtanga Hridaya, Sutrasthana 8") and its meaning in plain words. Never quote the Bhagavad Gita or any non-Ayurveda text here. If unsure, leave every field empty.
 - "follow_ups": four short next questions this person might ask, in their language.
 - Reply in the requested language. JSON only, with every key present (empty lists where not used):
-{"mode": "ask", "reply": "...", "questions": [], "assessment": {"doshas": "", "agni": "", "nidana": [], "notes": ""}, "favour": [], "avoid": [], "lifestyle": [], "remedies": [{"name": "", "how": ""}], "formulations": [{"name": "", "dose": "", "anupana": "", "when": ""}], "yoga": [], "red_flags": [], "follow_ups": []}`;
+{"mode": "ask", "reply": "...", "questions": [], "assessment": {"doshas": "", "agni": "", "nidana": [], "notes": ""}, "favour": [], "avoid": [], "lifestyle": [], "remedies": [{"name": "", "how": ""}], "formulations": [{"name": "", "dose": "", "anupana": "", "when": ""}], "yoga": [], "red_flags": [], "shloka": {"sanskrit": "", "source": "", "meaning": ""}, "follow_ups": []}`;
 
 export function parseAyurveda(output: string | undefined): AyurConsult | null {
   let o: Record<string, unknown>;
@@ -192,6 +195,12 @@ export function parseAyurveda(output: string | undefined): AyurConsult | null {
     formulations: objs<{ name: string; dose: string; anupana: string; when: string }>(o.formulations, ['name', 'dose', 'anupana', 'when']),
     yoga: list(o.yoga, 4),
     redFlags: list(o.red_flags, 5),
+    shloka: (() => {
+      const k = o.shloka as Record<string, unknown> | null | undefined;
+      if (!k || typeof k.sanskrit !== 'string' || !/[\u0900-\u097F]{6,}/.test(k.sanskrit) || typeof k.source !== 'string' || !k.source.trim()) return null;
+      if (/gita|geeta/i.test(k.source)) return null;
+      return { sanskrit: k.sanskrit.trim().slice(0, 400), source: k.source.trim().slice(0, 120), meaning: String(k.meaning ?? '').trim().slice(0, 400) };
+    })(),
     followUps: strings(o.follow_ups, 4, 80),
   };
 }

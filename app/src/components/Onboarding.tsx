@@ -20,6 +20,7 @@ import {
   type Snapshot,
 } from "../lib/api";
 import { type Colors, font, useTheme } from "../lib/theme";
+import { Logo } from "./Logo";
 import { PhoneForm } from "./PhoneGate";
 
 type Step = "phone" | "about" | "birth" | "snapshot";
@@ -124,9 +125,7 @@ export function Onboarding({
           {wide ? (
             <View style={s.side}>
               <View style={s.brandRow}>
-                <View style={s.mark}>
-                  <Text style={s.markText}>✦</Text>
-                </View>
+                <Logo size={40} />
                 <Text style={s.brand}>Kosmik</Text>
               </View>
               <Text style={s.sideTitle}>

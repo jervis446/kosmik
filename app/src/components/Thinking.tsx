@@ -1,175 +1,97 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { Animated, Easing, Text, View } from "react-native";
 
 import { font, useTheme } from "../lib/theme";
+import { Logo } from "./Logo";
 
-/** A Sanskrit word for the mood, with its meaning. */
+/** A Sanskrit word for the mood, with a GenZ line. */
 const WORDS = {
   ask: [
-    ["मनन", "Manan", "reflecting"],
-    ["अन्वेषण", "Anveshan", "searching"],
-    ["स्वाध्याय", "Swadhyay", "studying the texts"],
-    ["चिन्तन", "Chintan", "contemplating"],
-    ["विचार", "Vichaar", "weighing it up"],
-    ["विवेक", "Vivek", "discerning"],
+    ["मनन", "Manan", "letting it sink in"],
+    ["अन्वेषण", "Anveshan", "digging through the cosmos"],
+    ["स्वाध्याय", "Swadhyay", "speed-reading the shastras"],
+    ["चिन्तन", "Chintan", "vibing with your question"],
+    ["विचार", "Vichaar", "connecting the dots"],
+    ["विवेक", "Vivek", "keeping it real"],
   ],
   palm: [
-    ["दर्शन", "Darshan", "looking closely"],
-    ["रेखा विचार", "Rekha vichaar", "reading the lines"],
-    ["हस्त परीक्षा", "Hast pariksha", "studying your hand"],
+    ["दर्शन", "Darshan", "zooming into your palm"],
+    ["रेखा विचार", "Rekha vichaar", "tracing every line"],
+    ["हस्त परीक्षा", "Hast pariksha", "decoding your hand"],
   ],
 } as const;
 
-const TOPICS: [RegExp, string, string][] = [
-  [
-    /career|job|naukri|work|business|startup|promotion|kaam/i,
-    "10th house",
-    "career",
-  ],
-  [
-    /marri|shaadi|shadi|vivah|spouse|partner|love|relationship|pyaar/i,
-    "7th house",
-    "partnership",
-  ],
-  [
-    /money|paisa|paise|wealth|finance|dhan|income|invest/i,
-    "2nd and 11th houses",
-    "money",
-  ],
-  [
-    /study|studies|padhai|exam|education|college/i,
-    "4th and 5th houses",
-    "learning",
-  ],
-  [/health|sehat|body/i, "6th house", "well-being"],
-  [/child|baby|santan|kids/i, "5th house", "children"],
-];
-
-/** The steps shown while Kosmik works, picked from what was asked. */
-export function stepsFor(question: string, kind: "ask" | "palm"): string[] {
-  const q = question.toLowerCase();
-  if (kind === "palm")
-    return [
-      "Looking at both palms",
-      "Tracing the heart, head and life lines",
-      "Writing your reading",
-    ];
-  const personal = /\b(my|mera|meri|mere|mujhe|i|me)\b/.test(q);
-  const astro =
-    /kundli|kundali|chart|horoscope|dasha|rashi|nakshatra|lagna|planet|graha|saturn|shani|rahu|ketu|jupiter|guru|transit|when will|kab/.test(
-      q,
-    );
-  const topic = TOPICS.find(([re]) => re.test(q));
-  if (personal && (astro || topic)) {
-    return [
-      "Reading your birth chart",
-      topic
-        ? `Checking your ${topic[1]} of ${topic[2]}`
-        : "Finding the houses that matter",
-      "Lining up your dasha periods",
-      "Laying the coming months side by side",
-    ];
-  }
-  if (
-    /gut|stomach|digest|gas|bloat|acidity|constipat|loose motion|sleep|neend|skin|acne|hair|cough|cold|fever|pain|dard|weight|thyroid|pcos|period|sugar|bp|tired|fatigue|weak|kabz|pet|health|sehat|immunity/.test(
-      q,
-    )
-  ) {
-    return [
-      "Understanding your symptoms",
-      "Checking doshas, agni and ama",
-      "Matching remedies to this season",
-      "Writing your Ayurveda plan",
-    ];
-  }
-  if (/dosha|prakriti|ayurved|herb|jadi|vata|pitta|kapha|diet/.test(q)) {
-    return [
-      "Opening the herb library",
-      "Checking doshas and classical properties",
-      "Writing your answer",
-    ];
-  }
-  if (/gita|geeta|krishna|arjun|verse|shlok/.test(q) || !astro) {
-    return [
-      "Searching the Gita and the library",
-      "Choosing what fits your question",
-      "Writing your answer",
-    ];
-  }
-  return [
-    "Checking the astrology library",
-    "Choosing what fits your question",
-    "Writing your answer",
-  ];
-}
-
-const STEP_MS = 1600;
+const WORD_MS = 1800;
 
 export function Thinking({
   kind = "ask",
-  question = "",
 }: {
   kind?: keyof typeof WORDS;
   question?: string;
 }) {
   const { colors } = useTheme();
   const [i, setI] = useState(0);
+  const [spin] = useState(() => new Animated.Value(0));
+  const [pulse] = useState(() => new Animated.Value(0));
   useEffect(() => {
-    const t = setInterval(() => setI((n) => n + 1), STEP_MS);
-    return () => clearInterval(t);
-  }, []);
+    const t = setInterval(() => setI((n) => n + 1), WORD_MS);
+    const a = Animated.loop(
+      Animated.timing(spin, { toValue: 1, duration: 2400, easing: Easing.linear, useNativeDriver: true }),
+    );
+    const b = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    a.start();
+    b.start();
+    return () => {
+      clearInterval(t);
+      a.stop();
+      b.stop();
+    };
+  }, [spin, pulse]);
   const [deva, latin, meaning] = WORDS[kind][i % WORDS[kind].length];
-  const steps = stepsFor(question, kind);
-  const shown = Math.min(steps.length, i + 1);
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.06] });
+  const glow = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.6] });
   return (
     <View
-      style={{ gap: 8, paddingVertical: 4, flex: 1 }}
+      style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 4, flex: 1 }}
       accessibilityLiveRegion="polite"
       testID="thinking"
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <ActivityIndicator color={colors.primary} />
-        <Text
-          style={{ color: colors.text, fontFamily: font.verse, fontSize: 17 }}
-        >
-          {deva}
-        </Text>
-        <Text
-          style={{ color: colors.muted, fontFamily: font.medium, fontSize: 14 }}
-        >
-          {latin}… <Text style={{ fontFamily: font.body }}>{meaning}</Text>
-        </Text>
-      </View>
-      {steps.slice(0, shown).map((step, n) => (
-        <Text
-          key={step}
+      <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+        <Animated.View
           style={{
-            color: n === shown - 1 ? colors.text : colors.muted,
-            fontFamily: font.body,
-            fontSize: 15,
-          }}
-        >
-          {n < shown - 1 ? "✓ " : "· "}
-          {step}
-        </Text>
-      ))}
-      <View
-        style={{
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: colors.primarySoft,
-          overflow: "hidden",
-          maxWidth: 420,
-        }}
-      >
-        <View
-          style={{
-            width: `${Math.min(92, 18 + i * 9)}%`,
-            height: 6,
-            borderRadius: 3,
+            position: "absolute",
+            width: 44,
+            height: 44,
+            borderRadius: 22,
             backgroundColor: colors.primary,
+            opacity: glow,
+            transform: [{ scale }],
           }}
         />
+        <Animated.View style={{ position: "absolute", width: 44, height: 44, transform: [{ rotate }] }}>
+          <View style={{ position: "absolute", top: -2, left: 19, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.highlight }} />
+          <View style={{ position: "absolute", bottom: 2, right: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: colors.accent }} />
+        </Animated.View>
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Logo size={30} />
+        </Animated.View>
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ color: colors.text, fontFamily: font.verse, fontSize: 18 }}>
+          {deva}{" "}
+          <Text style={{ color: colors.muted, fontFamily: font.mono, fontSize: 12, letterSpacing: 1 }}>
+            {latin.toUpperCase()}
+          </Text>
+        </Text>
+        <Text style={{ color: colors.muted, fontFamily: font.body, fontSize: 14 }}>
+          {meaning}…
+        </Text>
       </View>
     </View>
   );

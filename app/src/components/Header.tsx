@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { font, useTheme } from "../lib/theme";
+import { Logo } from "./Logo";
 
 /** Top bar for pages outside the chat (account, premium, sign-in, legal): back, title, theme. */
 export function Header({ title, back }: { title?: string; back?: boolean }) {
@@ -48,15 +49,18 @@ export function Header({ title, back }: { title?: string; back?: boolean }) {
         </Pressable>
       ) : null}
       <Pressable
-        style={{ flex: 1 }}
+        style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }}
         onPress={() => router.push("/chat")}
         accessibilityRole="link"
         accessibilityLabel="Kosmik home"
       >
-        <Text style={s.brand}>ASANOHA</Text>
-        <Text style={s.name} numberOfLines={1}>
-          {title ?? "Kosmik"}
-        </Text>
+        <Logo size={30} />
+        <View style={{ flex: 1 }}>
+          <Text style={s.brand}>ASANOHA</Text>
+          <Text style={s.name} numberOfLines={1}>
+            {title ?? "Kosmik"}
+          </Text>
+        </View>
       </Pressable>
       <Pressable
         style={s.btn}

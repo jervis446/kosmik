@@ -8,7 +8,8 @@
     "userInterfaceStyle": "automatic",
     "web": {
       "output": "single",
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./public/favicon.png"
     },
     "ios": {
       "bundleIdentifier": "in.co.asanoha.kosmik",

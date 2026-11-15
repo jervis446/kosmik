@@ -13,6 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { pageView, reportError, startAnalytics } from "../lib/analytics";
+import { UpdateBanner } from "../lib/updates";
 
 import { AuthProvider } from "../lib/auth";
 import { ShellProvider } from "../lib/shell";
@@ -26,6 +27,7 @@ function Shell() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style={isDark ? "light" : "dark"} />
+      <UpdateBanner />
       <Stack
         screenOptions={{
           headerShown: false,

@@ -26,6 +26,7 @@ import { type Colors, font, useTheme } from "../lib/theme";
 import { Blocks } from "./Blocks";
 import { DetailsModal } from "./DetailsForms";
 import { Engines } from "./Engines";
+import { Logo } from "./Logo";
 import { Thinking } from "./Thinking";
 import { track } from "../lib/analytics";
 
@@ -51,7 +52,7 @@ const LAYER_LABEL: Record<Layer, string> = {
   direct: "From the library",
   exact: "Answered before",
   semantic: "Answered before",
-  ai: "Written for you, grounded in the library",
+  ai: "Written for you, by Kosmik",
   safety: "",
   limit: "",
 };
@@ -279,9 +280,7 @@ export function Conversation({
             </View>
           ) : (
             <View key={t.id} style={s.answerRow} testID="answer">
-              <View style={s.avatar}>
-                <Text style={s.avatarText}>✦</Text>
-              </View>
+              <Logo size={30} />
               <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
                 <Blocks
                   blocks={t.blocks}
@@ -356,15 +355,7 @@ export function Conversation({
         )}
         {busy ? (
           <View style={s.answerRow}>
-            <View style={s.avatar}>
-              <Text style={s.avatarText}>✦</Text>
-            </View>
-            <Thinking
-              kind={busy}
-              question={
-                [...turns].reverse().find((t) => t.role === "user")?.text ?? ""
-              }
-            />
+            <Thinking kind={busy} />
           </View>
         ) : null}
       </ScrollView>

@@ -425,8 +425,10 @@ export async function ask(
     }
 
     // 4. Retrieve sources and ask the model.
+    // Ayurveda questions draw on the Ayurveda library only, never Gita verses.
+    const ayurvedic = /ayurved|dosha|herb|prakriti|vikriti|vaidya|agni|vata|pitta|kapha|ritu|dinacharya|jadi|buti|nuskh/i.test(q);
     const [verseHits, meaningHits] = await Promise.all([
-      deps.vectors.search('verses', embedding, 5, VERSE_MIN),
+      ayurvedic ? Promise.resolve([]) : deps.vectors.search('verses', embedding, 5, VERSE_MIN),
       deps.vectors.search('meanings', embedding, 4, MEANING_MIN),
     ]);
     const [verses, meanings] = await Promise.all([deps.library.verses(verseHits.map((h) => h.id)), deps.library.meanings(meaningHits.map((h) => h.id))]);
@@ -801,6 +803,7 @@ async function ayurConsult(deps: Deps, question: string, lang: Lang, userId: str
     formulations: c.formulations,
     yoga: c.yoga,
     redFlags: c.redFlags,
+    shloka: c.shloka,
   });
   if (c.followUps.length) blocks.push({ type: 'followups', questions: c.followUps });
   return blocks;

@@ -25,3 +25,4 @@ data/raw/
 api/.web-embed/
 api/wrangler.embedded.json
 app/pages/
+app/public/version.json

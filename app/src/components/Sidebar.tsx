@@ -13,6 +13,7 @@ import type { ConversationSummary } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
+import { Logo } from "./Logo";
 
 function group(chats: ConversationSummary[], now: number) {
   const day = 24 * 60 * 60 * 1000;
@@ -45,7 +46,8 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
       accessibilityLabel="Kosmik menu"
     >
       <View style={s.brandRow}>
-        <View style={{ flex: 1 }}>
+        <Logo size={34} />
+        <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={s.brand}>Kosmik</Text>
           <Text style={s.by}>
             by{" "}

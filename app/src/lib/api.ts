@@ -137,6 +137,7 @@ export type Block =
   | { type: "ayur-intake"; questions: string[] }
   | {
       type: "ayur-plan";
+      shloka?: { sanskrit: string; source: string; meaning: string } | null;
       assessment: {
         doshas: string;
         agni: string;
