@@ -69,6 +69,11 @@ export function Blocks({
                   Lagna: {b.lagna ?? "unknown (no birth time)"} · Moon: {b.moon}{" "}
                   · Nakshatra: {b.nakshatra}
                 </Text>
+                {b.dasha ? (
+                  <Text style={[s.small, { fontFamily: font.bold }]}>
+                    Running dasha: {b.dasha}
+                  </Text>
+                ) : null}
                 <View style={{ gap: 4 }}>
                   {b.rows.map((r) => (
                     <View key={r.graha} style={s.chartRow}>
@@ -86,7 +91,8 @@ export function Blocks({
                   ))}
                 </View>
                 <Text style={s.small}>
-                  Sidereal (Lahiri), whole-sign houses. ℞ = retrograde.
+                  Sidereal (Lahiri), whole-sign houses, Vimshottari dasha. ℞ =
+                  retrograde.
                 </Text>
               </View>
             );

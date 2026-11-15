@@ -23,8 +23,10 @@ export type BirthDetails = {
   lon: number;
 };
 
-export type Placement = { graha: string; rashi: string; degree: number; house: number | null; retrograde: boolean };
+export type Placement = { graha: string; rashi: string; degree: number; house: number | null; retrograde: boolean; /** Sidereal longitude, 0–360°. */ lon: number };
 export type Chart = {
+  /** When the person was born (UTC). */
+  born: Date;
   lagna: { rashi: string; degree: number } | null;
   grahas: Placement[];
   moonNakshatra: { key: string; pada: number };
@@ -63,7 +65,7 @@ export function birthInstant(d: Pick<BirthDetails, 'date' | 'time' | 'tzOffsetMi
 }
 
 /** Tropical longitude of a graha (true ecliptic of date), in degrees. */
-function tropical(graha: string, date: Date): number {
+export function tropical(graha: string, date: Date): number {
   if (graha === 'moon') return EclipticGeoMoon(date).lon;
   if (graha === 'rahu' || graha === 'ketu') {
     // Mean lunar node (Meeus, Astronomical Algorithms, 47.7).
@@ -107,12 +109,14 @@ export function calculateChart(d: BirthDetails): Chart {
       degree: Math.round((lon % 30) * 100) / 100,
       house: lagnaIdx === null ? null : ((idx - lagnaIdx + 12) % 12) + 1,
       retrograde,
+      lon,
     };
   });
 
   const moon = sidereal('moon', date);
   const span = 360 / 27;
   return {
+    born: date,
     lagna: lagnaLon === null ? null : { rashi: RASHIS[lagnaIdx!].key, degree: Math.round((lagnaLon % 30) * 100) / 100 },
     grahas,
     moonNakshatra: { key: NAKSHATRAS[Math.floor(moon / span)].key, pada: Math.floor((moon % span) / (span / 4)) + 1 },

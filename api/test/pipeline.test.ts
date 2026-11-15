@@ -412,7 +412,9 @@ test('own-chart question with birth details: calculated chart goes to the model 
   assert.equal(r.blocks[0].type === 'text' && r.blocks[0].text, 'Your chart shows a steady, practical approach to work.');
   const chart = r.blocks.find((b) => b.type === 'chart');
   assert.ok(chart && chart.type === 'chart' && chart.lagna && chart.rows.length === 9 && chart.rows.every((x) => x.house));
-  assert.match(f.chartsSeen[0], /^CHART \(calculated[^\n]*\nLagna \(ascendant\): /);
+  assert.match(f.chartsSeen[0], /^CHART \(calculated[^\n]*\n/);
+  for (const part of ['Lagna (ascendant): Meen', 'HOUSE LORDS', 'ASPECTS', 'YOGAS:', 'Mahadasha now: Rahu', 'Antardasha now: ', 'TRANSITS (gochar) now:']) assert.ok(f.chartsSeen[0].includes(part), part);
+  assert.match(chart && chart.type === 'chart' ? chart.dasha ?? '' : '', /^Rahu–\w+ until \d+ \w+ \d{4}$/);
   assert.equal(r.remaining, 10);
 });
 

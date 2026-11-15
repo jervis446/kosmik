@@ -40,6 +40,7 @@ export type Block =
       lagna: string | null;
       moon: string;
       nakshatra: string;
+      dasha?: string | null;
       rows: {
         graha: string;
         rashi: string;
@@ -124,6 +125,10 @@ export type Plan = {
   days: number;
 };
 export type Me = {
+  /** Your verified WhatsApp number, masked. */
+  phone: string | null;
+  /** True until you verify a WhatsApp number (when Kosmik requires one). */
+  phoneRequired: boolean;
   premiumUntil: number | null;
   usage: { used: number; limit: number | null };
   paymentsEnabled: boolean;
@@ -169,6 +174,12 @@ export class ApiError extends Error {
   }
 }
 
+/** Called when the server says a verified WhatsApp number is needed first. */
+let phoneNeeded: (() => void) | null = null;
+export const onPhoneRequired = (fn: (() => void) | null) => {
+  phoneNeeded = fn;
+};
+
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = (await supabase?.auth.getSession())?.data.session?.access_token;
   let res: Response;
@@ -187,7 +198,11 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
       0,
     );
   }
-  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    code?: string;
+  };
+  if (res.status === 403 && body.code === "phone-required") phoneNeeded?.();
   if (!res.ok)
     throw new ApiError(
       body.error ?? "Something went wrong. Please try again.",
@@ -212,6 +227,16 @@ export const api = {
       palms: Record<Hand, number | null>;
       prakriti: Prakriti | null;
     }>("/api/profile"),
+  startPhone: (phone: string) =>
+    call<{ phone: string }>("/api/phone/start", {
+      method: "POST",
+      body: JSON.stringify({ phone }),
+    }),
+  verifyPhone: (code: string) =>
+    call<{ phone: string }>("/api/phone/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
   savePrakriti: (answers: ("v" | "p" | "k")[]) =>
     call<{ prakriti: Prakriti }>("/api/prakriti", {
       method: "PUT",

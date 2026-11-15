@@ -10,7 +10,9 @@
  *   DELETE /api/conversations/:id delete one of your conversations
  *   POST /api/feedback            👍 / 👎 on an answer
  *   GET  /api/verse-of-the-day    the day's verse
- *   GET  /api/me                  your plan: Premium end date, plans on sale
+ *   GET  /api/me                  your plan: Premium end date, plans on sale, your WhatsApp number
+ *   POST /api/phone/start         send a WhatsApp code to your number
+ *   POST /api/phone/verify        check the code; the number is then linked to your account
  *   POST /api/pay                 start a Premium payment (Noha Pay, UPI); see payments.ts
  *   GET  /api/pay/:id             a payment's status
  *   POST /api/pay/webhook         Noha Pay confirms a payment
@@ -25,6 +27,7 @@ import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { D1Profiles, MAX_PHOTO_BASE64, ProfileError, searchPlaces } from './profiles.ts';
 import { D1Ayurveda, PrakritiError, prakritiLabel } from './ayurveda.ts';
 import { purgeExpired } from './retention.ts';
+import { maskPhone, PhoneError, phoneCheckOn, relaySender, startPhone, verifiedPhone, verifyPhone } from './phones.ts';
 import { D1AnswerCache, D1History, D1Library, D1Usage, MemoryVectorSearch, VectorizeSearch } from './store.ts';
 import type { Env } from './types.ts';
 
@@ -66,7 +69,9 @@ async function readJson(req: Request, max = MAX_BODY): Promise<Record<string, un
   }
 }
 
-const gemini = (env: Env) => new GeminiAi({ apiKey: env.GEMINI_API_KEY, model: env.CHAT_MODEL, baseUrl: env.GEMINI_BASE_URL, reasoningEffort: env.REASONING_EFFORT });
+const astroMode = (env: Env) => (env.ASTRO_MODE === 'open' ? 'open' : 'safe');
+const gemini = (env: Env) =>
+  new GeminiAi({ apiKey: env.GEMINI_API_KEY, model: env.CHAT_MODEL, baseUrl: env.GEMINI_BASE_URL, reasoningEffort: env.REASONING_EFFORT, astroMode: astroMode(env) });
 
 async function requireUser(req: Request, env: Env): Promise<string> {
   const id = await userFromRequest(req, env);
@@ -98,6 +103,8 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
     if (typeof body.question !== 'string') throw new BadQuestion('Ask a question to get started.');
     // Kosmik is for signed-in people: limits, history and personal details all hang off the account.
     const userId = await requireUser(req, env);
+    // One free allowance per person: a verified WhatsApp number is needed first (when switched on).
+    if (phoneCheckOn(env) && !(await verifiedPhone(env.DB, userId))) throw new PhoneError('Please verify your WhatsApp number to continue.', 403);
     const identity = { kind: 'user' as const, id: userId, premium: await isPremium(env.DB, userId, now) };
     const result = await ask(
       {
@@ -109,6 +116,7 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
         ai: gemini(env),
         profiles: new D1Profiles(env.DB),
         ayurveda: new D1Ayurveda(env.DB),
+        astroMode: astroMode(env),
       },
       {
         question: body.question,
@@ -246,12 +254,25 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
     const until = await premiumUntil(env.DB, userId, now);
     const plan = planFor(until ? 'premium' : 'starter', now);
     const used = plan.limit === null ? 0 : await new D1Usage(env.DB).count(`user:${userId}`, plan.period);
+    const phone = await verifiedPhone(env.DB, userId);
     return json(req, env, {
+      phone: phone ? maskPhone(phone) : null,
+      phoneRequired: phoneCheckOn(env) && !phone,
       premiumUntil: until,
       usage: { used, limit: plan.limit },
       paymentsEnabled: paymentsEnabled(env),
       plans: Object.entries(PLANS).map(([id, p]) => ({ id, ...p })),
     });
+  }
+
+  if (path === '/api/phone/start' && req.method === 'POST') {
+    const userId = await requireUser(req, env);
+    if (!phoneCheckOn(env)) throw new PhoneError('Number checks are not switched on yet.', 503);
+    return json(req, env, await startPhone(env.DB, userId, (await readJson(req)).phone, env.GUEST_SALT ?? 'kosmik', relaySender(env), now));
+  }
+  if (path === '/api/phone/verify' && req.method === 'POST') {
+    const userId = await requireUser(req, env);
+    return json(req, env, await verifyPhone(env.DB, userId, (await readJson(req)).code, env.GUEST_SALT ?? 'kosmik', now));
   }
 
   if (path === '/api/pay' && req.method === 'POST') {
@@ -296,6 +317,7 @@ export default {
       if (e instanceof Unauthorized) return error(req, env, e.message, 401);
       if (e instanceof PaymentError) return error(req, env, e.message, e.status);
       if (e instanceof ProfileError || e instanceof PrakritiError) return error(req, env, e.message, 400);
+      if (e instanceof PhoneError) return json(req, env, { error: e.message, code: e.status === 403 ? 'phone-required' : undefined }, e.status);
       console.error('api error', (e as Error).message);
       return error(req, env, 'Something went wrong. Please try again.', 500);
     }

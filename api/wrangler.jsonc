@@ -31,6 +31,8 @@
   // local development reads them from .dev.vars; production: npx wrangler secret put <NAME>.
   "vars": {
     "CHAT_MODEL": "gemini-3.5-flash",
+    // "open" while testing: chart readings give specific, dated predictions. Set to "safe" at launch.
+    "ASTRO_MODE": "open",
     // The web app is also served from GitHub Pages at this address and calls the API from there.
     "ALLOWED_ORIGINS": "https://kosmik.asanoha.co.in"
   }

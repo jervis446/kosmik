@@ -80,7 +80,9 @@ export default function Account() {
               {email}
             </Text>
             <Text style={s.muted}>
-              Asanoha account · works across Asanoha apps
+              {me?.phone
+                ? `WhatsApp ${me.phone} · verified`
+                : "Asanoha account · works across Asanoha apps"}
             </Text>
           </View>
         </View>

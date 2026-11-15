@@ -7,7 +7,7 @@ export type Block =
   | { type: 'meaning'; kind: string; key: string; title: string; body: string; reviewed: boolean }
   | { type: 'tarot'; cards: { key: string; name: string; reversed: boolean; position: string; meaning: string }[] }
   | { type: 'palm'; lines: { name: string; reading: string }[] }
-  | { type: 'chart'; lagna: string | null; moon: string; nakshatra: string; rows: { graha: string; rashi: string; house: string | null; retrograde: boolean }[] }
+  | { type: 'chart'; lagna: string | null; moon: string; nakshatra: string; /** Running mahadasha–antardasha, e.g. "Rahu–Ketu until 19 April 2027". */ dasha?: string | null; rows: { graha: string; rashi: string; house: string | null; retrograde: boolean }[] }
   | {
       type: 'herb';
       key: string;
@@ -78,6 +78,13 @@ export interface Env {
   CHAT_MODEL?: string;
   /** Gemini reasoning effort for answers; defaults to 'none' (fastest). */
   REASONING_EFFORT?: string;
+  /** 'open' while testing: chart readings give specific, dated predictions. 'safe' (default) after launch. */
+  ASTRO_MODE?: string;
+  /** "1" to require a verified WhatsApp number before asking (needs the relay below). */
+  PHONE_REQUIRED?: string;
+  /** WhatsApp relay that sends the codes (POST {to, text}); its bearer token is a secret. */
+  WA_RELAY_URL?: string;
+  WA_RELAY_TOKEN?: string;
   /** Local development only: data/scripts/ai-relay.ts. Never set in production. */
   GEMINI_BASE_URL?: string;
   /** Noha Pay (UPI gateway). Payments stay off until URL, merchant id and merchant key are set. */

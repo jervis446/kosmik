@@ -36,10 +36,12 @@ const BANNED: [RegExp, string][] = [
   [/\b(buy|purchase|wear)\s+(a|an|this)?\s*(gemstone|stone|rudraksha|yantra)\b/i, 'pushes a product'],
 ];
 
-export function contentProblems(text: string, allowWords: string[] = []): string[] {
+export function contentProblems(text: string, allowWords: string[] = [], opts: { open?: boolean } = {}): string[] {
   let t = text;
   for (const w of allowWords) t = t.split(w).join('');
-  return BANNED.filter(([re]) => re.test(t)).map(([, why]) => why);
+  // Testing mode (ASTRO_MODE=open) for chart readings: only death predictions are refused.
+  const rules = opts.open ? BANNED.slice(0, 1) : BANNED;
+  return rules.filter(([re]) => re.test(t)).map(([, why]) => why);
 }
 
 /** Checks a meaning-library entry: rules plus a sensible length. */

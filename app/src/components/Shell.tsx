@@ -1,5 +1,5 @@
 import { Redirect } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   PanResponder,
@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../lib/auth";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
+import { api, onPhoneRequired } from "../lib/api";
+import { PhoneGate } from "./PhoneGate";
 import { Sidebar } from "./Sidebar";
 
 const SIDE_MIN = 220;
@@ -63,7 +65,22 @@ export function Shell({
 }) {
   const { colors, isDark, setPref } = useTheme();
   const shell = useShell();
-  const { session, ready } = useAuth();
+  const { session, ready, signOut } = useAuth();
+  const [needPhone, setNeedPhone] = useState(false);
+  // A verified WhatsApp number is needed before the first question (when Kosmik requires one).
+  useEffect(() => {
+    if (!session) return;
+    let stopped = false;
+    api
+      .me()
+      .then((m) => !stopped && setNeedPhone(m.phoneRequired))
+      .catch(() => {});
+    onPhoneRequired(() => setNeedPhone(true));
+    return () => {
+      stopped = true;
+      onPhoneRequired(null);
+    };
+  }, [session]);
   const s = styles(colors);
   const [side, setSide] = useState<SideState>(loadSide);
   const [dragWidth, setDragWidth] = useState<number | null>(null);
@@ -201,6 +218,12 @@ export function Shell({
         </View>
         {children}
       </View>
+
+      <PhoneGate
+        visible={needPhone}
+        onDone={() => setNeedPhone(false)}
+        onSignOut={() => signOut().then(() => globalThis.location?.assign("/"))}
+      />
 
       {shell.drawerOpen ? (
         <View style={StyleSheet.absoluteFill}>

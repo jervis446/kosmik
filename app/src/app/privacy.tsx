@@ -37,6 +37,7 @@ export default function Privacy() {
         {
           h: "What we don’t do",
           p: [
+            "Your WhatsApp number, which you verify with a code we send on WhatsApp. Each number can belong to one Kosmik account, so the free questions stay fair. We keep it while your account exists, only use it for sign-in checks, and never share it or send marketing.",
             "We don’t sell your data, show ads, or use your chats, birth details, palm photos or prakriti for anything except answering you.",
           ],
         },

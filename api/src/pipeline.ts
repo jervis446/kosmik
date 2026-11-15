@@ -6,14 +6,15 @@
  *   4. ai        — RAG: retrieve verses and meanings, Gemini writes the answer, then it is cached
  * Answers about one person's own life are never stored in the shared cache.
  */
-import type { AiClient } from './ai.ts';
+import type { AiClient, AstroMode } from './ai.ts';
+import { dashaLine, deepChart } from './lib/jyotish.ts';
 import { matchIntent, type Intent } from './lib/intents.ts';
 import { CONTEXT_MESSAGES, describeConversation, isFollowUp } from './lib/conversation.ts';
 import { planFor, type Plan } from './lib/limits.ts';
 import { contentProblems, HELPLINE, isCrisis } from './lib/safety.ts';
 import { detectLang, type Lang, LANGS, normalizeQuestion, requestedLang, sha256 } from './lib/text.ts';
 import { GRAHAS, ordinal, RASHIS, NAKSHATRAS, TAROT } from './lib/catalog.ts';
-import { calculateChart, type Chart, describeChart } from './lib/chart.ts';
+import { calculateChart, type Chart } from './lib/chart.ts';
 import { type Profile, type Profiles, toBirth } from './profiles.ts';
 import type { AnswerCache, History, Library, Usage, VectorSearch } from './store.ts';
 import { type Ayurveda, dominant, type Dosha, herbBlock, type Prakriti, prakritiBlock, prakritiLabel } from './ayurveda.ts';
@@ -40,6 +41,8 @@ export type Deps = {
   ai: AiClient;
   profiles: Profiles;
   ayurveda: Ayurveda;
+  /** 'open' (testing): chart readings may predict events and dates; see ai.ts. */
+  astroMode?: AstroMode;
   now?: () => number;
   random?: (n: number) => number;
 };
@@ -203,7 +206,7 @@ export async function ask(
   const chartOutcome = async (profile: Profile) => {
     let blocks: Block[];
     try {
-      blocks = await chartAnswer(deps, q, lang, profile, conversation);
+      blocks = await chartAnswer(deps, q, lang, profile, conversation, now);
     } catch (err) {
       return busy(err);
     }
@@ -527,7 +530,7 @@ const nameOf = {
   graha: (k: string) => GRAHAS.find((g) => g.key === k)!,
 };
 
-export function chartBlock(chart: Chart): Block {
+export function chartBlock(chart: Chart, now?: Date): Block {
   const r = (k: string) => `${nameOf.rashi(k).name} (${nameOf.rashi(k).english})`;
   const nak = NAKSHATRAS.find((n) => n.key === chart.moonNakshatra.key)!;
   return {
@@ -535,6 +538,7 @@ export function chartBlock(chart: Chart): Block {
     lagna: chart.lagna ? r(chart.lagna.rashi) : null,
     moon: r(chart.grahas.find((p) => p.graha === 'moon')!.rashi),
     nakshatra: `${nak.name}, pada ${chart.moonNakshatra.pada}`,
+    dasha: now ? dashaLine(chart, now) : null,
     rows: chart.grahas.map((p) => ({
       graha: `${nameOf.graha(p.graha).name} (${nameOf.graha(p.graha).english})`,
       rashi: r(p.rashi),
@@ -545,17 +549,18 @@ export function chartBlock(chart: Chart): Block {
 }
 
 /** Answers a question about the person's own chart, calculated from their saved birth details. */
-async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile, conversation?: string): Promise<Block[]> {
+async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile, conversation: string | undefined, now: number): Promise<Block[]> {
   const chart = calculateChart(toBirth(profile));
   const meanings = await deps.library.meanings(chartSources(chart, question));
-  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses):\n${describeChart(chart)}`;
+  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}`;
+  const open = deps.astroMode === 'open';
   let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts, conversation);
-  if (contentProblems(grounded.answer).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts, conversation);
-  if (contentProblems(grounded.answer).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
+  if (contentProblems(grounded.answer, [], { open }).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts, conversation);
+  if (contentProblems(grounded.answer, [], { open }).length) return [{ type: 'notice', kind: 'busy', text: T.unsure[lang] }];
   const cited = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 3);
   return [
     { type: 'text', text: grounded.answer },
-    chartBlock(chart),
+    chartBlock(chart, new Date(now)),
     ...cited.map((m): Block => ({ type: 'meaning', ...m })),
   ];
 }
