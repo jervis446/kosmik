@@ -88,7 +88,7 @@ export default function Reports() {
         {orderState === "waiting" ? (
           <View style={[s.banner, { borderColor: colors.accent }]} testID="order-waiting">
             <ActivityIndicator color={colors.accent} />
-            <Text style={s.bannerText}>{tr("Waiting for your payment to be confirmed. Your credits appear here by themselves.")}</Text>
+            <Text style={s.bannerText}>{tr("Payment started. Your credits are added as soon as the payment is confirmed against our bank account, which can take a few hours. You can close this page.")}</Text>
           </View>
         ) : orderState === "paid" ? (
           <View style={[s.banner, { borderColor: colors.success }]}>

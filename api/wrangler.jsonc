@@ -33,6 +33,7 @@
     "CHAT_MODEL": "gemini-3.5-flash",
     // "open" while testing: chart readings give specific, dated predictions. Set to "safe" at launch.
     "NOHA_GATEWAY_URL": "https://pay.peoplepitchers.com",
+    "NOHA_METHOD": "MANUAL_UPI",
     "ASTRO_MODE": "open",
     // WhatsApp codes go through the Noha Pay relay; WA_RELAY_TOKEN is a secret. Set PHONE_REQUIRED to "1"
     // to make a verified number mandatory before the first question.

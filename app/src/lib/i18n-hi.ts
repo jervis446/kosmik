@@ -517,7 +517,7 @@ export const HI: Record<string, string> = {
   Reports: "रिपोर्ट",
   REPORTS: "रिपोर्ट",
   "Deep, one-time readings prepared from your full chart, kept for you to come back to.": "आपकी पूरी कुंडली से तैयार गहरी, एक-बार की रीडिंग, जो आपके लिए हमेशा रखी रहती हैं।",
-  "Waiting for your payment to be confirmed. Your credits appear here by themselves.": "आपके भुगतान की पुष्टि का इंतज़ार है। आपके क्रेडिट अपने आप यहाँ दिखेंगे।",
+  "Payment started. Your credits are added as soon as the payment is confirmed against our bank account, which can take a few hours. You can close this page.": "भुगतान शुरू हो गया। हमारे बैंक खाते में भुगतान की पुष्टि होते ही आपके क्रेडिट जुड़ जाएँगे, इसमें कुछ घंटे लग सकते हैं। आप यह पेज बंद कर सकते हैं।",
   "Payment received. Your report credits are ready.": "भुगतान मिल गया। आपके रिपोर्ट क्रेडिट तैयार हैं।",
   "No report credits left": "कोई रिपोर्ट क्रेडिट बाकी नहीं",
   "You have 1 report credit": "आपके पास 1 रिपोर्ट क्रेडिट है",
