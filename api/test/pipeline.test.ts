@@ -289,7 +289,8 @@ test('notices (needs details, coming soon) do not use up questions', async () =>
 test('input validation', async () => {
   const f = new Fakes();
   await assert.rejects(ask(f.deps(), { question: ' ', identity: user }), BadQuestion);
-  await assert.rejects(ask(f.deps(), { question: 'x'.repeat(501), identity: user }), BadQuestion);
+  await assert.rejects(ask(f.deps(), { question: 'x'.repeat(2401), identity: user }), BadQuestion);
+  await assert.rejects(ask(f.deps(), { question: 'word '.repeat(301), identity: user }), /300 words/);
 });
 
 test('answers follow the question language, and caches are kept per language', async () => {
