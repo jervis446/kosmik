@@ -285,7 +285,7 @@ export function Shell({
 
 const styles = (c: Colors) =>
   StyleSheet.create({
-    sideWide: { borderRightWidth: 1, borderRightColor: c.line },
+    sideWide: { borderRightWidth: 1, borderRightColor: c.line, zIndex: 20 },
     handle: {
       position: "absolute",
       top: 0,

@@ -133,6 +133,7 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
         conversationId: typeof body.conversationId === 'string' ? body.conversationId : null,
         // The person picked tarot card(s) from the face-down fan.
         tarot: body.tarot && typeof body.tarot === 'object' ? { count: (body.tarot as { count?: unknown }).count === 3 ? 3 : 1 } : undefined,
+        mode: body.mode === 'ayurveda' || body.mode === 'kosmik' ? body.mode : undefined,
       },
     );
     return json(req, env, result);
@@ -240,7 +241,7 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
 
   if (path === '/api/conversations' && req.method === 'GET') {
     const userId = await requireUser(req, env);
-    const { results } = await env.DB.prepare('SELECT id, title, updated_at AS updatedAt FROM conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT 50')
+    const { results } = await env.DB.prepare('SELECT id, title, kind, updated_at AS updatedAt FROM conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT 50')
       .bind(userId)
       .all();
     return json(req, env, { conversations: results });
@@ -249,7 +250,7 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
   const conv = /^\/api\/conversations\/([0-9a-f-]{36})$/.exec(path);
   if (conv) {
     const userId = await requireUser(req, env);
-    const own = await env.DB.prepare('SELECT id, title FROM conversations WHERE id = ? AND user_id = ?').bind(conv[1], userId).first<{ id: string; title: string }>();
+    const own = await env.DB.prepare('SELECT id, title, kind FROM conversations WHERE id = ? AND user_id = ?').bind(conv[1], userId).first<{ id: string; title: string; kind: string }>();
     if (!own) return error(req, env, 'Conversation not found.', 404);
     if (req.method === 'DELETE') {
       await env.DB.batch([
@@ -266,7 +267,7 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
       )
         .bind(own.id)
         .all<{ blocks: string | null }>();
-      return json(req, env, { id: own.id, title: own.title, messages: results.map((m) => ({ ...m, blocks: m.blocks ? JSON.parse(m.blocks) : null })) });
+      return json(req, env, { id: own.id, title: own.title, kind: own.kind, messages: results.map((m) => ({ ...m, blocks: m.blocks ? JSON.parse(m.blocks) : null })) });
     }
   }
 
@@ -297,6 +298,18 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
     }
     await env.DB.batch(stmts);
     return json(req, env, { saved: true });
+  }
+
+  // Your purchases, newest first: Premium days paid by UPI, with the reference to match a bank statement.
+  if (path === '/api/payments' && req.method === 'GET') {
+    const userId = await requireUser(req, env);
+    const { results } = await env.DB.prepare(
+      `SELECT id, plan, amount_paise AS amountPaise, days, status, utr, created_at AS createdAt, paid_at AS paidAt
+       FROM payments WHERE user_id = ? AND status IN ('paid', 'pending', 'failed') ORDER BY created_at DESC LIMIT 100`,
+    )
+      .bind(userId)
+      .all();
+    return json(req, env, { payments: results });
   }
 
   if (path === '/api/me' && req.method === 'GET') {

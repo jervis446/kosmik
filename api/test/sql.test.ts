@@ -112,3 +112,14 @@ test('Hindi library: Hindi meanings, verses and herb names where translated, Eng
   assert.deepEqual([herb?.name, herb?.description], ['तुलसी (Tulsi)', 'हिंदी कार्ड']);
   assert.equal((await new D1Ayurveda(db).herb('tulsi'))?.name, 'Tulsi');
 });
+
+test('history: a new chat keeps the kind it started with', async () => {
+  const { db } = d1();
+  const h = new D1History(db);
+  const first = await h.record({ userId: 'u1', question: 'Gut feels heavy', blocks: [], layer: 'ai', cacheId: null, now: 1, kind: 'ayurveda' });
+  assert.equal(first.kind, 'ayurveda');
+  const next = await h.record({ userId: 'u1', conversationId: first.conversationId, question: 'And sleep?', blocks: [], layer: 'ai', cacheId: null, now: 2, kind: 'kosmik' });
+  assert.equal(next.kind, 'ayurveda', 'an existing chat keeps its kind');
+  assert.equal(await h.kindOf('u1', first.conversationId), 'ayurveda');
+  assert.equal(await h.kindOf('someone-else', first.conversationId), null);
+});

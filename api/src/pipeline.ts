@@ -20,7 +20,7 @@ import type { AnswerCache, History, Library, Usage, VectorSearch } from './store
 import { aggravated, AGNI_LABEL, type Ayurveda, dominant, type Dosha, herbBlock, type HerbFilter, type Prakriti, prakritiBlock, prakritiLabel, type Vikriti, vikritiBlock } from './ayurveda.ts';
 import { rituAt, RITUS_HI } from './lib/ritu.ts';
 import { describeTropical, MOON_VIBE_HI, MOON_VIBE_HINGLISH, SIGNS, SIGNS_HI, SUN_VIBE_HI, SUN_VIBE_HINGLISH, zodiac, zodiacHi } from './lib/tropical.ts';
-import type { AskResult, Block, CacheEntry, Layer, Meaning, Verse } from './types.ts';
+import type { AskResult, Block, CacheEntry, ChatKind, Layer, Meaning, Verse } from './types.ts';
 
 export const MAX_QUESTION = 500;
 /**
@@ -201,7 +201,13 @@ const verseBlock = (v: Verse): Block => ({ type: 'verse', ref: v.ref, sanskrit: 
 type Turn = { plan: Plan; used: number; finish: (layer: Layer, blocks: Block[], opts: { count: boolean; cacheId?: number | null }) => Promise<AskResult> };
 
 /** Limits and history shared by every kind of question (text or palm photo). */
-async function startTurn(deps: Deps, identity: Identity, conversationId: string | null | undefined, question: string, langOf: () => Lang, now: number): Promise<Turn> {
+/** Ayurveda answers: a chat whose first answer is one of these becomes an Ayurveda chat. */
+const AYURVEDA_INTENTS = new Set(['ayur-consult', 'herb', 'herb-compare', 'herb-list', 'ritu', 'prakriti', 'prakriti-advice', 'vikriti']);
+const AYURVEDA_BLOCKS = new Set(['ayur-plan', 'ayur-intake', 'herb', 'herb-list', 'herb-compare', 'ritu', 'prakriti', 'vikriti']);
+export const chatKindOf = (blocks: Block[]): ChatKind =>
+  blocks.some((b) => AYURVEDA_BLOCKS.has(b.type) || (b.type === 'notice' && (b.kind === 'needs-prakriti' || b.kind === 'needs-vikriti'))) ? 'ayurveda' : 'kosmik';
+
+async function startTurn(deps: Deps, identity: Identity, conversationId: string | null | undefined, question: string, langOf: () => Lang, now: number, modeOf: () => ChatKind | null = () => null): Promise<Turn> {
   const plan = planFor(identity.kind === 'guest' ? 'guest' : identity.premium ? 'premium' : 'starter', now);
   const subject = identity.kind === 'guest' ? identity.subject : `user:${identity.id}`;
   const used = plan.limit === null ? 0 : await deps.usage.count(subject, plan.period);
@@ -209,10 +215,13 @@ async function startTurn(deps: Deps, identity: Identity, conversationId: string 
     if (opts.count) await deps.usage.increment(subject, plan.period);
     const total = used + (opts.count ? 1 : 0);
     let ids = { conversationId: null as string | null, messageId: null as string | null };
+    let kind: ChatKind = modeOf() ?? chatKindOf(blocks);
     if (identity.kind === 'user' && layer !== 'limit') {
-      ids = await deps.history.record({ userId: identity.id, conversationId, question, blocks, layer, cacheId: opts.cacheId ?? null, now });
+      const rec = await deps.history.record({ userId: identity.id, conversationId, question, blocks, layer, cacheId: opts.cacheId ?? null, now, kind: modeOf() ?? chatKindOf(blocks) });
+      ids = { conversationId: rec.conversationId, messageId: rec.messageId };
+      kind = rec.kind ?? kind;
     }
-    return { ...ids, layer, lang: langOf(), blocks, remaining: plan.limit === null ? null : Math.max(0, plan.limit - total) };
+    return { ...ids, layer, lang: langOf(), blocks, remaining: plan.limit === null ? null : Math.max(0, plan.limit - total), kind };
   };
   return { plan, used, finish };
 }
@@ -224,7 +233,7 @@ const limitBlock = (turn: Turn, lang: Lang): Block[] => [
 
 export async function ask(
   deps: Deps,
-  input: { question: string; lang?: string; identity: Identity; conversationId?: string | null; tarot?: { count: 1 | 3 } },
+  input: { question: string; lang?: string; identity: Identity; conversationId?: string | null; tarot?: { count: 1 | 3 }; mode?: ChatKind },
 ): Promise<AskResult> {
   const now = deps.now?.() ?? Date.now();
   const question = input.question.replace(/\s+/g, ' ').trim();
@@ -237,7 +246,11 @@ export async function ask(
     deps = { ...deps, library: deps.library.inLang?.(lang) ?? deps.library, ayurveda: deps.ayurveda.inLang?.(lang) ?? deps.ayurveda };
   };
   localize();
-  const turn = await startTurn(deps, input.identity, input.conversationId, question, () => lang, now);
+  // An Ayurveda chat stays Ayurveda: picked when it was started, or remembered from its first answer.
+  const userIdEarly = input.identity.kind === 'user' ? input.identity.id : null;
+  const mode: ChatKind | null =
+    input.mode ?? (userIdEarly && input.conversationId ? ((await deps.history.kindOf?.(userIdEarly, input.conversationId)) ?? null) : null);
+  const turn = await startTurn(deps, input.identity, input.conversationId, question, () => lang, now, () => mode);
   const { finish } = turn;
   // The AI layer failing never costs a question: say so politely instead.
   const busy = (err: unknown) => {
@@ -317,6 +330,10 @@ export async function ask(
       if (!conversation) conversation = describeConversation(await deps.history.recent(userId, input.conversationId, CONTEXT_MESSAGES));
     }
   }
+
+  // In an Ayurveda chat, everything is an Ayurveda question: library look-ups (herbs, doshas, ritu)
+  // are answered from the library, anything else goes to the consultation.
+  if (mode === 'ayurveda' && !AYURVEDA_INTENTS.has(intent?.type ?? '')) intent = { type: 'ayur-consult' };
 
   // Health and wellness: an Ayurveda consultation, never the birth chart.
   if (intent?.type === 'ayur-consult') {

@@ -17,6 +17,7 @@ import {
   ApiError,
   type AskResult,
   type Block,
+  type ChatKind,
   type Lang,
   type Layer,
 } from "../lib/api";
@@ -51,6 +52,16 @@ const LANGS: { key: Lang | undefined; label: string }[] = [
 ];
 
 /** The layer label in the answer's own language: Hindi when the answer is in Devanagari. */
+/** Common first questions in an Ayurveda chat. */
+const AYUR_STARTERS = [
+  "Gas and bloating after meals",
+  "Acidity and burning in the chest",
+  "I can’t sleep well",
+  "Hair fall and dandruff",
+  "Low energy all day",
+  "What is my prakriti?",
+];
+
 const LAYER_LABEL_HI: Partial<Record<Layer, string>> = {
   direct: "लाइब्रेरी से",
   exact: "पहले दिया गया जवाब",
@@ -101,9 +112,12 @@ const message = (e: unknown) =>
 export function Conversation({
   initialTurns = [],
   initialConversationId = null,
+  initialKind = null,
 }: {
   initialTurns?: Turn[];
   initialConversationId?: string | null;
+  /** Ayurveda or Kosmik; null for a new chat that its first answer will decide. */
+  initialKind?: ChatKind | null;
 }) {
   const { colors } = useTheme();
   const { session } = useAuth();
@@ -113,6 +127,8 @@ export function Conversation({
   const [conversationId, setConversationId] = useState<string | null>(
     initialConversationId,
   );
+  const [kind, setKind] = useState<ChatKind | null>(initialKind);
+  const ayurveda = kind === "ayurveda";
   const [input, setInput] = useState("");
   const [inputHeight, setInputHeight] = useState(24);
   const [lang, setLang] = useAnswerLang();
@@ -134,6 +150,7 @@ export function Conversation({
       track(
         `answer/${card.type === "notice" ? `notice-${card.kind}` : card.type}`,
       );
+    if (r.kind && r.kind !== kind) setKind(r.kind);
     if (r.conversationId && r.conversationId !== conversationId) {
       setConversationId(r.conversationId);
       shell.setActiveId(r.conversationId);
@@ -188,7 +205,7 @@ export function Conversation({
     setBusy(PALM_WORDS.test(q) ? "palm" : "ask");
     setTurns((t) => [...t, { id: nextId(), role: "user", text: q }]);
     try {
-      received(await api.ask(q, lang, conversationId), q);
+      received(await api.ask(q, lang, conversationId, undefined, kind), q);
     } catch (e) {
       setError(message(e));
       setInput(q);
@@ -204,7 +221,7 @@ export function Conversation({
     setError(null);
     setBusy("ask");
     try {
-      received(await api.ask(q, lang, conversationId, { count }), q);
+      received(await api.ask(q, lang, conversationId, { count }, kind), q);
     } catch (e) {
       setError(message(e));
     } finally {
@@ -280,7 +297,32 @@ export function Conversation({
         }
         keyboardShouldPersistTaps="handled"
       >
-        {turns.length === 0 ? (
+        {turns.length === 0 && ayurveda ? (
+          <View style={{ gap: 18, paddingTop: 12 }} testID="ayurveda-home">
+            <View style={{ gap: 6 }}>
+              <Text style={[s.sub, { fontFamily: font.mono, letterSpacing: 1.5, fontSize: 12 }]}>
+                {tr("KOSMIK / AYURVEDA")}
+              </Text>
+              <Text style={s.hello}>{tr("What’s bothering you?")}</Text>
+              <Text style={s.sub}>
+                {tr("Tell Kosmik like you’d tell a vaidya: what you feel, since when, and what makes it better or worse. You’ll get an Ayurvedic reading with diet, routine and remedies.")}
+              </Text>
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {AYUR_STARTERS.map((q) => (
+                <Pressable
+                  key={q}
+                  onPress={() => send(tr(q))}
+                  style={({ pressed }) => [s.starter, pressed && { borderColor: colors.success }]}
+                  accessibilityRole="button"
+                >
+                  <Text style={s.starterText}>{tr(q)}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+        {turns.length === 0 && !ayurveda ? (
           <View style={{ gap: 18, paddingTop: 12 }}>
             <View style={{ gap: 6 }}>
               <Text style={s.hello}>{tr("Namaste. What’s on your mind?")}</Text>
@@ -391,7 +433,7 @@ export function Conversation({
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder={tr("Ask Kosmik anything…")}
+            placeholder={ayurveda ? tr("Describe what you feel, since when…") : tr("Ask Kosmik anything…")}
             placeholderTextColor={colors.muted}
             style={[
               s.input,
@@ -487,6 +529,15 @@ const styles = (c: Colors) =>
       alignSelf: "center",
       flexGrow: 1,
     },
+    starter: {
+      borderWidth: 1,
+      borderColor: c.line,
+      backgroundColor: c.surface,
+      borderRadius: 999,
+      paddingVertical: 9,
+      paddingHorizontal: 14,
+    },
+    starterText: { color: c.text, fontFamily: font.medium, fontSize: 14 },
     hello: {
       color: c.text,
       fontFamily: font.display,

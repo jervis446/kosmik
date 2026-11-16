@@ -9,12 +9,16 @@ import {
   View,
 } from "react-native";
 
-import type { ConversationSummary } from "../lib/api";
+import type { ChatKind, ConversationSummary } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
+import { AccountMenu } from "./AccountMenu";
 import { Logo } from "./Logo";
 import { tr } from "../lib/i18n";
+
+/** Ayurveda's colour: leafy green, on both themes. */
+const AYUR = "#3FB68B";
 
 function group(chats: ConversationSummary[], now: number) {
   const day = 24 * 60 * 60 * 1000;
@@ -37,6 +41,8 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
   const shell = useShell();
   const s = styles(colors);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | ChatKind>("all");
+  const [menu, setMenu] = useState(false);
   const [now] = useState(() => Date.now());
   const email = session?.user.email ?? "";
 
@@ -81,12 +87,40 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
 
       <Pressable
         onPress={() => shell.newChat()}
-        style={s.newChat}
+        style={({ pressed }) => [s.askBtn, { borderColor: `${colors.primary}88`, backgroundColor: `${colors.primary}${pressed ? "33" : "1f"}` }]}
         accessibilityRole="button"
         accessibilityLabel="New chat"
       >
-        <Text style={s.newChatText}>{tr("＋ New chat")}</Text>
+        <Text style={[s.askGlyph, { color: colors.highlight }]}>✦</Text>
+        <Text style={s.askText}>{tr("Ask Kosmik")}</Text>
       </Pressable>
+      <Pressable
+        onPress={() => shell.newChat("ayurveda")}
+        style={({ pressed }) => [s.askBtn, { borderColor: `${AYUR}88`, backgroundColor: `${AYUR}${pressed ? "33" : "1a"}` }]}
+        accessibilityRole="button"
+        accessibilityLabel="New Ayurveda chat"
+      >
+        <Text style={[s.askGlyph, { color: AYUR }]}>❀</Text>
+        <Text style={[s.askText, { color: AYUR }]}>{tr("Ask Ayurveda")}</Text>
+      </Pressable>
+
+      {session && shell.chats?.length ? (
+        <View style={s.filters} accessibilityRole="tablist">
+          {(["all", "kosmik", "ayurveda"] as const).map((f) => (
+            <Pressable
+              key={f}
+              onPress={() => setFilter(f)}
+              style={[s.filter, filter === f && s.filterOn]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: filter === f }}
+            >
+              <Text style={[s.filterText, filter === f && { color: colors.text }]}>
+                {tr(f === "all" ? "ALL" : f === "kosmik" ? "KOSMIK" : "AYURVEDA")}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <ScrollView
         style={{ flex: 1 }}
@@ -102,7 +136,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
               {tr("Your chats will appear here.")}
             </Text>
           ) : (
-            group(shell.chats, now).map((g) => (
+            group(shell.chats.filter((c) => filter === "all" || (c.kind ?? "kosmik") === filter), now).map((g) => (
               <View key={g.label} style={{ gap: 2 }}>
                 <Text style={s.section}>{g.label}</Text>
                 {g.items.map((c) =>
@@ -157,6 +191,12 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
                         accessibilityLabel={`Open chat: ${c.title}`}
                       >
                         <Text style={s.rowText} numberOfLines={1}>
+                          <Text
+                            style={{ color: c.kind === "ayurveda" ? AYUR : colors.highlight }}
+                            accessibilityLabel={c.kind === "ayurveda" ? "Ayurveda chat" : "Kosmik chat"}
+                          >
+                            {c.kind === "ayurveda" ? "❀ " : "✦ "}
+                          </Text>
                           {c.title}
                         </Text>
                       </Pressable>
@@ -185,13 +225,11 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
 
       {session ? (
         <Pressable
-          onPress={() => {
-            shell.closeDrawer();
-            router.push("/account");
-          }}
-          style={s.account}
-          accessibilityRole="link"
+          onPress={() => setMenu((m) => !m)}
+          style={[s.account, menu && { backgroundColor: colors.surface2 }]}
+          accessibilityRole="button"
           accessibilityLabel="Account"
+          accessibilityState={{ expanded: menu }}
         >
           <View style={s.avatar}>
             <Text style={s.avatarText}>{(email[0] ?? "?").toUpperCase()}</Text>
@@ -202,6 +240,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
             </Text>
             <Text style={s.small}>{tr("Account · Upgrade")}</Text>
           </View>
+          <Text style={s.small}>{menu ? "⌄" : "⌃"}</Text>
         </Pressable>
       ) : (
         <Pressable
@@ -221,6 +260,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
           </Text>
         </Pressable>
       )}
+      {menu && session ? <AccountMenu onClose={() => setMenu(false)} /> : null}
     </View>
   );
 }
@@ -249,6 +289,22 @@ const styles = (c: Colors) =>
       justifyContent: "center",
     },
     iconText: { color: c.muted, fontSize: 18 },
+    askBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      borderWidth: 1,
+      borderRadius: 14,
+      paddingVertical: 11,
+      paddingHorizontal: 14,
+      marginBottom: 8,
+    },
+    askGlyph: { fontSize: 16, width: 18, textAlign: "center" },
+    askText: { color: c.text, fontFamily: font.semibold, fontSize: 15 },
+    filters: { flexDirection: "row", gap: 6, paddingHorizontal: 4, paddingTop: 6, paddingBottom: 8 },
+    filter: { paddingVertical: 5, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: "transparent" },
+    filterOn: { borderColor: c.line, backgroundColor: c.surface2 },
+    filterText: { color: c.muted, fontFamily: font.mono, fontSize: 11, letterSpacing: 1.2 },
     newChat: {
       borderWidth: 1,
       borderColor: c.line,

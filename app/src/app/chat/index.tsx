@@ -3,10 +3,10 @@ import { Shell } from "../../components/Shell";
 import { useShell } from "../../lib/shell";
 
 export default function NewChat() {
-  const { chatKey } = useShell();
+  const { chatKey, newKind } = useShell();
   return (
     <Shell>
-      <Conversation key={chatKey} />
+      <Conversation key={chatKey} initialKind={newKind} />
     </Shell>
   );
 }

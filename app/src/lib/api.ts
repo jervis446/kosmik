@@ -191,11 +191,15 @@ export type AskResult = {
   lang: Lang;
   blocks: Block[];
   remaining: number | null;
+  kind?: ChatKind;
 };
 
+/** Kosmik chats (astrology, tarot, palm, Gita) and Ayurveda chats are kept apart. */
+export type ChatKind = "kosmik" | "ayurveda";
 export type ConversationSummary = {
   id: string;
   title: string;
+  kind?: ChatKind;
   updatedAt: number;
 };
 export type StoredMessage = {
@@ -295,6 +299,17 @@ export type BirthDetails = {
   lon: number;
   tzOffsetMin: number;
 };
+/** One Premium purchase, as listed on Payments & invoices. */
+export type Purchase = {
+  id: string;
+  plan: PlanId;
+  amountPaise: number;
+  days: number;
+  status: "paid" | "pending" | "failed";
+  utr: string | null;
+  createdAt: number;
+  paidAt: number | null;
+};
 export type Place = {
   name: string;
   lat: number;
@@ -364,10 +379,11 @@ export const api = {
     lang: Lang | undefined,
     conversationId: string | null,
     tarot?: { count: 1 | 3 },
+    mode?: ChatKind | null,
   ) =>
     call<AskResult>("/api/ask", {
       method: "POST",
-      body: JSON.stringify({ question, lang, conversationId, tarot }),
+      body: JSON.stringify({ question, lang, conversationId, tarot, mode: mode ?? undefined }),
     }),
   profile: () =>
     call<{
@@ -402,6 +418,7 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ ...details, consent: true }),
     }),
+  payments: () => call<{ payments: Purchase[] }>("/api/payments"),
   deleteProfile: () =>
     call<{ deleted: boolean }>("/api/profile", { method: "DELETE" }),
   palmPhoto: (hand: Hand) =>
@@ -418,7 +435,7 @@ export const api = {
   conversations: () =>
     call<{ conversations: ConversationSummary[] }>("/api/conversations"),
   conversation: (id: string) =>
-    call<{ id: string; title: string; messages: StoredMessage[] }>(
+    call<{ id: string; title: string; kind?: ChatKind; messages: StoredMessage[] }>(
       `/api/conversations/${id}`,
     ),
   deleteConversation: (id: string) =>

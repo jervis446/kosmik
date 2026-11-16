@@ -88,6 +88,9 @@ export type Block =
 /** Which layer answered: no AI, exact repeat, same meaning, or a new AI answer. */
 export type Layer = 'direct' | 'exact' | 'semantic' | 'ai' | 'safety' | 'limit';
 
+/** Kosmik chats (astrology, tarot, palm, Gita) and Ayurveda chats are kept apart. */
+export type ChatKind = 'kosmik' | 'ayurveda';
+
 export type AskResult = {
   conversationId: string | null;
   messageId: string | null;
@@ -96,6 +99,8 @@ export type AskResult = {
   blocks: Block[];
   /** Questions left in the current period; null means unlimited. */
   remaining: number | null;
+  /** Which kind of chat this answer belongs to. */
+  kind?: ChatKind;
 };
 
 export type Verse = {

@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { Platform, useWindowDimensions } from "react-native";
 
-import { api, type ConversationSummary } from "./api";
+import { api, type ChatKind, type ConversationSummary } from "./api";
 import { useAuth } from "./auth";
 
 /** Wide screens keep the sidebar open; narrow ones open it as a drawer. */
@@ -27,7 +27,9 @@ type Shell = {
   setActiveId: (id: string | null) => void;
   /** Changes whenever "New chat" is pressed, so the home conversation starts empty. */
   chatKey: number;
-  newChat: () => void;
+  /** The kind of chat "New chat" starts: Kosmik (decided by its first answer) or Ayurveda. */
+  newKind: ChatKind | null;
+  newChat: (kind?: ChatKind | null) => void;
   openChat: (id: string) => void;
   /** Starts a new chat with this question (e.g. the first question from onboarding). */
   askNew: (question: string) => void;
@@ -48,6 +50,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [chatKey, setChatKey] = useState(0);
   const [version, setVersion] = useState(0);
   const [pending, setPending] = useState<string | null>(null);
+  const [newKind, setNewKind] = useState<ChatKind | null>(null);
 
   const userId = session?.user.id ?? null;
   useEffect(() => {
@@ -96,14 +99,17 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
       chatKey,
       pending,
       clearPending: () => setPending(null),
+      newKind,
       askNew: (question) => {
+        setNewKind(null);
         setActiveIdState(null);
         setChatKey((k) => k + 1);
         setPending(question);
         closeDrawer();
         router.navigate("/chat");
       },
-      newChat: () => {
+      newChat: (kind = null) => {
+        setNewKind(kind);
         setActiveIdState(null);
         setChatKey((k) => k + 1);
         closeDrawer();
@@ -122,7 +128,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
         router.navigate({ pathname: "/chat/[id]", params: { id } });
       },
     };
-  }, [wide, drawerOpen, chats, userId, activeId, chatKey, pending]);
+  }, [wide, drawerOpen, chats, userId, activeId, chatKey, pending, newKind]);
 
   return <ShellCtx.Provider value={value}>{children}</ShellCtx.Provider>;
 }

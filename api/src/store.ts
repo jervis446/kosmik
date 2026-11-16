@@ -1,6 +1,6 @@
 /** Data access on Cloudflare D1, plus vector search (Vectorize, or an in-memory scan of D1). */
 import { fromBlob, type Hit, toBlob, topK } from './lib/vectors.ts';
-import type { Block, CacheEntry, Meaning, Verse } from './types.ts';
+import type { Block, CacheEntry, ChatKind, Meaning, Verse } from './types.ts';
 
 export type Namespace = 'verses' | 'meanings' | `cache:${string}`;
 
@@ -37,7 +37,10 @@ export interface Usage {
 export type PastMessage = { role: 'user' | 'assistant'; content: string; blocks: Block[] | null };
 
 export interface History {
-  record(e: { userId: string; conversationId?: string | null; question: string; blocks: Block[]; layer: string; cacheId: number | null; now: number }): Promise<{ conversationId: string; messageId: string }>;
+  /** A new conversation takes `kind`; an existing one keeps its own, which is returned. */
+  record(e: { userId: string; conversationId?: string | null; question: string; blocks: Block[]; layer: string; cacheId: number | null; now: number; kind?: ChatKind }): Promise<{ conversationId: string; messageId: string; kind?: ChatKind }>;
+  /** The kind of one of this person's conversations. */
+  kindOf?(userId: string, conversationId: string): Promise<ChatKind | null>;
   /** The latest messages of one of this person's conversations, oldest first. */
   recent(userId: string, conversationId: string, limit: number): Promise<PastMessage[]>;
 }
@@ -230,16 +233,18 @@ export class D1History implements History {
   }
   async record(e: Parameters<History['record']>[0]) {
     let conversationId = e.conversationId ?? null;
+    let kind: ChatKind = e.kind ?? 'kosmik';
     if (conversationId) {
       // Only continue a conversation that belongs to this person.
-      const own = await this.db.prepare('SELECT 1 FROM conversations WHERE id = ? AND user_id = ?').bind(conversationId, e.userId).first();
+      const own = await this.db.prepare('SELECT kind FROM conversations WHERE id = ? AND user_id = ?').bind(conversationId, e.userId).first<{ kind: ChatKind }>();
       if (!own) conversationId = null;
+      else kind = own.kind;
     }
     const stmts: D1PreparedStatement[] = [];
     if (!conversationId) {
       conversationId = crypto.randomUUID();
       const title = e.question.length > 60 ? `${e.question.slice(0, 59).trimEnd()}…` : e.question;
-      stmts.push(this.db.prepare('INSERT INTO conversations (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').bind(conversationId, e.userId, title, e.now, e.now));
+      stmts.push(this.db.prepare('INSERT INTO conversations (id, user_id, title, kind, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(conversationId, e.userId, title, kind, e.now, e.now));
     } else {
       stmts.push(this.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').bind(e.now, conversationId));
     }
@@ -251,6 +256,9 @@ export class D1History implements History {
         .bind(messageId, conversationId, JSON.stringify(e.blocks), e.layer, e.cacheId, e.now + 1),
     );
     await this.db.batch(stmts);
-    return { conversationId, messageId };
+    return { conversationId, messageId, kind };
+  }
+  async kindOf(userId: string, conversationId: string) {
+    return (await this.db.prepare('SELECT kind FROM conversations WHERE id = ? AND user_id = ?').bind(conversationId, userId).first<{ kind: ChatKind }>())?.kind ?? null;
   }
 }

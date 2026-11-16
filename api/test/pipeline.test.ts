@@ -639,3 +639,35 @@ test('zodiac: Western signs need birth details, then come from the chart without
   assert.ok(z && z.type === 'zodiac' && z.sun.sign === 'Pisces' && z.rising?.sign === 'Aries');
   assert.equal(f.aiCalls, 0);
 });
+
+test('chat kinds: an Ayurveda chat sends even a kundli question to the consultation; new chats are tagged from their first answer', async () => {
+  const f = new Fakes();
+  f.profile = birth;
+  const deps = f.deps();
+  const kinds: (string | undefined)[] = [];
+  const record = deps.history.record;
+  deps.history.record = async (e) => {
+    kinds.push(e.kind);
+    return { ...(await record(e)), kind: e.kind };
+  };
+  let consulted = 0;
+  deps.ai.ayurveda = async () => {
+    consulted++;
+    return { mode: 'answer', reply: 'Your sleep needs a calmer Vata.', questions: [], assessment: null, favour: [], avoid: [], lifestyle: [], remedies: [], formulations: [], yoga: [], redFlags: [], shloka: null, followUps: [] };
+  };
+  const ay = await ask(deps, { question: 'What does my kundli say about my sleep?', lang: 'en', identity: user, mode: 'ayurveda' });
+  assert.equal(consulted, 1, 'no chart reading inside an Ayurveda chat');
+  assert.equal(ay.kind, 'ayurveda');
+  assert.ok(!ay.blocks.some((b) => b.type === 'chart'));
+
+  // A herb look-up still comes from the library inside an Ayurveda chat.
+  const herb = await ask(deps, { question: 'What is Tulsi?', lang: 'en', identity: user, mode: 'ayurveda' });
+  assert.ok(herb.blocks.some((b) => b.type === 'herb'));
+
+  // With no mode, the first answer decides: a chart answer is a Kosmik chat, a herb answer an Ayurveda one.
+  const chart = await ask(deps, { question: 'What does my kundli say about career?', lang: 'en', identity: user });
+  assert.equal(chart.kind, 'kosmik');
+  const auto = await ask(deps, { question: 'What is Tulsi?', lang: 'en', identity: user });
+  assert.equal(auto.kind, 'ayurveda');
+  assert.deepEqual(kinds, ['ayurveda', 'ayurveda', 'kosmik', 'ayurveda']);
+});

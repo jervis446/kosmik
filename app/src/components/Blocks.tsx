@@ -8,8 +8,25 @@ import { TarotPick, TarotReveal } from "./TarotCards";
 import { tr } from "../lib/i18n";
 
 /** Planets, houses and dates in an answer, picked out in the highlight colour. */
-const MARK =
-  /\b(Sun|Moon|Mars|Mercury|Jupiter|Venus|Saturn|Rahu|Ketu|Surya|Chandra|Mangal|Budh|Guru|Shukra|Shani|Sade Sati|Lagna|(?:1[0-2]|[1-9])(?:st|nd|rd|th) (?:house|lord)s?|(?:\d{1,2} )?(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec) (?:19|20)\d{2}|(?:mid-|early |late )?(?:19|20)\d{2})\b/g;
+const MARK = new RegExp(
+  [
+    // Planets, Lagna and Sade Sati
+    String.raw`\b(?:Sun|Moon|Mars|Mercury|Jupiter|Venus|Saturn|Rahu|Ketu|Surya|Chandra|Mangal|Budh|Guru|Shukra|Shani|Sade Sati|Lagna)\b`,
+    // Houses, in numbers or in words: "10th house", "seventh house", "house of gains", "house of career and status"
+    String.raw`\b(?:1[0-2]|[1-9])(?:st|nd|rd|th) (?:house|lord)s?\b`,
+    String.raw`\b(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth) house\b`,
+    String.raw`\bhouse of (?:how you come across|[a-z]+(?:,? (?:and|&) [a-z]+)?)\b`,
+    String.raw`\b(?:transiting|retrograde|mahadasha|antardasha)\b`,
+    // Dates
+    String.raw`\b(?:\d{1,2} )?(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec) (?:19|20)\d{2}\b`,
+    String.raw`\b(?:mid-|early |late )?(?:19|20)\d{2}\b`,
+    // Hindi: planets, houses and months
+    "(?:सूर्य|चंद्र|चंद्रमा|मंगल|बुध|गुरु|बृहस्पति|शुक्र|शनि|राहु|केतु|साढ़ेसाती|लग्न|महादशा|अंतर्दशा)",
+    "(?:\\d{1,2}(?:वें|वाँ|वां|वीं)? भाव)",
+    "(?:\\d{1,2} )?(?:जनवरी|फ़रवरी|फरवरी|मार्च|अप्रैल|मई|जून|जुलाई|अगस्त|सितंबर|अक्टूबर|नवंबर|दिसंबर) (?:19|20)\\d{2}",
+  ].join("|"),
+  "g",
+);
 
 export function highlight(text: string, color: string): ReactNode[] {
   const out: ReactNode[] = [];

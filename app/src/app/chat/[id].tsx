@@ -4,7 +4,7 @@ import { ActivityIndicator, Text, View } from "react-native";
 
 import { Conversation, type Turn } from "../../components/Conversation";
 import { Shell } from "../../components/Shell";
-import { api, ApiError, type StoredMessage } from "../../lib/api";
+import { api, ApiError, type ChatKind, type StoredMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { useShell } from "../../lib/shell";
 import { font, useTheme } from "../../lib/theme";
@@ -30,6 +30,7 @@ export default function SavedChat() {
   const { activeId, setActiveId } = useShell();
   const [data, setData] = useState<{
     title: string;
+    kind?: ChatKind;
     messages: StoredMessage[];
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +92,7 @@ export default function SavedChat() {
           key={id}
           initialTurns={turns}
           initialConversationId={id}
+          initialKind={data?.kind ?? "kosmik"}
         />
       )}
     </Shell>
