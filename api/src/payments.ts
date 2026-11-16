@@ -17,11 +17,19 @@
 import { sha256 } from './lib/text.ts';
 import type { Env } from './types.ts';
 
-export type PlanId = 'week' | 'month';
-export const PLANS: Record<PlanId, { name: string; amountPaise: number; days: number }> = {
+export type PlanId = 'week' | 'month' | 'r1' | 'r3' | 'r10';
+/** Premium passes (days of unlimited questions). */
+export const PLANS: Record<'week' | 'month', { name: string; amountPaise: number; days: number }> = {
   week: { name: 'Premium · 7 days', amountPaise: 5100, days: 7 },
   month: { name: 'Premium · 30 days', amountPaise: 10100, days: 30 },
 };
+/** Report packs: each credit unlocks one report, kept for good. */
+export const PACKS: Record<'r1' | 'r3' | 'r10', { name: string; amountPaise: number; credits: number }> = {
+  r1: { name: '1 report', amountPaise: 9900, credits: 1 },
+  r3: { name: '3 reports', amountPaise: 24900, credits: 3 },
+  r10: { name: '10 reports', amountPaise: 69900, credits: 10 },
+};
+const isPack = (p: string): p is keyof typeof PACKS => p in PACKS;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** The gateway retries a delivery for days with its original timestamp; older ones are refused. */
@@ -49,17 +57,17 @@ export class PaymentError extends Error {
 
 export const paymentsEnabled = (env: Env) => !!(env.NOHA_GATEWAY_URL && env.NOHA_MERCHANT_ID && env.NOHA_MERCHANT_KEY);
 
-export type Payment = { id: string; user_id: string; plan: PlanId; amount_paise: number; days: number; status: string; paid_at: number | null };
+export type Payment = { id: string; user_id: string; plan: PlanId; amount_paise: number; days: number; credits: number; status: string; paid_at: number | null };
 
 /** Starts a checkout. returnBase is this site's origin; the gateway sends the customer back there. */
 export async function startPayment(env: Env, db: D1Database, userId: string, plan: unknown, returnBase: string, now: number): Promise<{ orderId: string; checkoutUrl: string }> {
   if (!paymentsEnabled(env)) throw new PaymentError('Premium payments open soon.', 503);
-  if (plan !== 'week' && plan !== 'month') throw new PaymentError('Choose a plan.', 400);
-  const p = PLANS[plan];
+  if (plan !== 'week' && plan !== 'month' && !(typeof plan === 'string' && isPack(plan))) throw new PaymentError('Choose a plan.', 400);
+  const p = isPack(plan) ? { ...PACKS[plan], days: 0 } : { ...PLANS[plan], credits: 0 };
   const id = newOrderId();
   await db
-    .prepare('INSERT INTO payments (id, user_id, plan, amount_paise, days, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(id, userId, plan, p.amountPaise, p.days, now)
+    .prepare('INSERT INTO payments (id, user_id, plan, amount_paise, days, credits, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(id, userId, plan, p.amountPaise, p.days, p.credits, now)
     .run();
 
   const res = await fetch(`${env.NOHA_GATEWAY_URL!.replace(/\/+$/, '')}/api/v1/payments`, {
@@ -70,7 +78,7 @@ export async function startPayment(env: Env, db: D1Database, userId: string, pla
       amount: (p.amountPaise / 100).toFixed(2),
       currency: 'INR',
       method: 'UPI',
-      returnUrl: `${returnBase}/premium?order=${id}`,
+      returnUrl: `${returnBase}${isPack(plan) ? '/reports' : '/premium'}?order=${id}`,
       metadata: { source: 'kosmik', plan },
     }),
     signal: AbortSignal.timeout(15_000),
@@ -170,12 +178,19 @@ export async function handleWebhook(env: Env, db: D1Database, headers: Headers, 
       db
         .prepare("UPDATE payments SET status = 'paid', gateway_payment_id = COALESCE(?, gateway_payment_id), utr = ?, paid_at = ?, note = ? WHERE id = ? AND status != 'paid'")
         .bind(ev.paymentId ?? null, utr, now, how, order.id),
-      db
-        .prepare(
-          `INSERT INTO premium (user_id, until) SELECT ?, ? + ? WHERE changes() = 1
-           ON CONFLICT (user_id) DO UPDATE SET until = MAX(premium.until, ?) + ?`,
-        )
-        .bind(order.user_id, now, order.days * DAY_MS, now, order.days * DAY_MS),
+      isPack(order.plan)
+        ? db
+            .prepare(
+              `INSERT INTO report_credits (user_id, credits) SELECT ?, ? WHERE changes() = 1
+               ON CONFLICT (user_id) DO UPDATE SET credits = report_credits.credits + excluded.credits`,
+            )
+            .bind(order.user_id, order.credits)
+        : db
+            .prepare(
+              `INSERT INTO premium (user_id, until) SELECT ?, ? + ? WHERE changes() = 1
+               ON CONFLICT (user_id) DO UPDATE SET until = MAX(premium.until, ?) + ?`,
+            )
+            .bind(order.user_id, now, order.days * DAY_MS, now, order.days * DAY_MS),
     ]);
     return { status: 200, body: mark.meta.changes ? { received: true } : { received: true, duplicate: true } };
   }

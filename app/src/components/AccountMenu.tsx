@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { track } from "../lib/analytics";
-import { api, type BirthDetails, type Me, type Prakriti } from "../lib/api";
+import { api, type BirthDetails, type Me } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { tr } from "../lib/i18n";
 import { OPERATOR } from "../lib/legal";
@@ -32,7 +32,6 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
   const shell = useShell();
   const [me, setMe] = useState<Me | null>(null);
   const [details, setDetails] = useState<BirthDetails | null | undefined>();
-  const [prakriti, setPrakriti] = useState<Prakriti | null>(null);
   const [help, setHelp] = useState(false);
   const [editing, setEditing] = useState(false);
   const [now] = useState(() => Date.now());
@@ -45,7 +44,6 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
       .then((p) => {
         if (!live) return;
         setDetails(p.details);
-        setPrakriti(p.prakriti);
       })
       .catch(() => live && setDetails(null));
     return () => {
@@ -53,7 +51,7 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
-  const go = (path: "/premium" | "/payments" | "/account" | "/help" | "/privacy" | "/terms") => {
+  const go = (path: "/premium" | "/payments" | "/account" | "/help" | "/privacy" | "/terms" | "/reports") => {
     onClose();
     shell.closeDrawer();
     router.push(path);
@@ -105,13 +103,13 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
         </View>
         <View style={s.box}>
           <View style={{ flex: 1 }}>
-            <Text style={s.mono}>{tr("PRAKRITI")}</Text>
-            <Text style={s.big} numberOfLines={1}>
-              {prakriti ? prakriti.label : tr("Not taken yet")}
+            <Text style={s.mono}>{tr("REPORTS")}</Text>
+            <Text style={s.big} numberOfLines={1} testID="menu-reports">
+              {me === null ? "…" : tr("{v0} available", { v0: me.reportCredits ?? 0 })}
             </Text>
           </View>
-          <Pressable onPress={() => go("/account")} style={s.outline} accessibilityRole="button">
-            <Text style={s.outlineText}>{prakriti ? tr("Retake") : tr("Take quiz")}</Text>
+          <Pressable onPress={() => go("/reports")} style={s.outline} accessibilityRole="button">
+            <Text style={s.outlineText}>{tr("Buy reports")}</Text>
           </Pressable>
         </View>
 

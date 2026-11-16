@@ -37,7 +37,7 @@ function signed(body: object, opts: { secret?: string; at?: number; v1?: boolean
   return { raw, headers };
 }
 
-async function order(db: D1Database, plan: 'week' | 'month' = 'week', user = 'user-1') {
+async function order(db: D1Database, plan: 'week' | 'month' | 'r1' | 'r3' | 'r10' = 'week', user = 'user-1') {
   gateway({ json: { checkoutUrl: 'https://pay.example.test/c/1', paymentId: 'gw-1' } });
   const { orderId } = await startPayment(env, db, user, plan, 'https://kosmik.test', NOW);
   globalThis.fetch = realFetch;
@@ -196,4 +196,15 @@ test('status: only the owner sees a payment, and an expired Premium reads as non
   assert.deepEqual(await paymentStatus(db, 'user-1', id, NOW), { status: 'paid', plan: 'week', premiumUntil: NOW + 7 * DAY });
   assert.equal(await paymentStatus(db, 'someone-else', id, NOW), null);
   assert.equal((await paymentStatus(db, 'user-1', id, NOW + 8 * DAY))?.premiumUntil, null);
+});
+
+test('report packs: a paid pack adds its credits once and leaves Premium alone', async () => {
+  const { db, raw } = d1();
+  const id = await order(db, 'r3');
+  const first = signed(paid(id, 24900));
+  assert.equal((await handleWebhook(env, db, first.headers, first.raw, NOW)).status, 200);
+  const again = signed(paid(id, 24900, { event: 'RECONCILED' }));
+  await handleWebhook(env, db, again.headers, again.raw, NOW + 1000);
+  assert.deepEqual({ ...raw.prepare('SELECT credits FROM report_credits WHERE user_id = ?').get('user-1') }, { credits: 3 });
+  assert.equal(raw.prepare('SELECT until FROM premium WHERE user_id = ?').get('user-1'), undefined);
 });

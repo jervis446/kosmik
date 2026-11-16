@@ -215,6 +215,39 @@ export type StoredMessage = {
 };
 
 export type PlanId = "week" | "month";
+/** Report packs, sold the same way as Premium. */
+export type PackId = "r1" | "r3" | "r10";
+export type ReportGroup = "love" | "money" | "work" | "self" | "ayurveda";
+export type ReportSummary = {
+  key: string;
+  group: ReportGroup;
+  icon: string;
+  title: string;
+  tagline: string;
+  about: string;
+  badge?: "new" | "trending";
+  ayurveda?: boolean;
+  owned?: boolean;
+  createdAt?: number | null;
+};
+export type WrittenReport = {
+  headline: string;
+  summary: string;
+  sections: { heading: string; body: string }[];
+  timing: { when: string; what: string }[];
+  remedies: { title: string; how: string }[];
+  strengths: string[];
+  watch: string[];
+  followUps: string[];
+  lang: Lang;
+  createdAt: number;
+};
+export type ReportsList = {
+  credits: number;
+  packs: { id: PackId; name: string; amountPaise: number; credits: number }[];
+  groups: { key: ReportGroup; title: string }[];
+  reports: ReportSummary[];
+};
 export type Plan = {
   id: PlanId;
   name: string;
@@ -224,6 +257,8 @@ export type Plan = {
 export type Me = {
   /** The name from your birth details, if you gave one. */
   name?: string | null;
+  /** Report credits left. */
+  reportCredits?: number;
   /** Your verified WhatsApp number, masked. */
   phone: string | null;
   /** True until you verify a WhatsApp number (when Kosmik requires one). */
@@ -512,7 +547,15 @@ export const api = {
       method: "DELETE",
     }),
   me: () => call<Me>("/api/me"),
-  pay: (plan: PlanId) =>
+  reports: () => call<ReportsList>("/api/reports"),
+  report: (key: string) =>
+    call<{ spec: ReportSummary; credits: number; report: WrittenReport | null }>(`/api/reports/${key}`),
+  unlockReport: (key: string, lang: Lang) =>
+    call<{ spec: ReportSummary; credits: number; report: WrittenReport | null }>(`/api/reports/${key}`, {
+      method: "POST",
+      body: JSON.stringify({ lang }),
+    }),
+  pay: (plan: PlanId | PackId) =>
     call<{ orderId: string; checkoutUrl: string }>("/api/pay", {
       method: "POST",
       body: JSON.stringify({ plan }),

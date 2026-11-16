@@ -27,6 +27,7 @@ import { planFor } from './lib/limits.ts';
 import { handleWebhook, PaymentError, paymentsEnabled, paymentStatus, PLANS, premiumUntil, startPayment } from './payments.ts';
 import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { D1Profiles, MAX_PHOTO_BASE64, ProfileError, searchPlaces } from './profiles.ts';
+import { getReport, listReports, reportCredits, ReportError, unlockReport } from './reports.ts';
 import { aggravated, AGNI_LABEL, D1Ayurveda, PrakritiError, prakritiLabel } from './ayurveda.ts';
 import { purgeExpired } from './retention.ts';
 import { errorSummary, logError } from './errors.ts';
@@ -327,6 +328,27 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
     return json(req, env, { saved: true });
   }
 
+  // Reports: the catalog and your credits, one report, or unlocking one with a credit.
+  if (path === '/api/reports' && req.method === 'GET') {
+    const userId = await requireUser(req, env);
+    return json(req, env, await listReports(env.DB, userId));
+  }
+  const rep = /^\/api\/reports\/([a-z-]{2,40})$/.exec(path);
+  if (rep) {
+    const userId = await requireUser(req, env);
+    try {
+      if (req.method === 'GET') return json(req, env, await getReport(env.DB, userId, rep[1]));
+      if (req.method === 'POST') {
+        const body = await readJson(req);
+        const lang = body.lang === 'hi' || body.lang === 'hinglish' ? body.lang : 'en';
+        return json(req, env, await unlockReport({ db: env.DB, ai: gemini(env), profiles: new D1Profiles(env.DB), ayurveda: new D1Ayurveda(env.DB) }, userId, rep[1], lang, now));
+      }
+    } catch (err) {
+      if (err instanceof ReportError) return json(req, env, { error: err.message, code: err.code }, err.status);
+      throw err;
+    }
+  }
+
   // Your purchases, newest first: Premium days paid by UPI, with the reference to match a bank statement.
   if (path === '/api/payments' && req.method === 'GET') {
     const userId = await requireUser(req, env);
@@ -348,6 +370,7 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
     const profile = await new D1Profiles(env.DB).get(userId);
     return json(req, env, {
       name: profile?.name ?? null,
+      reportCredits: await reportCredits(env.DB, userId),
       phone: phone ? maskPhone(phone) : null,
       phoneRequired: phoneCheckOn(env) && !phone,
       phoneAvailable: relayReady(env),

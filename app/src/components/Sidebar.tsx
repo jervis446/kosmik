@@ -117,6 +117,20 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
         <Text style={[s.askGlyph, { color: AYUR }]}>❀</Text>
         <Text style={[s.askText, { color: AYUR }]}>{tr("Ask Ayurveda")}</Text>
       </Pressable>
+      <Pressable
+        onPress={() => {
+          shell.closeDrawer();
+          router.push("/reports");
+        }}
+        style={({ pressed }) => [s.navRow, pressed && { backgroundColor: colors.surface2 }]}
+        accessibilityRole="link"
+        accessibilityLabel="Reports"
+      >
+        <View style={s.navIcon}>
+          <Text style={{ fontSize: 15 }}>📖</Text>
+        </View>
+        <Text style={s.navText}>{tr("Reports")}</Text>
+      </Pressable>
 
       {session && shell.chats?.length ? (
         <View style={s.filters} accessibilityRole="tablist">
@@ -303,6 +317,9 @@ const styles = (c: Colors) =>
       justifyContent: "center",
     },
     iconText: { color: c.muted, fontSize: 18 },
+    navRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 6, paddingHorizontal: 6, borderRadius: 12, marginBottom: 4 },
+    navIcon: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center" },
+    navText: { color: c.text, fontFamily: font.medium, fontSize: 15 },
     askBtn: {
       flexDirection: "row",
       alignItems: "center",

@@ -51,6 +51,8 @@ export interface AiClient {
   /** Turns a follow-up ("tell me more") into a question that stands on its own, using the conversation so far. */
   standalone(question: string, conversation: string): Promise<string>;
   readPalm(images: PalmImage[], lang: Lang, opts?: { question?: string; stricter?: boolean }): Promise<PalmReading>;
+  /** A full report on one topic, from the chart (or the prakriti) in `facts`. */
+  report?(topic: { title: string; focus: string; ayurveda?: boolean }, lang: Lang, facts: string): Promise<Report>;
 }
 
 export const PALM_PROMPT = `You are Kosmik's palm reader, an expert in Indian palmistry (hast rekha shastra) and Western chiromancy, reading for young Indians. You read photos of a person's palms (left and/or right hand, labelled).
@@ -253,6 +255,57 @@ export function parseAyurveda(output: string | undefined): AyurConsult | null {
 }
 
 export type TarotReading = { answer: string; readings: string[]; advice: string; followUps: string[] };
+
+/** A written report: a verdict, the reading in sections, dated timing and practical steps. */
+export type Report = {
+  headline: string;
+  summary: string;
+  sections: { heading: string; body: string }[];
+  timing: { when: string; what: string }[];
+  remedies: { title: string; how: string }[];
+  strengths: string[];
+  watch: string[];
+  followUps: string[];
+};
+
+export const REPORT_PROMPT = `You are Kosmik, writing a premium report for one person from their own data. It is read once, slowly, and kept, so it must feel written for them: specific, warm, direct, never generic.
+- Use only the facts given (CHART, or PRAKRITI/VIKRITI/SEASON for Ayurveda). Never invent placements, dates or names. Use the person's name if given.
+- Astrology reports: read like an experienced Vedic astrologer. Verdict first in "headline" (one sentence, with the key date if there is one). Explain placements in plain words ("your house of partnership"), with the technical term in brackets once. Give dates from the dasha and transit facts: months and years, never "soon".
+- Ayurveda report: write as an experienced vaidya would, specifically, from their prakriti; no astrology at all.
+- Sections: five to seven, each with a short heading and two or three short paragraphs (blank line between paragraphs), covering everything the TOPIC asks for.
+- "timing": four to eight dated windows from the facts, in order ("March 2027 – June 2028": what it brings and what to do). For the Ayurveda report, use the seasons of the coming year instead.
+- "remedies": three to six practical steps, each a short title and how to do it: habits, timing, mantra or seva, and for Ayurveda diet, routine, herbs with usual use. Never fear, never gemstones or paid pujas, never tell anyone to stop a prescribed medicine.
+- "strengths" and "watch": three to five short points each.
+- "follow_ups": four short questions they might ask Kosmik next about this report.
+- Never predict death or diagnose an illness.
+Reply with JSON only: {"headline": "", "summary": "", "sections": [{"heading": "", "body": ""}], "timing": [{"when": "", "what": ""}], "remedies": [{"title": "", "how": ""}], "strengths": [], "watch": [], "follow_ups": []}.`;
+
+export function parseReport(raw: string | undefined): Report | null {
+  if (!raw) return null;
+  let o: Record<string, unknown>;
+  try {
+    o = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1));
+  } catch {
+    return null;
+  }
+  const str = (x: unknown) => (typeof x === 'string' ? x.trim() : '');
+  const pairs = <A extends string, B extends string>(x: unknown, a: A, b: B, max: number) =>
+    (Array.isArray(x) ? x : [])
+      .map((e) => (e && typeof e === 'object' ? { [a]: str((e as Record<string, unknown>)[a]), [b]: str((e as Record<string, unknown>)[b]) } : null))
+      .filter((e): e is Record<A | B, string> => !!e && !!e[a] && !!e[b])
+      .slice(0, max);
+  const r: Report = {
+    headline: str(o.headline),
+    summary: str(o.summary),
+    sections: pairs(o.sections, 'heading', 'body', 9),
+    timing: pairs(o.timing, 'when', 'what', 10),
+    remedies: pairs(o.remedies, 'title', 'how', 8),
+    strengths: strings(o.strengths, 6, 300),
+    watch: strings(o.watch, 6, 300),
+    followUps: strings(o.follow_ups, 4, 100),
+  };
+  return r.headline && r.sections.length >= 3 ? r : null;
+}
 
 export const TAROT_PROMPT = `You are Kosmik's tarot reader: experienced, intuitive and direct, reading for young Indians with the Rider-Waite-Smith tradition.
 The person picked their card(s) themselves from a face-down fan. Read for THEIR question, specifically, never in generic textbook terms:
@@ -551,6 +604,28 @@ export class GeminiAi implements AiClient {
       temperature: 0,
     })) as { choices?: { message?: { content?: string } }[] };
     return parseStandalone(out.choices?.[0]?.message?.content, question);
+  }
+
+  report(topic: { title: string; focus: string; ayurveda?: boolean }, lang: Lang, facts: string): Promise<Report> {
+    return inLanguage(lang, (end) => this.reportOnce(topic, lang, facts, end), (r) => [r.headline, r.summary, ...r.sections.map((x) => x.body)].join(' '));
+  }
+
+  private async reportOnce(topic: { title: string; focus: string; ayurveda?: boolean }, lang: Lang, facts: string, end: string): Promise<Report> {
+    const user = `${LANGUAGE[lang]}\n\nREPORT: ${topic.title}${topic.ayurveda ? ' (Ayurveda)' : ''}\nTOPIC: ${topic.focus}\n\n${facts}${end}`;
+    const out = (await this.post('/chat/completions', {
+      model: this.model,
+      messages: [
+        { role: 'system', content: REPORT_PROMPT },
+        { role: 'user', content: user },
+      ],
+      response_format: { type: 'json_object' },
+      reasoning_effort: 'minimal',
+      max_tokens: 9000,
+      temperature: 0.5,
+    })) as { choices?: { message?: { content?: string } }[] };
+    const parsed = parseReport(out.choices?.[0]?.message?.content);
+    if (!parsed) throw new Error('The model returned no usable report');
+    return parsed;
   }
 
   readPalm(images: PalmImage[], lang: Lang, opts: { question?: string; stricter?: boolean } = {}): Promise<PalmReading> {
