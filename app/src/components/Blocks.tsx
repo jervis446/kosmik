@@ -460,9 +460,12 @@ export function Blocks({
   onPrakriti,
   onVikriti,
   onAsk,
+  onAyurveda,
   onTarotPick,
 }: {
   blocks: Block[];
+  /** Opens an Ayurveda chat with this question. */
+  onAyurveda?: (question: string) => void;
   onSignIn?: () => void;
   onPremium?: () => void;
   onDetails?: () => void;
@@ -835,6 +838,15 @@ export function Blocks({
                     style={s.noticeBtn}
                   >
                     <Text style={s.noticeBtnText}>{tr("Take the dosha quiz")}</Text>
+                  </Pressable>
+                ) : null}
+                {b.kind === "use-ayurveda" && b.question && onAyurveda ? (
+                  <Pressable
+                    onPress={() => onAyurveda(b.question!)}
+                    accessibilityRole="button"
+                    style={[s.noticeBtn, { backgroundColor: "#3FB68B" }]}
+                  >
+                    <Text style={s.noticeBtnText}>❀ {tr("Ask in an Ayurveda chat")}</Text>
                   </Pressable>
                 ) : null}
                 {b.kind === "limit" && onPremium ? (

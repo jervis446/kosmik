@@ -22,7 +22,9 @@ import { rituAt, RITUS_HI } from './lib/ritu.ts';
 import { describeTropical, MOON_VIBE_HI, MOON_VIBE_HINGLISH, SIGNS, SIGNS_HI, SUN_VIBE_HI, SUN_VIBE_HINGLISH, zodiac, zodiacHi } from './lib/tropical.ts';
 import type { AskResult, Block, CacheEntry, ChatKind, Layer, Meaning, Verse } from './types.ts';
 
-export const MAX_QUESTION = 500;
+/** Up to 300 words; the character cap only stops abuse. */
+export const MAX_WORDS = 300;
+export const MAX_QUESTION = 2400;
 /**
  * Cosine similarity (gemini-embedding-2, 768 dims) above which two questions count as the same.
  * Measured: paraphrases 0.92–0.98; different questions up to 0.91 ("karma" vs "dharma" in the
@@ -148,6 +150,11 @@ const T = {
     hi: 'आपकी अपनी प्रकृति से जवाब देने के लिए Kosmik को आपका दोष क्विज़ चाहिए। लगभग दो मिनट लगते हैं और यह अगली बार के लिए सहेजा जाता है। यह सवाल गिना नहीं गया।',
     hinglish: 'Aapki apni prakriti se jawaab dene ke liye Kosmik ko aapka dosha quiz chahiye. Lagbhag do minute lagte hain aur agli baar ke liye save ho jaata hai. Yeh sawaal count nahi hua.',
   },
+  useAyurveda: {
+    en: 'Health and Ayurveda questions have their own chats, so this one stays about your stars. Ask it in an Ayurveda chat instead. This question wasn’t counted.',
+    hi: 'सेहत और आयुर्वेद के सवालों की अलग चैट होती है, ताकि यह चैट आपके सितारों के बारे में रहे। यह सवाल आयुर्वेद चैट में पूछिए। यह सवाल गिना नहीं गया।',
+    hinglish: 'Health aur Ayurveda ke sawaalon ki alag chat hoti hai, taaki yeh chat aapke sitaaron ke baare mein rahe. Yeh sawaal Ayurveda chat mein poochhiye. Yeh sawaal count nahi hua.',
+  },
   needsVikriti: {
     en: 'To see your current state (vikriti), answer 10 quick questions about the last few weeks. It also tells you your agni (digestive fire). This question wasn’t counted.',
     hi: 'अपनी वर्तमान अवस्था (विकृति) जानने के लिए पिछले कुछ हफ़्तों के बारे में 10 छोटे सवालों के जवाब दें। इससे आपकी अग्नि भी पता चलेगी। यह सवाल गिना नहीं गया।',
@@ -238,7 +245,7 @@ export async function ask(
   const now = deps.now?.() ?? Date.now();
   const question = input.question.replace(/\s+/g, ' ').trim();
   if (question.length < 2) throw new BadQuestion('Ask a question to get started.');
-  if (question.length > MAX_QUESTION) throw new BadQuestion(`Questions can be up to ${MAX_QUESTION} characters.`);
+  if (question.length > MAX_QUESTION || question.split(' ').length > MAX_WORDS) throw new BadQuestion(`Questions can be up to ${MAX_WORDS} words.`);
   const chosen = LANGS.includes(input.lang as Lang) ? (input.lang as Lang) : undefined;
   let lang: Lang = chosen ?? requestedLang(question) ?? detectLang(question);
   // The libraries answer in the chat's language: Hindi text where it exists, English otherwise.
@@ -334,6 +341,10 @@ export async function ask(
   // In an Ayurveda chat, everything is an Ayurveda question: library look-ups (herbs, doshas, ritu)
   // are answered from the library, anything else goes to the consultation.
   if (mode === 'ayurveda' && !AYURVEDA_INTENTS.has(intent?.type ?? '')) intent = { type: 'ayur-consult' };
+  // And a Kosmik chat stays about the stars: health questions are offered an Ayurveda chat instead.
+  if (mode === 'kosmik' && input.conversationId && AYURVEDA_INTENTS.has(intent?.type ?? '')) {
+    return finish('direct', [{ type: 'notice', kind: 'use-ayurveda', text: T.useAyurveda[lang], question }], { count: false });
+  }
 
   // Health and wellness: an Ayurveda consultation, never the birth chart.
   if (intent?.type === 'ayur-consult') {

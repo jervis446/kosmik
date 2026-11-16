@@ -453,6 +453,7 @@ export const HI: Record<string, string> = {
   // Kosmik and Ayurveda chats
   "Ask Kosmik": "Kosmik से पूछें",
   "Ask Ayurveda": "आयुर्वेद से पूछें",
+  "Ask in an Ayurveda chat": "आयुर्वेद चैट में पूछें",
   ALL: "सभी",
   KOSMIK: "Kosmik",
   AYURVEDA: "आयुर्वेद",
@@ -506,6 +507,9 @@ export const HI: Record<string, string> = {
   Waiting: "इंतज़ार में",
   "Prices include GST. Questions about a payment? Help → WhatsApp or email us with the UTR.": "कीमतों में GST शामिल है। भुगतान के बारे में सवाल? मदद → UTR के साथ व्हाट्सऐप या ईमेल करें।",
 
+  "Please keep your question under {v0} words.": "कृपया अपना सवाल {v0} शब्दों से छोटा रखें।",
+  "{v0} QUESTIONS LEFT": "{v0} सवाल बाकी",
+  "Buy more": "और खरीदें",
   // Sidebar and footer
   "Your chats will appear here.": "आपकी चैट यहाँ दिखेंगी।",
   "{v0} left this week": "इस हफ़्ते {v0} बाकी",

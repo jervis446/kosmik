@@ -21,11 +21,11 @@
 <style>
 /* Layout: single column, two columns on desktop. Hash views: home, #privacy, #terms. Dark first, minimal palette. */
 :root {
-  --bg: #0B0A14; --surface: #16142A; --surface-2: #1E1B38; --line: rgba(167,163,194,.18);
-  --text: #F5F3FF; --muted: #A7A3C2; --primary: #8B5CF6; --primary-soft: rgba(139,92,246,.18);
-  --accent: #F59E0B; --accent-soft: rgba(245,158,11,.16); --success: #22C55E; --on-primary: #FFFFFF;
-  --glow: radial-gradient(60% 50% at 15% 0%, rgba(139,92,246,.35), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(245,158,11,.18), transparent 70%);
-  --grad: linear-gradient(120deg, #3B2A8F 0%, #8B5CF6 55%, #F59E0B 100%);
+  --bg: #0C0810; --surface: #1B101D; --surface-2: #201324; --line: rgba(240,170,210,.13);
+  --text: #FBF1F6; --muted: #B09AAD; --primary: #C2407F; --primary-soft: rgba(194,64,127,.18);
+  --accent: #F2A640; --accent-soft: rgba(242,166,64,.14); --success: #3FB68B; --on-primary: #FFFFFF;
+  --glow: radial-gradient(60% 50% at 15% 0%, rgba(194,64,127,.32), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(242,166,64,.16), transparent 70%);
+  --grad: linear-gradient(120deg, #6E1F4F 0%, #C2407F 50%, #F2A640 100%);
   --kesari: var(--accent); --sindoor: var(--primary); --marigold: var(--accent); --peacock: var(--accent); --tulsi: var(--success);
   --font: "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
   --verse: "Noto Serif Devanagari", "Noto Sans Devanagari", serif;
@@ -34,20 +34,20 @@
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --bg: #FFFBF5; --surface: #FFFFFF; --surface-2: #F6F1FF; --line: rgba(26,21,48,.12);
-    --text: #1A1530; --muted: #5E5878; --primary: #6D28D9; --primary-soft: rgba(109,40,217,.10);
-    --accent: #EA580C; --accent-soft: rgba(234,88,12,.10); --success: #15803D; --on-primary: #FFFFFF;
-    --glow: radial-gradient(60% 50% at 15% 0%, rgba(109,40,217,.14), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(234,88,12,.12), transparent 70%);
-    --grad: linear-gradient(120deg, #4C1D95 0%, #6D28D9 55%, #EA580C 100%);
+    --bg: #FFF8F3; --surface: #FFFFFF; --surface-2: #FBEFF4; --line: rgba(70,20,46,.12);
+    --text: #26101C; --muted: #6F5866; --primary: #A0285F; --primary-soft: rgba(160,40,95,.10);
+    --accent: #C46A12; --accent-soft: rgba(196,106,18,.10); --success: #15803D; --on-primary: #FFFFFF;
+    --glow: radial-gradient(60% 50% at 15% 0%, rgba(160,40,95,.12), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(196,106,18,.10), transparent 70%);
+    --grad: linear-gradient(120deg, #6E1F4F 0%, #A0285F 55%, #C46A12 100%);
     color-scheme: light;
   }
 }
 :root[data-theme="light"] {
-  --bg: #FFFBF5; --surface: #FFFFFF; --surface-2: #F6F1FF; --line: rgba(26,21,48,.12);
-  --text: #1A1530; --muted: #5E5878; --primary: #6D28D9; --primary-soft: rgba(109,40,217,.10);
-  --accent: #EA580C; --accent-soft: rgba(234,88,12,.10); --success: #15803D; --on-primary: #FFFFFF;
-  --glow: radial-gradient(60% 50% at 15% 0%, rgba(109,40,217,.14), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(234,88,12,.12), transparent 70%);
-  --grad: linear-gradient(120deg, #4C1D95 0%, #6D28D9 55%, #EA580C 100%);
+  --bg: #FFF8F3; --surface: #FFFFFF; --surface-2: #FBEFF4; --line: rgba(70,20,46,.12);
+  --text: #26101C; --muted: #6F5866; --primary: #A0285F; --primary-soft: rgba(160,40,95,.10);
+  --accent: #C46A12; --accent-soft: rgba(196,106,18,.10); --success: #15803D; --on-primary: #FFFFFF;
+  --glow: radial-gradient(60% 50% at 15% 0%, rgba(160,40,95,.12), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(196,106,18,.10), transparent 70%);
+  --grad: linear-gradient(120deg, #6E1F4F 0%, #A0285F 55%, #C46A12 100%);
   color-scheme: light;
 }
 
@@ -146,6 +146,21 @@ header { border-bottom: 1px solid var(--line); }
 section.block { padding-block: clamp(40px, 7vw, 80px); }
 .head { display: grid; gap: 10px; max-width: 680px; margin-bottom: 28px; }
 .head p { color: var(--muted); font-size: 17px; }
+.stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 16px; display: grid; gap: 4px; }
+.stat b { font-size: 20px; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.stat span { color: var(--muted); font-size: 13.5px; line-height: 1.45; }
+.claims { padding-top: 8px; }
+.ayur-eyebrow { color: var(--success) !important; }
+.ticks { margin: 16px 0 20px; padding: 0; list-style: none; display: grid; gap: 10px; }
+.ticks li { padding-left: 26px; position: relative; line-height: 1.5; }
+.ticks li::before { content: "❀"; position: absolute; left: 0; color: var(--success); }
+.ayur-btn { justify-self: start; width: fit-content; background: var(--success) !important; color: #fff !important; border-color: var(--success) !important; }
+.ayur-card .src { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.ayur-card { background: var(--surface); border: 1px solid color-mix(in srgb, var(--success) 45%, transparent); border-radius: var(--r); padding: 20px; display: grid; gap: 12px; }
+.ayur-q { font-size: 17px; font-weight: 600; }
+.ayur-row { display: grid; gap: 2px; padding-top: 10px; border-top: 1px solid var(--line); }
+.ayur-row span { color: var(--success); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
 .pillars { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .pillar { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: grid; gap: 10px; align-content: start; }
 .pillar .glyph { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; }
@@ -275,7 +290,7 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
       <span class="logo-text">Kosmik<span class="byline">by <b>asanoha</b></span></span>
     </a>
     <nav class="nav" aria-label="Sections">
-      <a href="#ask">Ask</a><a href="#features">Kundli · Tarot · Palm</a><a href="#play">Play</a><a href="#pricing">Pricing</a><a href="#shop">Shop</a><a href="#languages">Languages</a>
+      <a href="#ask">Ask</a><a href="#features">Kundli · Tarot · Palm</a><a href="#ayurveda">Ayurveda</a><a href="#play">Play</a><a href="#pricing">Pricing</a><a href="#shop">Shop</a><a href="#languages">Languages</a>
     </nav>
     <button class="iconbtn" id="langBtn" type="button" aria-label="Switch language to Hindi">हिं</button>
     <button class="iconbtn" id="themeBtn" type="button" aria-label="Switch to light mode">☀︎</button>
@@ -286,9 +301,9 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
 <main id="view-home">
   <div class="wrap hero" id="ask">
     <div class="hero-copy">
-      <span class="eyebrow" data-i18n="eyebrow">AI spiritual guide · live on the web</span>
-      <h1><span data-i18n="h1a">Ask the stars.</span> <span class="grad-text" data-i18n="h1b">Get answers with sources.</span></h1>
-      <p data-i18n="lead">Kundli, tarot, palm reading and the Gita in one search bar. Every answer cites the verse it comes from, in your language, with puja essentials one tap away.</p>
+      <span class="eyebrow" data-i18n="eyebrow">Vedic astrology + Ayurveda · live on the web</span>
+      <h1><span data-i18n="h1a">Your chart, read to the day.</span> <span class="grad-text" data-i18n="h1b">Real dates. Real reasons.</span></h1>
+      <p data-i18n="lead">Your kundli read to the day: which period you are in, what it favours, and the exact months things turn. Plus tarot, palm reading, the Gita, and an Ayurveda engine built in, in English, हिंदी or Hinglish.</p>
       <div class="platforms">
         <span class="pill">🌐 <b>Web</b> · live</span><span class="pill">📱 <b>iOS</b> · 🤖 <b>Android</b> · soon</span><span class="pill">🔑 <span data-i18n="sso">Sign in with your <b>Asanoha</b> account</span></span>
         <span class="pill">🎁 <span data-i18n="free"><b>11 free questions</b> every week</span></span>
@@ -315,23 +330,61 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
     </div>
   </div>
 
+  <section class="block claims" aria-label="What Kosmik gives you">
+    <div class="wrap">
+      <div class="stats">
+        <div class="stat"><b>To the day</b><span>Mahadasha, antardasha and transits with exact dates</span></div>
+        <div class="stat"><b>Real astronomy</b><span>Planet positions calculated, never guessed by AI</span></div>
+        <div class="stat"><b>701 verses</b><span>The whole Bhagavad Gita, every answer cited</span></div>
+        <div class="stat"><b>358 herbs</b><span>Classical Ayurveda properties, in one library</span></div>
+        <div class="stat"><b>3 languages</b><span>English, हिंदी and Hinglish, answers and app</span></div>
+      </div>
+    </div>
+  </section>
+
   <section class="block" id="features">
     <div class="wrap">
       <div class="head">
-        <span class="eyebrow">Four ways to ask</span>
-        <h2>The chart is calculated. The AI only explains it.</h2>
-        <p>Planet positions come from an astronomy engine, not from the language model. The AI reads the result and puts it into plain words.</p>
+        <span class="eyebrow">Not a horoscope. Your chart.</span>
+        <h2>A straight answer first. Then the why.</h2>
+        <p>Ask “can I start my business this year?” and Kosmik says yes, no or “yes, but”, with the month it changes, what to do until then, and the exact period and transit behind it, read from your own kundli.</p>
       </div>
       <div class="pillars">
         <article class="pillar"><div class="glyph">🪐</div><h3>Vedic kundli</h3>
-          <ul><li>Lagna, planets in rashis and houses, calculated from your birth details</li><li>Moon nakshatra and pada</li><li>Sidereal (Lahiri), whole-sign houses</li><li>Birth time unknown? We say what changes</li><li>Coming: Navamsa, dasha timeline, panchang, Guna Milan</li></ul></article>
+          <ul><li>Lagna, planets, houses, aspects, dignities and yogas, calculated from your birth details</li><li>Vimshottari mahadasha and antardasha with exact start and end dates</li><li>Saturn, Jupiter, Rahu and Ketu transits and Sade Sati, dated</li><li>Your Western big three and the Sun on your birthday, too</li></ul></article>
         <article class="pillar"><div class="glyph">🃏</div><h3>Tarot</h3>
-          <ul><li>1-card and 3-card spreads</li><li>Reversed cards included</li><li>Meanings for all 78 cards</li><li>Cards drawn with secure randomness on our server</li></ul></article>
+          <ul><li>Pick your own card from a face-down fan</li><li>1-card and past-present-future spreads, reversals included</li><li>Readings written for your question, not a generic meaning</li></ul></article>
         <article class="pillar"><div class="glyph">🖐️</div><h3>Palm reading</h3>
-          <ul><li>Save photos of both palms once</li><li>Ask anything about your lines</li><li>Heart, head, life and fate lines explained</li><li>Photos kept only until you delete them</li></ul></article>
-        <article class="pillar"><div class="glyph">📜</div><h3>Scripture Q&amp;A</h3>
-          <ul><li>All 701 verses of the Bhagavad Gita</li><li>Sanskrit, transliteration and translation</li><li>Every answer names chapter and verse</li><li>No verse found? It says so instead of guessing</li></ul></article>
+          <ul><li>Save photos of both palms once</li><li>Heart, head, life, fate and minor lines, read for you</li><li>Photos kept only until you delete them</li></ul></article>
+        <article class="pillar"><div class="glyph">📜</div><h3>Bhagavad Gita</h3>
+          <ul><li>All 701 verses: Sanskrit, transliteration and translation</li><li>Every answer names chapter and verse</li><li>No verse found? It says so instead of guessing</li></ul></article>
       </div>
+    </div>
+  </section>
+
+  <section class="block" id="ayurveda">
+    <div class="wrap split ayur">
+      <div class="head" style="margin:0">
+        <span class="eyebrow ayur-eyebrow">❀ Exclusive to Kosmik · Ayurveda engine</span>
+        <h2>Astrology for your path. Ayurveda for your body.</h2>
+        <p>Kosmik is built by Asanoha, an AYUSH-licensed Ayurvedic company, so it has a real Ayurveda engine of its own, with separate chats that never mix health with horoscopes.</p>
+        <ul class="ticks">
+          <li>Tell it what you feel: it asks what a vaidya would ask, then reads your doshas, agni and the cause</li>
+          <li>Pathya-apathya, kitchen remedies, classical formulations with dose and anupana, yoga and routine</li>
+          <li>Your prakriti and vikriti quizzes, and the ritucharya for this very season</li>
+          <li>Verses quoted only from the Ayurvedic samhitas: Charaka, Sushruta, Ashtanga Hridaya</li>
+          <li>Clear red flags for when to see a doctor, every time</li>
+        </ul>
+        <a class="open-btn ayur-btn" href="/chat">Ask Ayurveda</a>
+      </div>
+      <figure class="ayur-card" style="margin:0">
+        <div class="ayur-q">“Gas and bloating after meals for two weeks, worse at night.”</div>
+        <div class="ayur-row"><span>Assessment</span><b>Vata in the gut, mandagni (weak digestive fire)</b></div>
+        <div class="ayur-row"><span>Favour</span><b>Warm, freshly cooked meals · jeera-ajwain water · an early, light dinner</b></div>
+        <div class="ayur-row"><span>Avoid</span><b>Curd at night · cold drinks · raw salads after sunset</b></div>
+        <div class="ayur-row"><span>Routine</span><b>A 10-minute walk after meals · vajrasana</b></div>
+        <figcaption class="src"><span>Example consultation</span><span class="muted">Always see a doctor for warning signs</span></figcaption>
+      </figure>
     </div>
   </section>
 
@@ -517,7 +570,7 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
     <div class="foot">
       <div>
         <a class="logo" href="#home" style="font-size:19px"><img src="/logo.svg" alt="" width="28" height="28">Kosmik</a>
-        <p class="muted" style="max-width:360px;margin-top:10px">Ask the stars. Get answers with sources. Kundli, tarot, palm reading and the scriptures in your language.</p>
+        <p class="muted" style="max-width:360px;margin-top:10px">Your chart, read to the day. Kundli, tarot, palm reading, the Gita and an Ayurveda engine, in English, हिंदी and Hinglish.</p>
         <p class="by" style="margin-top:16px">an <b>asanoha</b> product</p>
       </div>
       <nav aria-label="Footer">
@@ -564,8 +617,8 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
 
   // ---------- language (hero only) ----------
   const strings = {
-    en: { eyebrow: 'AI spiritual guide · live on the web', h1a: 'Ask the stars.', h1b: 'Get answers with sources.', lead: 'Kundli, tarot, palm reading and the Gita in one search bar. Every answer cites the verse it comes from, in your language, with puja essentials one tap away.', sso: 'Sign in with your <b>Asanoha</b> account', free: '<b>11 free questions</b> every week', greet: 'Namaste ✨' },
-    hi: { eyebrow: 'एआई आध्यात्मिक मार्गदर्शक · अब वेब पर', h1a: 'सितारों से पूछिए।', h1b: 'स्रोत के साथ जवाब पाइए।', lead: 'कुंडली, टैरो, हस्तरेखा और गीता, सब एक सर्च बार में। हर जवाब उस श्लोक का हवाला देता है जिससे वह आया है, आपकी भाषा में।', sso: 'अपने <b>Asanoha</b> अकाउंट से साइन इन करें', free: 'हर हफ़्ते <b>11 सवाल मुफ़्त</b>', greet: 'नमस्ते ✨' },
+    en: { eyebrow: 'Vedic astrology + Ayurveda · live on the web', h1a: 'Your chart, read to the day.', h1b: 'Real dates. Real reasons.', lead: 'Your kundli read to the day: which period you are in, what it favours, and the exact months things turn. Plus tarot, palm reading, the Gita, and an Ayurveda engine built in, in English, हिंदी or Hinglish.', sso: 'Sign in with your <b>Asanoha</b> account', free: '<b>11 free questions</b> every week', greet: 'Namaste ✨' },
+    hi: { eyebrow: 'वैदिक ज्योतिष + आयुर्वेद · अब वेब पर', h1a: 'आपकी कुंडली, दिन तक पढ़ी गई।', h1b: 'असली तारीखें। असली वजहें।', lead: 'आपकी कुंडली दिन तक पढ़ी गई: आप किस दशा में हैं, वह किस चीज़ के पक्ष में है, और किन महीनों में चीज़ें बदलेंगी। साथ में टैरो, हस्तरेखा, गीता और एक आयुर्वेद इंजन, हिंदी, अंग्रेज़ी या हिंग्लिश में।', sso: 'अपने <b>Asanoha</b> अकाउंट से साइन इन करें', free: 'हर हफ़्ते <b>11 सवाल मुफ़्त</b>', greet: 'नमस्ते ✨' },
   };
   let lang = store.get('kosmik-lang') === 'hi' ? 'hi' : 'en';
   const langBtn = $('#langBtn');

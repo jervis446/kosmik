@@ -32,7 +32,7 @@ type Shell = {
   newChat: (kind?: ChatKind | null) => void;
   openChat: (id: string) => void;
   /** Starts a new chat with this question (e.g. the first question from onboarding). */
-  askNew: (question: string) => void;
+  askNew: (question: string, kind?: ChatKind | null) => void;
   /** A question waiting for the chat screen to send it. */
   pending: string | null;
   clearPending: () => void;
@@ -100,8 +100,8 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
       pending,
       clearPending: () => setPending(null),
       newKind,
-      askNew: (question) => {
-        setNewKind(null);
+      askNew: (question, kind = null) => {
+        setNewKind(kind);
         setActiveIdState(null);
         setChatKey((k) => k + 1);
         setPending(question);

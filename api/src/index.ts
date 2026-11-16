@@ -318,7 +318,9 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
     const plan = planFor(until ? 'premium' : 'starter', now);
     const used = plan.limit === null ? 0 : await new D1Usage(env.DB).count(`user:${userId}`, plan.period);
     const phone = await verifiedPhone(env.DB, userId);
+    const profile = await new D1Profiles(env.DB).get(userId);
     return json(req, env, {
+      name: profile?.name ?? null,
       phone: phone ? maskPhone(phone) : null,
       phoneRequired: phoneCheckOn(env) && !phone,
       phoneAvailable: relayReady(env),

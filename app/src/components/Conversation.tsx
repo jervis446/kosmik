@@ -93,7 +93,10 @@ const LAYER_LABEL: Record<Layer, string> = {
   limit: "",
 };
 
-const MAX_LEN = 500;
+/** Up to 300 words a question (the character cap only stops pasted essays). */
+const MAX_WORDS = 300;
+const MAX_LEN = 2400;
+const wordCount = (t: string) => (t.trim() ? t.trim().split(/\s+/).length : 0);
 const PALM_WORDS =
   /palm|hast ?rekha|hatheli|life ?line|heart ?line|head ?line|fate ?line|हथेली|हस्तरेखा/i;
 
@@ -136,6 +139,21 @@ export function Conversation({
   const [busy, setBusy] = useState<"ask" | "palm" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
+  // Questions left, shown in the composer from the start (Premium has no limit, so no pill).
+  useEffect(() => {
+    if (!session) return;
+    let live = true;
+    api
+      .me()
+      .then((m) => {
+        if (live && m.usage.limit !== null)
+          setRemaining(Math.max(0, m.usage.limit - m.usage.used));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [session]);
   const [modal, setModal] = useState<{
     kind: "birth" | "palm" | "prakriti" | "vikriti";
     question: string;
@@ -195,8 +213,8 @@ export function Conversation({
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || busy) return;
-    if (q.length > MAX_LEN) {
-      setError(tr("Please keep your question under {v0} characters.", { v0: MAX_LEN }));
+    if (wordCount(q) > MAX_WORDS || q.length > MAX_LEN) {
+      setError(tr("Please keep your question under {v0} words.", { v0: MAX_WORDS }));
       return;
     }
     setError(null);
@@ -368,6 +386,7 @@ export function Conversation({
                     })
                   }
                   onAsk={(q) => send(q)}
+                  onAyurveda={(q) => shell.askNew(q, "ayurveda")}
                   onTarotPick={
                     t.id === turns[turns.length - 1]?.id && !busy
                       ? pickTarot
@@ -479,7 +498,27 @@ export function Conversation({
                 </Text>
               </Pressable>
             )}
+            <Text
+              style={[s.pill, wordCount(input) > MAX_WORDS && { color: colors.danger, borderColor: colors.danger }]}
+              testID="word-count"
+              accessibilityLabel={`${wordCount(input)} of ${MAX_WORDS} words`}
+            >
+              {wordCount(input)} / {MAX_WORDS}
+            </Text>
             <View style={{ flex: 1 }} />
+            {session && remaining !== null ? (
+              <View style={s.left} testID="remaining">
+                <Text style={s.leftText}>{tr("{v0} QUESTIONS LEFT", { v0: remaining })}</Text>
+                <Pressable
+                  onPress={() => router.push("/premium")}
+                  style={s.leftBuy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Buy more questions"
+                >
+                  <Text style={s.leftText}>{tr("Buy more")}</Text>
+                </Pressable>
+              </View>
+            ) : null}
             <Pressable
               onPress={() => send(input)}
               disabled={!canSend}
@@ -491,15 +530,6 @@ export function Conversation({
             </Pressable>
           </View>
         </View>
-        <Text style={s.foot}>
-          {remaining !== null ? (
-            <Text testID="remaining">
-              {tr(session ? "{v0} left this week" : "{v0} left today", { v0: remaining })}
-              {session ? " · " : tr(" · Sign in for 11 a week · ")}
-            </Text>
-          ) : null}
-          {tr("For reflection, not medical, legal or financial advice.")}
-        </Text>
       </View>
       <DetailsModal
         kind={modal?.kind ?? null}
@@ -529,6 +559,30 @@ const styles = (c: Colors) =>
       alignSelf: "center",
       flexGrow: 1,
     },
+    pill: {
+      color: c.muted,
+      fontFamily: font.mono,
+      fontSize: 12,
+      letterSpacing: 1,
+      borderWidth: 1,
+      borderColor: c.line,
+      borderRadius: 999,
+      paddingVertical: 7,
+      paddingHorizontal: 12,
+      marginLeft: 8,
+    },
+    left: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: `${c.accent}aa`,
+      backgroundColor: `${c.accent}1f`,
+      borderRadius: 999,
+      overflow: "hidden",
+      marginRight: 10,
+    },
+    leftText: { color: c.accent, fontFamily: font.mono, fontSize: 11, letterSpacing: 1.2, paddingVertical: 8, paddingHorizontal: 12 },
+    leftBuy: { borderLeftWidth: 1, borderLeftColor: `${c.accent}aa` },
     starter: {
       borderWidth: 1,
       borderColor: c.line,

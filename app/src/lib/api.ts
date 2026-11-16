@@ -180,8 +180,11 @@ export type Block =
         | "limit"
         | "sign-in"
         | "busy"
-        | "retake";
+        | "retake"
+        | "use-ayurveda";
       text: string;
+      /** For "use-ayurveda": the question to ask again in an Ayurveda chat. */
+      question?: string;
     };
 
 export type AskResult = {
@@ -219,6 +222,8 @@ export type Plan = {
   days: number;
 };
 export type Me = {
+  /** The name from your birth details, if you gave one. */
+  name?: string | null;
   /** Your verified WhatsApp number, masked. */
   phone: string | null;
   /** True until you verify a WhatsApp number (when Kosmik requires one). */

@@ -123,3 +123,18 @@ test('history: a new chat keeps the kind it started with', async () => {
   assert.equal(await h.kindOf('u1', first.conversationId), 'ayurveda');
   assert.equal(await h.kindOf('someone-else', first.conversationId), null);
 });
+
+test('backfill: old chats whose first answer was Ayurvedic become Ayurveda chats', async () => {
+  const { raw } = d1();
+  raw.exec("DELETE FROM conversations");
+  const add = (id: string, blocks: string) => {
+    raw.prepare("INSERT INTO conversations (id, user_id, title, kind, created_at, updated_at) VALUES (?, 'u', 't', 'kosmik', 1, 1)").run(id);
+    raw.prepare("INSERT INTO messages (id, conversation_id, role, content, blocks, created_at) VALUES (?, ?, 'assistant', '', ?, 2)").run(`${id}-m`, id, blocks);
+  };
+  add('a', '[{"type":"text","text":"x"},{"type":"ayur-plan","favour":[]}]');
+  add('b', '[{"type":"text","text":"x"},{"type":"chart","rows":[]}]');
+  add('c', '[{"type":"herb-list","herbs":[]}]');
+  const { readFileSync } = await import('node:fs');
+  raw.exec(readFileSync(new URL('../migrations/0012_chat_kind_backfill.sql', import.meta.url), 'utf8'));
+  assert.deepEqual(raw.prepare('SELECT id, kind FROM conversations ORDER BY id').all().map((r) => `${r.id}:${r.kind}`), ['a:ayurveda', 'b:kosmik', 'c:ayurveda']);
+});

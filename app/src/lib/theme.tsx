@@ -8,39 +8,39 @@ import React, {
 } from "react";
 import { useColorScheme } from "react-native";
 
-/** Kosmik's palette. Night: deep plum-black with a magenta accent and warm gold highlights. */
+/** Kosmik's palette. Night: deep aubergine-black, a magenta-rose primary and saffron (kesari) gold. */
 const dark = {
-  bg: "#0A070D",
-  surface: "rgba(24,17,30,0.88)",
-  surface2: "#221829",
-  line: "rgba(232,180,215,0.13)",
-  text: "#F7EEF4",
-  muted: "#A99BB1",
-  primary: "#B54A84",
-  primarySoft: "rgba(181,74,132,0.18)",
+  bg: "#0C0810",
+  surface: "rgba(27,16,29,0.9)",
+  surface2: "#201324",
+  line: "rgba(240,170,210,0.13)",
+  text: "#FBF1F6",
+  muted: "#B09AAD",
+  primary: "#C2407F",
+  primarySoft: "rgba(194,64,127,0.18)",
   onPrimary: "#FFFFFF",
-  accent: "#E8A65A",
-  accentSoft: "rgba(232,166,90,0.14)",
+  accent: "#F2A640",
+  accentSoft: "rgba(242,166,64,0.14)",
   /** Planets, houses and dates picked out in answers. */
-  highlight: "#EBA3CB",
+  highlight: "#F0A3C8",
   success: "#4ADE80",
   danger: "#F87171",
 };
 
-/** Day: warm paper with the same plum accent. */
+/** Day: warm paper with the same rose and saffron. */
 const light: typeof dark = {
-  bg: "#FFF9F4",
-  surface: "rgba(255,255,255,0.92)",
-  surface2: "#F8EEF3",
-  line: "rgba(58,22,44,0.12)",
-  text: "#24121C",
-  muted: "#6E5A66",
-  primary: "#8E2F63",
-  primarySoft: "rgba(142,47,99,0.10)",
+  bg: "#FFF8F3",
+  surface: "rgba(255,255,255,0.94)",
+  surface2: "#FBEFF4",
+  line: "rgba(70,20,46,0.12)",
+  text: "#26101C",
+  muted: "#6F5866",
+  primary: "#A0285F",
+  primarySoft: "rgba(160,40,95,0.10)",
   onPrimary: "#FFFFFF",
-  accent: "#C2620E",
-  accentSoft: "rgba(194,98,14,0.10)",
-  highlight: "#9C2F6B",
+  accent: "#C46A12",
+  accentSoft: "rgba(196,106,18,0.10)",
+  highlight: "#A0285F",
   success: "#15803D",
   danger: "#B91C1C",
 };

@@ -670,4 +670,9 @@ test('chat kinds: an Ayurveda chat sends even a kundli question to the consultat
   const auto = await ask(deps, { question: 'What is Tulsi?', lang: 'en', identity: user });
   assert.equal(auto.kind, 'ayurveda');
   assert.deepEqual(kinds, ['ayurveda', 'ayurveda', 'kosmik', 'ayurveda']);
+
+  // Inside an existing Kosmik chat, a health question is offered an Ayurveda chat instead, free.
+  const offered = await ask(deps, { question: 'What is Tulsi?', lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
+  assert.deepEqual(offered.blocks.map((b) => b.type === 'notice' && b.kind), ['use-ayurveda']);
+  assert.equal(offered.blocks[0].type === 'notice' && offered.blocks[0].question, 'What is Tulsi?');
 });

@@ -49,15 +49,6 @@ const ENGINES: Engine[] = [
     examples: ["Read my palm", "What does my heart line say?"],
     tint: "#0EA5E9",
   },
-  {
-    glyph: "❀",
-    title: "Ayurveda",
-    tagline: "Herbs and your dosha",
-    detail:
-      "358 herbs, herbs by dosha, and your prakriti from a 12-question quiz.",
-    examples: ["What is Ashwagandha?", "What is my dosha?"],
-    tint: "#16A34A",
-  },
 ];
 
 /** The empty-chat grid of Kosmik's engines. Tapping an example asks it. */
@@ -66,23 +57,17 @@ export function Engines({ onAsk }: { onAsk: (question: string) => void }) {
   const s = styles(colors);
   const [open, setOpen] = useState<string | null>(null);
   const [width, setWidth] = useState(0);
-  // Five across on a wide screen; otherwise three over two, or two, two and one on a phone,
-  // so every row is filled.
-  const cols = width >= 900 ? 5 : width >= 520 ? 3 : 2;
-  const widthOf = (i: number) => {
-    if (!width) return undefined;
-    const perRow =
-      cols === 5 ? 5 : cols === 3 ? (i < 3 ? 3 : 2) : i < 4 ? 2 : 1;
-    return (width - GAP * (perRow - 1)) / perRow;
-  };
+  // Four across on a wide screen, two by two otherwise, so every row is filled.
+  const perRow = width >= 900 ? 4 : 2;
+  const widthOf = () => (width ? (width - GAP * (perRow - 1)) / perRow : undefined);
   return (
     <View style={s.grid} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-      {ENGINES.map((e, i) => {
+      {ENGINES.map((e) => {
         return (
           <EngineCard
             key={e.title}
             engine={e}
-            width={widthOf(i)}
+            width={widthOf()}
             open={open === e.title}
             onOpen={(v) =>
               setOpen((cur) => (v ? e.title : cur === e.title ? null : cur))

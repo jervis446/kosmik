@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 
-import type { ChatKind, ConversationSummary } from "../lib/api";
+import { api, type ChatKind, type ConversationSummary } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
@@ -43,8 +43,22 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | ChatKind>("all");
   const [menu, setMenu] = useState(false);
+  // Your name from your birth details; the email only until it loads (or if you gave none).
+  const [name, setName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!session) return;
+    let live = true;
+    api
+      .me()
+      .then((m) => live && setName(m.name ?? null))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [session, menu]);
   const [now] = useState(() => Date.now());
   const email = session?.user.email ?? "";
+  const shown = name || email.split("@")[0];
 
   return (
     <View
@@ -232,11 +246,11 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
           accessibilityState={{ expanded: menu }}
         >
           <View style={s.avatar}>
-            <Text style={s.avatarText}>{(email[0] ?? "?").toUpperCase()}</Text>
+            <Text style={s.avatarText}>{(shown[0] ?? "?").toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={s.rowText} numberOfLines={1}>
-              {email}
+            <Text style={[s.rowText, { fontFamily: font.semibold }]} numberOfLines={1} testID="account-name">
+              {shown}
             </Text>
             <Text style={s.small}>{tr("Account · Upgrade")}</Text>
           </View>

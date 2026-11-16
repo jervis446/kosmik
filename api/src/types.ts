@@ -81,7 +81,9 @@ export type Block =
   | { type: 'prakriti'; vata: number; pitta: number; kapha: number; label: string; takenAt: number }
   | {
       type: 'notice';
-      kind: 'helpline' | 'needs-chart' | 'needs-details' | 'needs-palm' | 'needs-prakriti' | 'needs-vikriti' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake';
+      kind: 'helpline' | 'needs-chart' | 'needs-details' | 'needs-palm' | 'needs-prakriti' | 'needs-vikriti' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake' | 'use-ayurveda';
+      /** For 'use-ayurveda': the question to ask again in an Ayurveda chat. */
+      question?: string;
       text: string;
     };
 
