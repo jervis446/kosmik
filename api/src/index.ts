@@ -353,7 +353,7 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
   if (path === '/api/payments' && req.method === 'GET') {
     const userId = await requireUser(req, env);
     const { results } = await env.DB.prepare(
-      `SELECT id, plan, amount_paise AS amountPaise, days, status, utr, created_at AS createdAt, paid_at AS paidAt
+      `SELECT id, plan, amount_paise AS amountPaise, days, credits, status, utr, created_at AS createdAt, paid_at AS paidAt
        FROM payments WHERE user_id = ? AND status IN ('paid', 'pending', 'failed') ORDER BY created_at DESC LIMIT 100`,
     )
       .bind(userId)
@@ -412,7 +412,8 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
     // Send people back to the site they paid from (the app may be served from another origin).
     const origin = req.headers.get('origin');
     const site = origin && Object.keys(corsHeaders(req, env)).length ? origin : url.origin;
-    return json(req, env, await startPayment(env, env.DB, userId, body.plan, site, now));
+    const admin = (env.ADMIN_USER_IDS ?? '').split(',').map((x) => x.trim()).includes(userId);
+    return json(req, env, await startPayment(env, env.DB, userId, body.plan, site, now, { test: admin && body.test === true }));
   }
 
   const payMatch = /^\/api\/pay\/(KM-[A-Z0-9]{12})$/.exec(path);

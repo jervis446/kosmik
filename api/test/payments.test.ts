@@ -208,3 +208,14 @@ test('report packs: a paid pack adds its credits once and leaves Premium alone',
   assert.deepEqual({ ...raw.prepare('SELECT credits FROM report_credits WHERE user_id = ?').get('user-1') }, { credits: 3 });
   assert.equal(raw.prepare('SELECT until FROM premium WHERE user_id = ?').get('user-1'), undefined);
 });
+
+test('test order: ₹1 for one report credit, applied like any pack', async () => {
+  const { db, raw } = d1();
+  gateway({ json: { checkoutUrl: 'https://pay.example.test/c/t', paymentId: 'gw-t' } });
+  const { orderId } = await startPayment(env, db, 'admin-1', 'r1', 'https://kosmik.test', NOW, { test: true });
+  globalThis.fetch = realFetch;
+  assert.deepEqual({ ...raw.prepare('SELECT amount_paise, credits FROM payments WHERE id = ?').get(orderId) }, { amount_paise: 100, credits: 1 });
+  const ev = signed(paid(orderId, 100));
+  await handleWebhook(env, db, ev.headers, ev.raw, NOW);
+  assert.deepEqual({ ...raw.prepare('SELECT credits FROM report_credits WHERE user_id = ?').get('admin-1') }, { credits: 1 });
+});

@@ -19,7 +19,8 @@ export default function Reports() {
   const { order } = useLocalSearchParams<{ order?: string }>();
   const [data, setData] = useState<ReportsList | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [paying, setPaying] = useState<PackId | null>(null);
+  const [paying, setPaying] = useState<PackId | "test" | null>(null);
+  const [admin, setAdmin] = useState(false);
   const [orderState, setOrderState] = useState<"waiting" | "paid" | "failed" | null>(order ? "waiting" : null);
 
   const load = useCallback(() => {
@@ -36,6 +37,7 @@ export default function Reports() {
       return;
     }
     load();
+    api.me().then((m) => setAdmin(!!m.admin)).catch(() => {});
   }, [ready, session, load]);
 
   // Back from the UPI page: wait for the bank's confirmation, then show the new credits.
@@ -61,12 +63,12 @@ export default function Reports() {
     };
   }, [order, session, load]);
 
-  const buy = async (pack: PackId) => {
-    setPaying(pack);
+  const buy = async (pack: PackId, test = false) => {
+    setPaying(test ? "test" : pack);
     setError(null);
     try {
       track(`reports/buy-${pack}`);
-      const r = await api.pay(pack);
+      const r = await api.pay(pack, test);
       if (Platform.OS === "web" && globalThis.location) globalThis.location.assign(r.checkoutUrl);
       else await Linking.openURL(r.checkoutUrl);
     } catch (e) {
@@ -134,6 +136,25 @@ export default function Reports() {
                     )}
                   </Pressable>
                 ))}
+                {admin ? (
+                  <Pressable
+                    onPress={() => buy("r1", true)}
+                    disabled={paying !== null}
+                    style={[s.pack, { borderStyle: "dashed" }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Admin test: 1 report for ₹1"
+                    testID="test-pack"
+                  >
+                    {paying === "test" ? (
+                      <ActivityIndicator color={colors.text} />
+                    ) : (
+                      <>
+                        <Text style={s.packName}>Test · admin</Text>
+                        <Text style={s.packPrice}>₹1</Text>
+                      </>
+                    )}
+                  </Pressable>
+                ) : null}
               </View>
             </View>
 

@@ -60,10 +60,12 @@ export const paymentsEnabled = (env: Env) => !!(env.NOHA_GATEWAY_URL && env.NOHA
 export type Payment = { id: string; user_id: string; plan: PlanId; amount_paise: number; days: number; credits: number; status: string; paid_at: number | null };
 
 /** Starts a checkout. returnBase is this site's origin; the gateway sends the customer back there. */
-export async function startPayment(env: Env, db: D1Database, userId: string, plan: unknown, returnBase: string, now: number): Promise<{ orderId: string; checkoutUrl: string }> {
+/** opts.test (admins only): a ₹1 order for one report credit, to try the whole payment path for real. */
+export async function startPayment(env: Env, db: D1Database, userId: string, plan: unknown, returnBase: string, now: number, opts: { test?: boolean } = {}): Promise<{ orderId: string; checkoutUrl: string }> {
   if (!paymentsEnabled(env)) throw new PaymentError('Premium payments open soon.', 503);
   if (plan !== 'week' && plan !== 'month' && !(typeof plan === 'string' && isPack(plan))) throw new PaymentError('Choose a plan.', 400);
   const p = isPack(plan) ? { ...PACKS[plan], days: 0 } : { ...PLANS[plan], credits: 0 };
+  if (opts.test && plan === 'r1') p.amountPaise = 100;
   const id = newOrderId();
   await db
     .prepare('INSERT INTO payments (id, user_id, plan, amount_paise, days, credits, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')

@@ -342,9 +342,10 @@ export type BirthDetails = {
 /** One Premium purchase, as listed on Payments & invoices. */
 export type Purchase = {
   id: string;
-  plan: PlanId;
+  plan: PlanId | PackId;
   amountPaise: number;
   days: number;
+  credits?: number;
   status: "paid" | "pending" | "failed";
   utr: string | null;
   createdAt: number;
@@ -555,10 +556,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ lang }),
     }),
-  pay: (plan: PlanId | PackId) =>
+  pay: (plan: PlanId | PackId, test = false) =>
     call<{ orderId: string; checkoutUrl: string }>("/api/pay", {
       method: "POST",
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify(test ? { plan, test } : { plan }),
     }).then((r) => {
       track(`premium/checkout-${plan}`);
       return r;

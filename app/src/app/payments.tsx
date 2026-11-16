@@ -66,7 +66,11 @@ export default function Payments() {
             {list?.map((p) => (
               <View key={p.id} style={s.row} testID="payment">
                 <View style={{ flex: 1, minWidth: 200, gap: 4 }}>
-                  <Text style={s.rowTitle}>{tr("Premium · {v0} days", { v0: p.days })}</Text>
+                  <Text style={s.rowTitle}>
+                    {p.credits
+                      ? tr(p.credits === 1 ? "1 report credit" : "{v0} report credits", { v0: p.credits })
+                      : tr("Premium · {v0} days", { v0: p.days })}
+                  </Text>
                   <Text style={s.small}>{when(p.paidAt ?? p.createdAt)}</Text>
                   {p.utr ? <Text style={s.mono}>UTR {p.utr}</Text> : null}
                   <Text style={s.mono}>

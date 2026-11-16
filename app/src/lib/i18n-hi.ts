@@ -501,6 +501,8 @@ export const HI: Record<string, string> = {
   "No purchases yet": "अभी कोई ख़रीद नहीं",
   "Premium days you buy will be listed here the moment you buy them.": "आप जो प्रीमियम दिन खरीदेंगे, वे खरीदते ही यहाँ दिखेंगे।",
   "Premium · {v0} days": "प्रीमियम · {v0} दिन",
+  "1 report credit": "1 रिपोर्ट क्रेडिट",
+  "{v0} report credits": "{v0} रिपोर्ट क्रेडिट",
   Receipt: "रसीद",
   Paid: "भुगतान हो गया",
   "Not completed": "पूरा नहीं हुआ",
