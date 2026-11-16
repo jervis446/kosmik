@@ -111,3 +111,27 @@ test('a reply already in the right language is not asked for twice', async () =>
   await new GeminiAi({ apiKey: 'k' }).answer('Gita patience ke baare mein kya kehti hai?', 'hinglish', sources);
   assert.equal(calls.length, 1);
 });
+
+test('partialField reads the answer while the JSON is still being written', async () => {
+  const { partialField } = await import('../src/ai.ts');
+  assert.equal(partialField('{"answer": "Riya, yes, you can st', 'answer'), 'Riya, yes, you can st');
+  assert.equal(partialField('{"answer": "Line one.\\nLine \\"two\\"', 'answer'), 'Line one.\nLine "two"');
+  assert.equal(partialField('{"answer": "done", "cited": []}', 'answer'), 'done');
+  assert.equal(partialField('{"answer": "ends on an escape \\', 'answer'), 'ends on an escape ');
+  assert.equal(partialField('{"mode": "ask", "reply": "\\u0939\\u093f', 'reply'), 'हि');
+  assert.equal(partialField('{"mode": "ask"', 'reply'), '');
+});
+
+test('with onText set, the answer streams and arrives in pieces', async () => {
+  const chunks = ['{"answer": "Riya, ', 'yes, you can', ' start it.", "cited": [], "personal": false, "off_topic": false, "follow_ups": [], "behind": []}'];
+  globalThis.fetch = (async () => {
+    const body = chunks.map((c) => `data: ${JSON.stringify({ choices: [{ delta: { content: c } }] })}\n\n`).join('') + 'data: [DONE]\n\n';
+    return new Response(body, { status: 200 });
+  }) as typeof fetch;
+  const ai = new GeminiAi({ apiKey: 'k' });
+  const seen: string[] = [];
+  ai.onText = (t) => seen.push(t);
+  const g = await ai.answer('can I start?', 'en', sources);
+  assert.equal(g.answer, 'Riya, yes, you can start it.');
+  assert.ok(seen.length >= 1 && seen.at(-1) === 'Riya, yes, you can start it.');
+});

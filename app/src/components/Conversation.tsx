@@ -25,7 +25,7 @@ import { useAuth } from "../lib/auth";
 import { useAnswerLang } from "../lib/lang";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
-import { Blocks } from "./Blocks";
+import { Blocks, highlight } from "./Blocks";
 import { DetailsModal } from "./DetailsForms";
 import { Engines } from "./Engines";
 import { Logo } from "./Logo";
@@ -137,6 +137,8 @@ export function Conversation({
   const [lang, setLang] = useAnswerLang();
   const [langOpen, setLangOpen] = useState(false);
   const [busy, setBusy] = useState<"ask" | "palm" | null>(null);
+  /** The answer as it is being written, shown until the finished one arrives. */
+  const [live, setLive] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   // Questions left, shown in the composer from the start (Premium has no limit, so no pill).
@@ -223,13 +225,14 @@ export function Conversation({
     setBusy(PALM_WORDS.test(q) ? "palm" : "ask");
     setTurns((t) => [...t, { id: nextId(), role: "user", text: q }]);
     try {
-      received(await api.ask(q, lang, conversationId, undefined, kind), q);
+      received(await api.askLive(q, lang, conversationId, setLive, undefined, kind), q);
     } catch (e) {
       setError(message(e));
       setInput(q);
       setTurns((t) => t.slice(0, -1));
     } finally {
       setBusy(null);
+      setLive(null);
     }
   };
 
@@ -239,11 +242,12 @@ export function Conversation({
     setError(null);
     setBusy("ask");
     try {
-      received(await api.ask(q, lang, conversationId, { count }, kind), q);
+      received(await api.askLive(q, lang, conversationId, setLive, { count }, kind), q);
     } catch (e) {
       setError(message(e));
     } finally {
       setBusy(null);
+      setLive(null);
     }
   };
 
@@ -435,7 +439,17 @@ export function Conversation({
             </View>
           ),
         )}
-        {busy ? (
+        {busy && live ? (
+          <View style={s.answerRow} testID="live-answer">
+            <Logo size={30} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={s.liveText}>
+                {highlight(live, colors.highlight)}
+                <Text style={{ color: colors.primary }}> ▍</Text>
+              </Text>
+            </View>
+          </View>
+        ) : busy ? (
           <View style={s.answerRow}>
             <Thinking kind={busy} />
           </View>
@@ -583,6 +597,7 @@ const styles = (c: Colors) =>
     },
     leftText: { color: c.accent, fontFamily: font.mono, fontSize: 11, letterSpacing: 1.2, paddingVertical: 8, paddingHorizontal: 12 },
     leftBuy: { borderLeftWidth: 1, borderLeftColor: `${c.accent}aa` },
+    liveText: { color: c.text, fontFamily: font.body, fontSize: 16, lineHeight: 24 },
     starter: {
       borderWidth: 1,
       borderColor: c.line,

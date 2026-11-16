@@ -199,8 +199,12 @@ const PERSONAL_CONTEXT =
 /** Anything that looks like birth details or contact information. */
 const PRIVATE_DATA = /\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b|\b\d{1,2}:\d{2}\b|\b(19|20)\d{2}\b|@|\b\d{10}\b|\+91/;
 
+/** Decisions and timing in someone's own life ("can I open my startup this year?", "when will I…"). */
+const LIFE_DECISION =
+  /\b(my|mera|meri|mere|apna|apni)\b.{0,30}\b(startup|business|company|shop|venture|money|salary|income|promotion|loan|debt|property|house|flat|visa|abroad|love|relationship|crush|life|studies|degree|interview|transfer)\b|\b(can|should|will|shall|do|could) i\b.{0,60}\b(this|next|coming) (year|month|week)\b|\bwhen will i\b|\bwill i (get|be|find|marry|go|have|pass|crack)\b|\b(kab|kya) (main|mai|mera|meri)\b/i;
+
 export function cacheable(question: string, personal: boolean): boolean {
-  return !personal && !PERSONAL_CONTEXT.test(question) && !PRIVATE_DATA.test(question);
+  return !personal && !PERSONAL_CONTEXT.test(question) && !LIFE_DECISION.test(question) && !PRIVATE_DATA.test(question);
 }
 
 const verseBlock = (v: Verse): Block => ({ type: 'verse', ref: v.ref, sanskrit: v.sanskrit, iast: v.iast, translation: v.translation, translator: v.translator });
@@ -421,6 +425,13 @@ export async function ask(
   if (intent) {
     const direct = await answerDirect(deps, intent, lang, now, question);
     if (direct) return finish('direct', direct.blocks, { count: direct.counts });
+  }
+
+  // A question plainly about the person's own life, with their birth details saved: read their chart
+  // straight away (one model call), instead of a general answer that turns out to be personal first.
+  if (userId && (PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q))) {
+    const profile = await deps.profiles.get(userId);
+    if (profile) return chartOutcome(profile);
   }
 
   // 2. The same question, word for word (after normalising).

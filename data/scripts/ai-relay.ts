@@ -20,6 +20,7 @@ createServer(async (req, res) => {
     return;
   }
   try {
+    const started = Date.now(); // relay-log
     const chunks: Buffer[] = [];
     for await (const c of req) chunks.push(c as Buffer);
     const upstream = await fetch(`${GEMINI_URL}${req.url}`, {
@@ -27,7 +28,11 @@ createServer(async (req, res) => {
       headers: { 'content-type': 'application/json', authorization: req.headers.authorization ?? '' },
       body: Buffer.concat(chunks),
     });
-    res.writeHead(upstream.status, { 'content-type': 'application/json' }).end(await upstream.text());
+    // Pass the body through as it arrives, so streamed answers stream locally too.
+    res.writeHead(upstream.status, { 'content-type': upstream.headers.get('content-type') ?? 'application/json' });
+    if (upstream.body) for await (const chunk of upstream.body) res.write(chunk);
+    res.end();
+    if (process.env.RELAY_LOG) console.log(`${req.url} ${upstream.status} ${Date.now() - started}ms`);
   } catch (e) {
     res.writeHead(502, { 'content-type': 'application/json' }).end(JSON.stringify({ error: String(e) }));
   }

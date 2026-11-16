@@ -108,26 +108,28 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
   if (path === '/api/ask' && req.method === 'POST') {
     const body = await readJson(req);
     if (typeof body.question !== 'string') throw new BadQuestion('Ask a question to get started.');
+    const question = body.question;
     // Kosmik is for signed-in people: limits, history and personal details all hang off the account.
     const userId = await requireUser(req, env);
     // One free allowance per person: a verified WhatsApp number is needed first (when switched on).
     if (phoneCheckOn(env) && !(await verifiedPhone(env.DB, userId))) throw new PhoneError('Please verify your WhatsApp number to continue.', 403);
     const identity = { kind: 'user' as const, id: userId, premium: await isPremium(env.DB, userId, now) };
-    const result = await ask(
+    const ai = gemini(env);
+    const run = () => ask(
       {
         library: new D1Library(env.DB),
         cache: new D1AnswerCache(env.DB),
         vectors: env.VECTORS ? new VectorizeSearch(env.VECTORS) : new MemoryVectorSearch(env.DB),
         usage: new D1Usage(env.DB),
         history: new D1History(env.DB),
-        ai: gemini(env),
+        ai,
         profiles: new D1Profiles(env.DB),
         ayurveda: new D1Ayurveda(env.DB),
         astroMode: astroMode(env),
         report: (kind, message) => logError(env.DB, { source: 'server', kind, message, path: '/api/ask', userId }, now, ctx),
       },
       {
-        question: body.question,
+        question,
         lang: typeof body.lang === 'string' ? body.lang : undefined,
         identity,
         conversationId: typeof body.conversationId === 'string' ? body.conversationId : null,
@@ -136,7 +138,32 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
         mode: body.mode === 'ayurveda' || body.mode === 'kosmik' ? body.mode : undefined,
       },
     );
-    return json(req, env, result);
+    if (body.stream !== true) return json(req, env, await run());
+    // Streamed: one JSON object per line. {"text"} as the answer is written, then {"result"} (or {"error"}).
+    const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+    const send = (o: unknown) => writer.write(encoder.encode(`${JSON.stringify(o)}\n`)).catch(() => {});
+    let last = 0;
+    ai.onText = (text) => {
+      // About eight updates a second is plenty to read along.
+      if (Date.now() - last < 120) return;
+      last = Date.now();
+      void send({ text });
+    };
+    const work = (async () => {
+        try {
+          await send({ result: await run() });
+        } catch (err) {
+          const known = err instanceof BadQuestion;
+          if (!known) console.error('streamed ask failed', err instanceof Error ? err.message : err);
+          await send({ error: known ? err.message : 'Something went wrong. Please try again.', status: known ? 400 : 500 });
+        } finally {
+          await writer.close().catch(() => {});
+        }
+      })();
+    ctx?.waitUntil(work);
+    return new Response(readable, { headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', ...SECURITY_HEADERS, ...corsHeaders(req, env) } });
   }
 
   // My details: the current state (vikriti) from its short check.

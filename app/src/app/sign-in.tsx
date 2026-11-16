@@ -124,7 +124,18 @@ export default function SignIn() {
       edges={["top", "bottom"]}
     >
       <Sky />
-      <Header title={tr("Sign in")} back />
+      <Header
+        title={tr("Sign in")}
+        back
+        // Signed out, the chat would only send you back here: go to the home page instead.
+        onBack={() =>
+          Platform.OS === "web" && globalThis.location
+            ? globalThis.location.assign("/")
+            : router.canGoBack()
+              ? router.back()
+              : router.replace("/")
+        }
+      />
       <View style={s.wrap}>
         <Text style={s.h}>
           {step === "email"

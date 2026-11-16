@@ -189,6 +189,8 @@ test('only generic answers go in the shared cache', async () => {
   const { cacheable } = await import('../src/pipeline.ts');
   assert.ok(cacheable('How can I calm my restless mind?', false), 'everyday "I" and "my" are fine');
   assert.ok(!cacheable('Will my marriage happen this year?', false));
+  assert.ok(!cacheable('can i open my startup this year ?', false), 'a life decision with a date is personal');
+  assert.ok(!cacheable('When will I get a job?', false));
   assert.ok(!cacheable('meri kundli mein shani kaisa hai', false));
   assert.ok(!cacheable('Born 12/04/1999 at 10:30 in Pune, what is my lagna?', false));
   assert.ok(!cacheable('Contact me at a@b.com', false));

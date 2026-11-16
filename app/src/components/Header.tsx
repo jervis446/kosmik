@@ -5,7 +5,7 @@ import { font, useTheme } from "../lib/theme";
 import { Logo } from "./Logo";
 
 /** Top bar for pages outside the chat (account, premium, sign-in, legal): back, title, theme. */
-export function Header({ title, back }: { title?: string; back?: boolean }) {
+export function Header({ title, back, onBack }: { title?: string; back?: boolean; onBack?: () => void }) {
   const { colors, isDark, setPref } = useTheme();
   const s = StyleSheet.create({
     bar: {
@@ -40,7 +40,7 @@ export function Header({ title, back }: { title?: string; back?: boolean }) {
         <Pressable
           style={s.btn}
           onPress={() =>
-            router.canGoBack() ? router.back() : router.replace("/chat")
+            onBack ? onBack() : router.canGoBack() ? router.back() : router.replace("/chat")
           }
           accessibilityRole="button"
           accessibilityLabel="Back"

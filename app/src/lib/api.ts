@@ -378,7 +378,71 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+/**
+ * Asks, showing the answer as it is written: onText gets the text so far, and the finished
+ * answer is returned. Falls back to a plain request where the response can't be streamed.
+ */
+async function askStreamed(
+  payload: Record<string, unknown>,
+  onText: (text: string) => void,
+): Promise<AskResult> {
+  const token = (await supabase?.auth.getSession())?.data.session?.access_token;
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api/ask`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ ...payload, stream: true }),
+    });
+  } catch (e) {
+    reportError("network", `POST /api/ask: ${(e as Error).message}`);
+    throw new ApiError("You seem to be offline. Check your connection and try again.", 0);
+  }
+  const streamed = res.ok && res.body && (res.headers.get("content-type") ?? "").includes("ndjson");
+  if (!streamed) {
+    const body = (await res.json().catch(() => ({}))) as AskResult & { error?: string; code?: string };
+    if (res.status === 403 && body.code === "phone-required") phoneNeeded?.();
+    if (res.status >= 500) reportError("api", `POST /api/ask ${res.status}: ${body.error ?? ""}`);
+    if (!res.ok) throw new ApiError(body.error ?? "Something went wrong. Please try again.", res.status);
+    return body;
+  }
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (value) buffer += decoder.decode(value, { stream: !done });
+    let nl: number;
+    while ((nl = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line) continue;
+      const msg = JSON.parse(line) as { text?: string; result?: AskResult; error?: string; status?: number };
+      if (msg.text) onText(msg.text);
+      if (msg.result) return msg.result;
+      if (msg.error) {
+        if ((msg.status ?? 500) >= 500) reportError("api", `POST /api/ask stream: ${msg.error}`);
+        throw new ApiError(msg.error, msg.status ?? 500);
+      }
+    }
+    if (done) break;
+  }
+  throw new ApiError("Something went wrong. Please try again.", 500);
+}
+
 export const api = {
+  /** Like ask, with the answer shown as it is written. */
+  askLive: (
+    question: string,
+    lang: Lang | undefined,
+    conversationId: string | null,
+    onText: (text: string) => void,
+    tarot?: { count: 1 | 3 },
+    mode?: ChatKind | null,
+  ) => askStreamed({ question, lang, conversationId, tarot, mode: mode ?? undefined }, onText),
   ask: (
     question: string,
     lang: Lang | undefined,

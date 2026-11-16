@@ -100,6 +100,36 @@ const LANGUAGE_END = (lang: Lang, retry: boolean) =>
     retry ? ' Your previous reply was in the wrong language: this time follow the LANGUAGE line exactly.' : ''
   }`;
 
+/**
+ * The text of one string field in JSON that is still being written, e.g. the "answer" so far in
+ * '{"answer": "Riya, yes, you can st'. Escapes are decoded; an unfinished escape is left out.
+ */
+export function partialField(json: string, field: string): string {
+  const m = new RegExp(`"${field}"\\s*:\\s*"`).exec(json);
+  if (!m) return '';
+  let out = '';
+  for (let i = m.index + m[0].length; i < json.length; i++) {
+    const c = json[i];
+    if (c === '"') break;
+    if (c !== '\\') {
+      out += c;
+      continue;
+    }
+    const n = json[i + 1];
+    if (n === undefined) break;
+    if (n === 'u') {
+      const hex = json.slice(i + 2, i + 6);
+      if (hex.length < 4) break;
+      out += String.fromCharCode(parseInt(hex, 16));
+      i += 5;
+      continue;
+    }
+    out += ({ n: '\n', t: '\t', r: '', '"': '"', '\\': '\\', '/': '/' } as Record<string, string>)[n] ?? n;
+    i++;
+  }
+  return out;
+}
+
 /** Runs a request; if the reply comes back in the wrong language, asks once more and keeps the better one. */
 async function inLanguage<T>(lang: Lang, run: (end: string) => Promise<T>, text: (r: T) => string): Promise<T> {
   const first = await run(LANGUAGE_END(lang, false));
@@ -125,7 +155,7 @@ Rules, always:
 - No medical, legal or financial advice: suggest a qualified professional instead.
 - Never push products, gemstones or remedies, and never use fear.
 - Respect every tradition; no caste or communal content.
-- If the question depends on the person's own birth chart or private life (their kundli, dasha, marriage timing) and no CHART is given, set "personal" to true and explain the general idea; Kosmik will ask for their birth details.
+- If the question depends on the person's own birth chart or private life (their kundli, dasha, marriage timing, whether to start something this year) and no CHART is given, set "personal" to true and explain the general idea only: never give dates, periods or placements, and never use a name, without a CHART; Kosmik will ask for their birth details.
 {{CHART}}
 - Ayurveda (Kosmik is run by an AYUSH-licensed Ayurvedic company): answer as an experienced vaidya would, specifically and practically, using SOURCES: doshas, agni, pathya-apathya, kitchen remedies and classical formulations with their usual dose and anupana where useful. Never use astrology for health questions. Never tell anyone to stop a prescribed medicine, and point to a doctor promptly for serious warning signs.
 - If a PRAKRITI is given, it is the person's own dosha self-assessment: tailor diet and routine suggestions to it, say "your prakriti", set "personal" to false, and cite the SOURCES you used.
@@ -145,11 +175,12 @@ const CAUTION: Record<AstroMode, string> = {
 const CHART_RULE: Record<AstroMode, string> = {
   safe: '- If a CHART is given, it was calculated from this person\'s birth details: answer about their chart using only the CHART facts and SOURCES, say "your chart", set "personal" to false. Describe tendencies, not events or exact dates; you may name the running dasha and what it traditionally favours. Cite the SOURCES you used.',
   open: `- If a CHART is given, it was calculated from this person's birth details. Read it like a sharp, caring astrologer talking to them across a table, not a textbook:
-  1. Verdict first, in one or two sentences: a clear yes, no or "yes, but", with the key date. E.g. "Pankaj, yes, you can start it, but do not sign anything big before April 2027."
-  2. Then what to actually do, concretely, in the order they should do it (e.g. "Register it, build it, keep costs small until then. The real growth phase opens from April 2027 and runs a full year.").
+  1. Verdict first, in one or two sentences: a clear yes, no or "yes, but", with the key date. E.g. "<their name>, yes, you can start it, but do not sign anything big before <month year from the CHART>."
+  2. Then what to actually do, concretely, in the order they should do it (e.g. "Register it, build it, keep costs small until then. The real growth phase opens from <month year> and runs <how long>.").
   3. Then the why, from their chart, in plain words: name planets and periods, and call houses by what they mean ("your house of gains", "your house of partnership", "your house of career", "your house of how you come across"), not by lordship jargon. At most one technical term per paragraph. Connect it to what they feel right now (e.g. "That is why the itch to start is suddenly so strong right now. It is not impatience, it is the chart turning.").
-  4. One specific caution, with the transit or period behind it and its end date (e.g. "The one thing I would hold you back from is a co-founder deal in the next few months. Saturn is transiting your seventh house of partnership, backwards, until June 2027.").
+  4. One specific caution, with the transit or period behind it and its end date (e.g. "The one thing I would hold you back from is a co-founder deal in the next few months. <Planet> is transiting your <house in words>, until <month year>.").
   5. End with one specific insight from the chart and a short offer to go deeper, as a question (e.g. "Your career chart puts Mercury and Rahu together right at the top, which points to a tech or digital product rather than a service business. Shall I read which of the two actually pays?").
+  The examples show the shape only: take every name, planet, house and date from the CHART, never from the examples.
   Short paragraphs of one to three sentences. Months and years, never vague ("soon", "this period"). No hedging words ("may", "could", "traditionally") in the verdict. Use the person's name once or twice. Use only dates and facts in the CHART; never invent positions or dates. Put the technical detail (lords, dignities, yogas, exact dasha names) in "behind", not the answer. Say "your chart", set "personal" to false, and cite any SOURCES you used.`,
 };
 
@@ -338,7 +369,63 @@ export class GeminiAi implements AiClient {
     this.reasoningEffort = opts.reasoningEffort || 'none';
     this.prompt = systemPrompt(opts.astroMode ?? 'safe');
     // Reading a whole chart well is worth a little thinking time.
-    this.chartEffort = opts.astroMode === 'open' ? 'low' : this.reasoningEffort;
+    // 'minimal' is about a second faster than 'low' with the same quality of reading (measured).
+    this.chartEffort = opts.astroMode === 'open' ? 'minimal' : this.reasoningEffort;
+  }
+
+  /**
+   * Set for one request to see the answer as it is written: called with the visible text so far
+   * (the "answer" or "reply" field of the JSON the model is producing).
+   */
+  onText?: (text: string) => void;
+
+  /** A chat completion's content. Streams when onText is set, so the person sees words early. */
+  private async complete(body: Record<string, unknown>, field: 'answer' | 'reply'): Promise<string | undefined> {
+    if (!this.onText) {
+      const out = (await this.post('/chat/completions', body)) as { choices?: { message?: { content?: string } }[] };
+      return out.choices?.[0]?.message?.content;
+    }
+    if (!this.apiKey) throw new Error('GEMINI_API_KEY is not set');
+    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` },
+      body: JSON.stringify({ ...body, stream: true }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok || !res.body) {
+      const detail = (await res.text().catch(() => '')).slice(0, 200);
+      throw new Error(`Gemini /chat/completions failed (${res.status}): ${detail}`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let content = '';
+    let shown = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const delta = (JSON.parse(data) as { choices?: { delta?: { content?: string } }[] }).choices?.[0]?.delta?.content;
+          if (delta) content += delta;
+        } catch {
+          // A keep-alive or partial line: skip it.
+        }
+      }
+      const text = partialField(content, field);
+      if (text && text.length > shown.length) {
+        shown = text;
+        this.onText(text);
+      }
+    }
+    return content;
   }
 
   private async post(path: string, body: unknown): Promise<unknown> {
@@ -375,18 +462,21 @@ export class GeminiAi implements AiClient {
       stricter ? '\n\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''
     }${end}`;
     const chart = facts?.startsWith('CHART') ?? false;
-    const out = (await this.post('/chat/completions', {
-      model: this.model,
-      messages: [
-        { role: 'system', content: this.prompt },
-        { role: 'user', content: user },
-      ],
-      response_format: { type: 'json_schema', json_schema: { name: 'grounded_answer', schema: SCHEMA } },
-      reasoning_effort: chart ? this.chartEffort : this.reasoningEffort,
-      max_tokens: chart ? 3000 : 800,
-      temperature: 0.4,
-    })) as { choices?: { message?: { content?: string } }[] };
-    const parsed = parseGrounded(out.choices?.[0]?.message?.content);
+    const content = await this.complete(
+      {
+        model: this.model,
+        messages: [
+          { role: 'system', content: this.prompt },
+          { role: 'user', content: user },
+        ],
+        response_format: { type: 'json_schema', json_schema: { name: 'grounded_answer', schema: SCHEMA } },
+        reasoning_effort: chart ? this.chartEffort : this.reasoningEffort,
+        max_tokens: chart ? 3000 : 800,
+        temperature: 0.4,
+      },
+      'answer',
+    );
+    const parsed = parseGrounded(content);
     if (!parsed) throw new Error('The model returned no usable answer');
     return parsed;
   }
@@ -397,18 +487,21 @@ export class GeminiAi implements AiClient {
 
   private async ayurvedaOnce(question: string, lang: Lang, context: string, end: string, conversation?: string): Promise<AyurConsult> {
     const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}${context}\n\nMESSAGE: ${question}${end}`;
-    const out = (await this.post('/chat/completions', {
-      model: this.model,
-      messages: [
-        { role: 'system', content: AYURVEDA_PROMPT },
-        { role: 'user', content: user },
-      ],
-      response_format: { type: 'json_object' },
-      reasoning_effort: 'low',
-      max_tokens: 3500,
-      temperature: 0.4,
-    })) as { choices?: { message?: { content?: string } }[] };
-    const parsed = parseAyurveda(out.choices?.[0]?.message?.content);
+    const content = await this.complete(
+      {
+        model: this.model,
+        messages: [
+          { role: 'system', content: AYURVEDA_PROMPT },
+          { role: 'user', content: user },
+        ],
+        response_format: { type: 'json_object' },
+        reasoning_effort: 'minimal',
+        max_tokens: 3500,
+        temperature: 0.4,
+      },
+      'reply',
+    );
+    const parsed = parseAyurveda(content);
     if (!parsed) throw new Error('The model returned no usable consultation');
     return parsed;
   }
@@ -420,18 +513,21 @@ export class GeminiAi implements AiClient {
   private async tarotOnce(question: string, lang: Lang, cards: { name: string; reversed: boolean; position: string; meaning: string }[], context: string, end: string, conversation?: string): Promise<TarotReading> {
     const drawn = cards.map((c, i) => `${i + 1}. ${c.position}: ${c.name}${c.reversed ? ' (reversed)' : ' (upright)'}. Library meaning: ${c.meaning}`).join('\n');
     const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}${context ? `${context}\n\n` : ''}CARDS PICKED:\n${drawn}\n\nQUESTION: ${question}${end}`;
-    const out = (await this.post('/chat/completions', {
-      model: this.model,
-      messages: [
-        { role: 'system', content: TAROT_PROMPT },
-        { role: 'user', content: user },
-      ],
-      response_format: { type: 'json_object' },
-      reasoning_effort: 'low',
-      max_tokens: 3000,
-      temperature: 0.7,
-    })) as { choices?: { message?: { content?: string } }[] };
-    const raw = out.choices?.[0]?.message?.content ?? '';
+    const raw =
+      (await this.complete(
+        {
+          model: this.model,
+          messages: [
+            { role: 'system', content: TAROT_PROMPT },
+            { role: 'user', content: user },
+          ],
+          response_format: { type: 'json_object' },
+          reasoning_effort: 'minimal',
+          max_tokens: 3000,
+          temperature: 0.7,
+        },
+        'answer',
+      )) ?? '';
     let o: Record<string, unknown> = {};
     try {
       o = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1));
