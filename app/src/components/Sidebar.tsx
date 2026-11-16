@@ -1,5 +1,5 @@
 import { router, usePathname } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,10 +9,11 @@ import {
   View,
 } from "react-native";
 
-import { api, type ChatKind, type ConversationSummary } from "../lib/api";
+import type { ChatKind, ConversationSummary } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
+import { useMe } from "../lib/me";
 import { AccountMenu } from "./AccountMenu";
 import { Logo } from "./Logo";
 import { tr } from "../lib/i18n";
@@ -48,19 +49,8 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
   const newKind = shell.newKind === "ayurveda" ? "ayurveda" : "kosmik";
   const activeKind = shell.activeId ? (shell.chats?.find((c) => c.id === shell.activeId)?.kind ?? newKind) : newKind;
   const section = path.startsWith("/reports") ? "reports" : path.startsWith("/chat") ? activeKind : null;
-  // Your name from your birth details; the email only until it loads (or if you gave none).
-  const [name, setName] = useState<string | null>(null);
-  useEffect(() => {
-    if (!session) return;
-    let live = true;
-    api
-      .me()
-      .then((m) => live && setName(m.name ?? null))
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [session, menu]);
+  // Your name from your birth details (saved, so it shows at once); otherwise your email's name.
+  const name = useMe()?.name ?? null;
   const [now] = useState(() => Date.now());
   const email = session?.user.email ?? "";
   const shown = name || email.split("@")[0];

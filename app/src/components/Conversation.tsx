@@ -23,6 +23,7 @@ import {
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useAnswerLang } from "../lib/lang";
+import { refreshMe, useMe } from "../lib/me";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { Blocks, highlight } from "./Blocks";
@@ -140,22 +141,11 @@ export function Conversation({
   /** The answer as it is being written, shown until the finished one arrives. */
   const [live, setLive] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [remaining, setRemaining] = useState<number | null>(null);
-  // Questions left, shown in the composer from the start (Premium has no limit, so no pill).
-  useEffect(() => {
-    if (!session) return;
-    let live = true;
-    api
-      .me()
-      .then((m) => {
-        if (live && m.usage.limit !== null)
-          setRemaining(Math.max(0, m.usage.limit - m.usage.used));
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [session]);
+  // Questions left, shown in the composer from the start (Premium has no limit, so no pill):
+  // the saved account info at once, then the count each answer returns.
+  const me = useMe();
+  const [answered, setRemaining] = useState<number | null>(null);
+  const remaining = answered ?? (me && me.usage.limit !== null ? Math.max(0, me.usage.limit - me.usage.used) : null);
   const [modal, setModal] = useState<{
     kind: "birth" | "palm" | "prakriti" | "vikriti";
     question: string;
@@ -176,6 +166,7 @@ export function Conversation({
       shell.setActiveId(r.conversationId);
     }
     setRemaining(r.remaining);
+    if (session) void refreshMe(session.user.id);
     setTurns((t) => [
       ...t,
       {

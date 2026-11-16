@@ -370,6 +370,9 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
     const profile = await new D1Profiles(env.DB).get(userId);
     return json(req, env, {
       name: profile?.name ?? null,
+      details: profile
+        ? { name: profile.name, gender: profile.gender, birthDate: profile.birthDate, birthTime: profile.birthTime, place: profile.place, lat: profile.lat, lon: profile.lon, tzOffsetMin: profile.tzOffsetMin }
+        : null,
       reportCredits: await reportCredits(env.DB, userId),
       phone: phone ? maskPhone(phone) : null,
       phoneRequired: phoneCheckOn(env) && !phone,

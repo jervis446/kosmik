@@ -6,6 +6,7 @@ import { Shell } from "../../components/Shell";
 import { track } from "../../lib/analytics";
 import { api, ApiError, type PackId, type ReportsList, type ReportSummary } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { useMe } from "../../lib/me";
 import { tr } from "../../lib/i18n";
 import { type Colors, font, useTheme } from "../../lib/theme";
 
@@ -20,7 +21,7 @@ export default function Reports() {
   const [data, setData] = useState<ReportsList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState<PackId | "test" | null>(null);
-  const [admin, setAdmin] = useState(false);
+  const admin = !!useMe()?.admin;
   const [orderState, setOrderState] = useState<"waiting" | "paid" | "failed" | null>(order ? "waiting" : null);
 
   const load = useCallback(() => {
@@ -37,7 +38,6 @@ export default function Reports() {
       return;
     }
     load();
-    api.me().then((m) => setAdmin(!!m.admin)).catch(() => {});
   }, [ready, session, load]);
 
   // Back from the UPI page: wait for the bank's confirmation, then show the new credits.

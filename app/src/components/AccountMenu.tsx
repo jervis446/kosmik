@@ -1,9 +1,10 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { track } from "../lib/analytics";
-import { api, type BirthDetails, type Me } from "../lib/api";
+import type { BirthDetails } from "../lib/api";
+import { clearMe, refreshMe, useMe } from "../lib/me";
 import { useAuth } from "../lib/auth";
 import { tr } from "../lib/i18n";
 import { OPERATOR } from "../lib/legal";
@@ -30,26 +31,13 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
   const s = styles(colors);
   const { session, signOut } = useAuth();
   const shell = useShell();
-  const [me, setMe] = useState<Me | null>(null);
-  const [details, setDetails] = useState<BirthDetails | null | undefined>();
+  const me = useMe();
+  const [edited, setDetails] = useState<BirthDetails | null | undefined>();
+  const details = edited !== undefined ? edited : me?.details;
   const [help, setHelp] = useState(false);
   const [editing, setEditing] = useState(false);
   const [now] = useState(() => Date.now());
 
-  useEffect(() => {
-    let live = true;
-    api.me().then((m) => live && setMe(m)).catch(() => {});
-    api
-      .profile()
-      .then((p) => {
-        if (!live) return;
-        setDetails(p.details);
-      })
-      .catch(() => live && setDetails(null));
-    return () => {
-      live = false;
-    };
-  }, []);
 
   const go = (path: "/premium" | "/payments" | "/account" | "/help" | "/privacy" | "/terms" | "/reports") => {
     onClose();
@@ -144,6 +132,7 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
         <Pressable
           onPress={async () => {
             onClose();
+            clearMe();
             await signOut();
             router.replace("/");
           }}
@@ -162,6 +151,7 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
           onSaved={(d) => {
             setDetails(d);
             setEditing(false);
+            if (session) void refreshMe(session.user.id);
           }}
         />
       ) : null}

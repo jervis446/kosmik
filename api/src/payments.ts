@@ -72,6 +72,7 @@ export async function startPayment(env: Env, db: D1Database, userId: string, pla
     .bind(id, userId, plan, p.amountPaise, p.days, p.credits, now)
     .run();
 
+  let netError = '';
   const res = await fetch(`${env.NOHA_GATEWAY_URL!.replace(/\/+$/, '')}/api/v1/payments`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-merchant-id': env.NOHA_MERCHANT_ID!, 'x-merchant-key': env.NOHA_MERCHANT_KEY!, 'idempotency-key': id },
@@ -79,15 +80,24 @@ export async function startPayment(env: Env, db: D1Database, userId: string, pla
       orderId: id,
       amount: (p.amountPaise / 100).toFixed(2),
       currency: 'INR',
-      method: 'UPI',
+      method: env.NOHA_METHOD === 'MANUAL_UPI' ? 'MANUAL_UPI' : 'UPI',
       returnUrl: `${returnBase}${isPack(plan) ? '/reports' : '/premium'}?order=${id}`,
       metadata: { source: 'kosmik', plan },
     }),
     signal: AbortSignal.timeout(15_000),
-  }).catch(() => null);
-  const pay = res?.ok ? ((await res.json().catch(() => ({}))) as { checkoutUrl?: string; paymentId?: string }) : null;
+  }).catch((e: unknown) => {
+    netError = e instanceof Error ? e.message : String(e);
+    return null;
+  });
+  const body = res ? ((await res.json().catch(() => ({}))) as { checkoutUrl?: string; paymentId?: string; error?: unknown; message?: unknown; code?: unknown }) : null;
+  const pay = res?.ok ? body : null;
   if (!pay?.checkoutUrl) {
-    await db.prepare("UPDATE payments SET status = 'failed', note = 'checkout not created' WHERE id = ?").bind(id).run();
+    // Keep the gateway's own reason with the order, so a failure can be traced from Payments.
+    const why = !res
+      ? `gateway not reachable (${netError.slice(0, 200)})`
+      : `HTTP ${res.status}: ${String(body?.error ?? body?.message ?? body?.code ?? 'no checkout link').slice(0, 300)}`;
+    console.error('noha checkout failed', id, why);
+    await db.prepare("UPDATE payments SET status = 'failed', note = ? WHERE id = ?").bind(`checkout not created: ${why}`, id).run();
     throw new PaymentError('The payment page couldn’t be opened. Please try again.', 502);
   }
   if (pay.paymentId) await db.prepare('UPDATE payments SET gateway_payment_id = ? WHERE id = ?').bind(pay.paymentId, id).run();
@@ -158,7 +168,7 @@ export async function handleWebhook(env: Env, db: D1Database, headers: Headers, 
   const note = (text: string) => db.prepare('UPDATE payments SET note = ? WHERE id = ?').bind(text.slice(0, 500), order.id).run();
 
   if (event === 'OBSERVED_SUCCESS' || event === 'RECONCILED') {
-    if (String(ev.method ?? 'UPI').toUpperCase() !== 'UPI') {
+    if (!['UPI', 'MANUAL_UPI'].includes(String(ev.method ?? 'UPI').toUpperCase())) {
       await note(`Ignored ${event}: method ${String(ev.method).slice(0, 20)}`);
       return { status: 200, body: { received: true } };
     }

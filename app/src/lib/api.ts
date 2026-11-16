@@ -261,6 +261,8 @@ export type Me = {
   name?: string | null;
   /** Report credits left. */
   reportCredits?: number;
+  /** Your saved birth details, if any. */
+  details?: BirthDetails | null;
   /** Your verified WhatsApp number, masked. */
   phone: string | null;
   /** True until you verify a WhatsApp number (when Kosmik requires one). */

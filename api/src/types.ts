@@ -153,6 +153,8 @@ export interface Env {
   NOHA_MERCHANT_ID?: string;
   /** Authenticates checkout requests and, unless NOHA_WEBHOOK_SECRET is set, signs webhooks. */
   NOHA_MERCHANT_KEY?: string;
+  /** 'UPI' (default) or 'MANUAL_UPI', as the merchant is set up on Noha Pay. */
+  NOHA_METHOD?: string;
   NOHA_WEBHOOK_SECRET?: string;
   /** Birth place search; local development can point this at the relay. */
   NOMINATIM_URL?: string;
