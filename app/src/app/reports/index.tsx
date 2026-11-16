@@ -48,7 +48,7 @@ export default function Reports() {
     const tick = async () => {
       if (stop) return;
       const p = await api.payment(order).catch(() => null);
-      if (p?.status === "paid") {
+      if (p?.status === "paid" || p?.status === "provisional") {
         setOrderState("paid");
         track("reports/pack-paid");
         load();

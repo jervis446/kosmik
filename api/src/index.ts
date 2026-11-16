@@ -24,7 +24,7 @@
 import { GeminiAi } from './ai.ts';
 import { isPremium, Unauthorized, userFromRequest } from './auth.ts';
 import { planFor } from './lib/limits.ts';
-import { handleWebhook, PaymentError, paymentsEnabled, paymentStatus, PLANS, premiumUntil, startPayment } from './payments.ts';
+import { approvePayment, declinePayment, handleWebhook, PaymentError, paymentsEnabled, paymentStatus, paymentsForReview, PLANS, premiumUntil, startPayment, unblockPayer } from './payments.ts';
 import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { D1Profiles, MAX_PHOTO_BASE64, ProfileError, searchPlaces } from './profiles.ts';
 import { getReport, listReports, reportCredits, ReportError, unlockReport } from './reports.ts';
@@ -392,6 +392,22 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
     logError(env.DB, { source: 'client', kind: String(body.kind ?? 'other'), message: String(body.message ?? ''), detail: body.detail as string, path: body.path as string, release: body.release as string, userId }, now, ctx);
     return new Response(null, { status: 204, headers: corsHeaders(req, env) });
   }
+  // The owner's payment review: what to check, approve or decline, and blocked accounts.
+  if (path.startsWith('/api/admin/payments')) {
+    const userId = await requireUser(req, env);
+    const admins = (env.ADMIN_USER_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (!admins.includes(userId)) return error(req, env, 'Not found', 404);
+    if (path === '/api/admin/payments' && req.method === 'GET') return json(req, env, await paymentsForReview(env.DB));
+    const act = /^\/api\/admin\/payments\/(KM-[A-Z0-9]{12})\/(approve|decline)$/.exec(path);
+    if (act && req.method === 'POST') {
+      if (act[2] === 'approve') return json(req, env, { approved: await approvePayment(env.DB, act[1], now) });
+      return json(req, env, await declinePayment(env.DB, act[1], now));
+    }
+    const unblock = /^\/api\/admin\/payments\/unblock\/([A-Za-z0-9-]{8,64})$/.exec(path);
+    if (unblock && req.method === 'POST') return json(req, env, { unblocked: await unblockPayer(env.DB, unblock[1], now) });
+    return error(req, env, 'Not found', 404);
+  }
+
   if (path === '/api/admin/errors' && req.method === 'GET') {
     const userId = await requireUser(req, env);
     const admins = (env.ADMIN_USER_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);

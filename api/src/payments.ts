@@ -57,12 +57,37 @@ export class PaymentError extends Error {
 
 export const paymentsEnabled = (env: Env) => !!(env.NOHA_GATEWAY_URL && env.NOHA_MERCHANT_ID && env.NOHA_MERCHANT_KEY);
 
-export type Payment = { id: string; user_id: string; plan: PlanId; amount_paise: number; days: number; credits: number; status: string; paid_at: number | null };
+export type Payment = { id: string; user_id: string; plan: PlanId; amount_paise: number; days: number; credits: number; status: string; paid_at: number | null; provisional_at?: number | null; reviewed?: string | null; utr?: string | null; created_at?: number };
+
+/** Declined payments that block an account from buying. */
+export const BLOCK_AFTER = 5;
+
+export async function isBlocked(db: D1Database, userId: string): Promise<boolean> {
+  return !!(await db.prepare('SELECT 1 FROM payment_blocks WHERE user_id = ? AND unblocked_at IS NULL').bind(userId).first());
+}
+
+/** What a paid (or provisionally accepted) order gives: report credits or Premium days. Runs only if the statement before it changed a row. */
+function grant(db: D1Database, order: Payment, now: number): D1PreparedStatement {
+  return isPack(order.plan)
+    ? db
+        .prepare(
+          `INSERT INTO report_credits (user_id, credits) SELECT ?, ? WHERE changes() = 1
+           ON CONFLICT (user_id) DO UPDATE SET credits = report_credits.credits + excluded.credits`,
+        )
+        .bind(order.user_id, order.credits)
+    : db
+        .prepare(
+          `INSERT INTO premium (user_id, until) SELECT ?, ? + ? WHERE changes() = 1
+           ON CONFLICT (user_id) DO UPDATE SET until = MAX(premium.until, ?) + ?`,
+        )
+        .bind(order.user_id, now, order.days * DAY_MS, now, order.days * DAY_MS);
+}
 
 /** Starts a checkout. returnBase is this site's origin; the gateway sends the customer back there. */
 /** opts.test (admins only): a ₹1 order for one report credit, to try the whole payment path for real. */
 export async function startPayment(env: Env, db: D1Database, userId: string, plan: unknown, returnBase: string, now: number, opts: { test?: boolean } = {}): Promise<{ orderId: string; checkoutUrl: string }> {
   if (!paymentsEnabled(env)) throw new PaymentError('Premium payments open soon.', 503);
+  if (await isBlocked(db, userId)) throw new PaymentError('Payments are not available for this account. Please contact us from Help.', 403);
   if (plan !== 'week' && plan !== 'month' && !(typeof plan === 'string' && isPack(plan))) throw new PaymentError('Choose a plan.', 400);
   const p = isPack(plan) ? { ...PACKS[plan], days: 0 } : { ...PLANS[plan], credits: 0 };
   if (opts.test && plan === 'r1') p.amountPaise = 100;
@@ -105,9 +130,11 @@ export async function startPayment(env: Env, db: D1Database, userId: string, pla
 }
 
 export async function paymentStatus(db: D1Database, userId: string, id: string, now: number): Promise<{ status: string; plan: PlanId; premiumUntil: number | null } | null> {
-  const row = await db.prepare('SELECT status, plan FROM payments WHERE id = ? AND user_id = ?').bind(id, userId).first<{ status: string; plan: PlanId }>();
+  const row = await db.prepare('SELECT status, plan, provisional_at FROM payments WHERE id = ? AND user_id = ?').bind(id, userId).first<{ status: string; plan: PlanId; provisional_at: number | null }>();
   if (!row) return null;
-  return { ...row, premiumUntil: await premiumUntil(db, userId, now) };
+  // Access given on the payer's UTR while the owner checks the bank statement.
+  const status = row.status === 'pending' && row.provisional_at ? 'provisional' : row.status;
+  return { status, plan: row.plan, premiumUntil: await premiumUntil(db, userId, now) };
 }
 
 /** When the user's Premium ends, or null if they don't have it (or it has run out). */
@@ -185,24 +212,20 @@ export async function handleWebhook(env: Env, db: D1Database, headers: Headers, 
       return { status: 200, body: { received: true, mismatch: true } };
     }
     const how = event === 'RECONCILED' ? 'Reconciled with the bank statement' : 'Bank credit alert matched';
-    // Mark paid and extend Premium together, and only if this delivery is the one that marked it.
+    // Access already given on the payer's UTR: just confirm it, nothing more to add.
+    if (order.provisional_at && order.status === 'pending') {
+      await db
+        .prepare("UPDATE payments SET status = 'paid', reviewed = 'approved', reviewed_at = ?, gateway_payment_id = COALESCE(?, gateway_payment_id), utr = COALESCE(?, utr), paid_at = ?, note = ? WHERE id = ? AND status = 'pending'")
+        .bind(now, ev.paymentId ?? null, utr, now, how, order.id)
+        .run();
+      return { status: 200, body: { received: true } };
+    }
+    // Mark paid and give access together, and only if this delivery is the one that marked it.
     const [mark] = await db.batch([
       db
         .prepare("UPDATE payments SET status = 'paid', gateway_payment_id = COALESCE(?, gateway_payment_id), utr = ?, paid_at = ?, note = ? WHERE id = ? AND status != 'paid'")
         .bind(ev.paymentId ?? null, utr, now, how, order.id),
-      isPack(order.plan)
-        ? db
-            .prepare(
-              `INSERT INTO report_credits (user_id, credits) SELECT ?, ? WHERE changes() = 1
-               ON CONFLICT (user_id) DO UPDATE SET credits = report_credits.credits + excluded.credits`,
-            )
-            .bind(order.user_id, order.credits)
-        : db
-            .prepare(
-              `INSERT INTO premium (user_id, until) SELECT ?, ? + ? WHERE changes() = 1
-               ON CONFLICT (user_id) DO UPDATE SET until = MAX(premium.until, ?) + ?`,
-            )
-            .bind(order.user_id, now, order.days * DAY_MS, now, order.days * DAY_MS),
+      grant(db, order, now),
     ]);
     return { status: 200, body: mark.meta.changes ? { received: true } : { received: true, duplicate: true } };
   }
@@ -211,12 +234,118 @@ export async function handleWebhook(env: Env, db: D1Database, headers: Headers, 
     return { status: 200, body: { received: true } };
   }
   if (event === 'MANUAL_REVIEW' && utr && order.status === 'pending') {
-    // The payer typed a UTR, or the match was ambiguous: not proof of payment. Keep it pending.
-    await db.prepare("UPDATE payments SET utr = ?, note = ? WHERE id = ? AND status = 'pending'").bind(utr, `Payer reports paying with UTR ${utr}. Check the bank statement.`, order.id).run();
-    return { status: 200, body: { received: true } };
+    // The payer typed a UTR. Not proof of payment, so the owner checks it against the bank statement
+    // and approves or declines; meanwhile the payer gets access straight away, unless the UTR looks
+    // wrong, was already used, or the account is blocked.
+    const keep = (why: string) => db.prepare("UPDATE payments SET utr = ?, note = ? WHERE id = ? AND status = 'pending'").bind(utr, why, order.id).run();
+    if (order.provisional_at) return { status: 200, body: { received: true, duplicate: true } };
+    if (!/^\d{12}$/.test(utr)) {
+      await keep(`Payer entered UTR ${utr}, which is not a 12-digit UPI reference. Check the bank statement.`);
+      return { status: 200, body: { received: true } };
+    }
+    const reused = await db.prepare("SELECT id FROM payments WHERE utr = ? AND id != ? AND (status = 'paid' OR provisional_at IS NOT NULL)").bind(utr, order.id).first<{ id: string }>();
+    if (reused) {
+      await keep(`UTR ${utr} was already used on order ${reused.id}. No access given.`);
+      return { status: 200, body: { received: true } };
+    }
+    if (await isBlocked(db, order.user_id)) {
+      await keep(`Account is blocked after declined payments. UTR ${utr}: check before giving access.`);
+      return { status: 200, body: { received: true } };
+    }
+    await db.batch([
+      db
+        .prepare("UPDATE payments SET utr = ?, provisional_at = ?, note = ? WHERE id = ? AND status = 'pending' AND provisional_at IS NULL")
+        .bind(utr, now, `Access given on the payer's UTR ${utr}. Approve or decline after checking the bank statement.`, order.id),
+      grant(db, order, now),
+    ]);
+    return { status: 200, body: { received: true, provisional: true } };
   }
   const status = event === 'FAILED' ? 'failed' : event === 'EXPIRED' ? 'expired' : event === 'CANCELLED' ? 'cancelled' : null;
   if (status) await db.prepare("UPDATE payments SET status = ? WHERE id = ? AND status = 'pending'").bind(status, order.id).run();
   else await note(`Gateway event: ${event.slice(0, 40)}`);
   return { status: 200, body: { received: true } };
+}
+
+// ---------------------------------------------------------------- the owner's review
+
+export type ReviewRow = {
+  id: string; userId: string; name: string | null; phone: string | null; plan: string; amountPaise: number; days: number; credits: number;
+  status: string; utr: string | null; note: string | null; createdAt: number; provisionalAt: number | null; reviewed: string | null; declines: number;
+};
+
+/** Payments for the owner: the ones to check, the latest of all, and blocked accounts. */
+export async function paymentsForReview(db: D1Database) {
+  const cols = `p.id, p.user_id AS userId, pr.name AS name, ph.phone AS phone, p.plan, p.amount_paise AS amountPaise, p.days, p.credits, p.status, p.utr, p.note,
+    p.created_at AS createdAt, p.provisional_at AS provisionalAt, p.reviewed,
+    (SELECT COUNT(*) FROM payments d WHERE d.user_id = p.user_id AND d.reviewed = 'declined') AS declines`;
+  const from = 'FROM payments p LEFT JOIN profiles pr ON pr.user_id = p.user_id LEFT JOIN phones ph ON ph.user_id = p.user_id';
+  const toCheck = (await db.prepare(`SELECT ${cols} ${from} WHERE p.status = 'pending' AND p.provisional_at IS NOT NULL ORDER BY p.provisional_at`).all<ReviewRow>()).results;
+  const recent = (await db.prepare(`SELECT ${cols} ${from} ORDER BY p.created_at DESC LIMIT 60`).all<ReviewRow>()).results;
+  const blocked = (
+    await db
+      .prepare(
+        `SELECT b.user_id AS userId, pr.name AS name, ph.phone AS phone, b.blocked_at AS blockedAt, b.reason,
+           (SELECT COUNT(*) FROM payments d WHERE d.user_id = b.user_id AND d.reviewed = 'declined') AS declines
+         FROM payment_blocks b LEFT JOIN profiles pr ON pr.user_id = b.user_id LEFT JOIN phones ph ON ph.user_id = b.user_id
+         WHERE b.unblocked_at IS NULL ORDER BY b.blocked_at DESC`,
+      )
+      .all()
+  ).results;
+  return { toCheck, recent, blocked, blockAfter: BLOCK_AFTER };
+}
+
+/** Approve: the money is in the bank statement. */
+export async function approvePayment(db: D1Database, id: string, now: number): Promise<boolean> {
+  const r = await db
+    .prepare("UPDATE payments SET status = 'paid', reviewed = 'approved', reviewed_at = ?, paid_at = COALESCE(paid_at, ?), note = 'Approved by the owner after checking the bank statement' WHERE id = ? AND status = 'pending' AND provisional_at IS NOT NULL")
+    .bind(now, now, id)
+    .run();
+  return r.meta.changes > 0;
+}
+
+/**
+ * Decline: no such payment reached the bank. The access is taken back (unused credits first, then
+ * the reports opened with them, newest first; Premium days are taken off), and five declines block
+ * the account from buying.
+ */
+export async function declinePayment(db: D1Database, id: string, now: number): Promise<{ declined: boolean; blocked: boolean }> {
+  const order = await db.prepare("SELECT * FROM payments WHERE id = ? AND status = 'pending' AND provisional_at IS NOT NULL").bind(id).first<Payment>();
+  if (!order) return { declined: false, blocked: false };
+  const stmts: D1PreparedStatement[] = [
+    db
+      .prepare("UPDATE payments SET status = 'failed', reviewed = 'declined', reviewed_at = ?, note = 'Declined by the owner: not found in the bank statement. Access taken back.' WHERE id = ? AND status = 'pending'")
+      .bind(now, id),
+  ];
+  if (isPack(order.plan)) {
+    const left = (await db.prepare('SELECT credits FROM report_credits WHERE user_id = ?').bind(order.user_id).first<{ credits: number }>())?.credits ?? 0;
+    const take = Math.min(left, order.credits);
+    const shortfall = order.credits - take;
+    stmts.push(db.prepare('UPDATE report_credits SET credits = credits - ? WHERE user_id = ?').bind(take, order.user_id));
+    if (shortfall > 0) {
+      stmts.push(
+        db
+          .prepare('DELETE FROM reports WHERE rowid IN (SELECT rowid FROM reports WHERE user_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT ?)')
+          .bind(order.user_id, order.provisional_at ?? order.created_at ?? 0, shortfall),
+      );
+    }
+  } else {
+    stmts.push(db.prepare('UPDATE premium SET until = MAX(?, until - ?) WHERE user_id = ?').bind(now, order.days * DAY_MS, order.user_id));
+  }
+  await db.batch(stmts);
+  const since = (await db.prepare('SELECT unblocked_at FROM payment_blocks WHERE user_id = ?').bind(order.user_id).first<{ unblocked_at: number | null }>())?.unblocked_at ?? 0;
+  const declines = (await db.prepare("SELECT COUNT(*) AS n FROM payments WHERE user_id = ? AND reviewed = 'declined' AND reviewed_at > ?").bind(order.user_id, since).first<{ n: number }>())?.n ?? 0;
+  if (declines >= BLOCK_AFTER) {
+    await db
+      .prepare('INSERT INTO payment_blocks (user_id, blocked_at, reason) VALUES (?, ?, ?) ON CONFLICT (user_id) DO UPDATE SET blocked_at = excluded.blocked_at, unblocked_at = NULL, reason = excluded.reason')
+      .bind(order.user_id, now, `${declines} declined payments`)
+      .run();
+    return { declined: true, blocked: true };
+  }
+  return { declined: true, blocked: false };
+}
+
+/** Lift a block; declines are counted again from now. */
+export async function unblockPayer(db: D1Database, userId: string, now: number): Promise<boolean> {
+  const r = await db.prepare('UPDATE payment_blocks SET unblocked_at = ? WHERE user_id = ? AND unblocked_at IS NULL').bind(now, userId).run();
+  return r.meta.changes > 0;
 }

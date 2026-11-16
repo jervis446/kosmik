@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AdminPayments } from "../components/AdminPayments";
 import { Header } from "../components/Header";
 import { GOATCOUNTER_CODE } from "../lib/analytics";
 import { type AdminErrors, api, ApiError } from "../lib/api";
@@ -60,6 +61,7 @@ export default function Admin() {
       <Sky />
       <Header title="Admin" back />
       <ScrollView contentContainerStyle={s.page}>
+        {error ? null : <AdminPayments />}
         <Pressable
           onPress={() =>
             Linking.openURL(`https://${GOATCOUNTER_CODE}.goatcounter.com`)

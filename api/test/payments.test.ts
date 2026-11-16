@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { afterEach, test } from 'node:test';
 
-import { handleWebhook, ORDER_ID, PaymentError, paymentStatus, PLANS, startPayment } from '../src/payments.ts';
+import { approvePayment, declinePayment, handleWebhook, ORDER_ID, PaymentError, paymentStatus, paymentsForReview, PLANS, startPayment, unblockPayer } from '../src/payments.ts';
 import type { Env } from '../src/types.ts';
 import { d1 } from './d1.ts';
 
@@ -118,7 +118,7 @@ test('webhook: a second purchase extends from the current end date; an expired p
   assert.equal(premium(raw), later + 7 * DAY);
 });
 
-test('webhook: never paid for a wrong amount, cash, a non-UPI method or a payer-typed UTR', async () => {
+test('webhook: never paid for a wrong amount, cash or a non-UPI method; a payer-typed UTR stays pending', async () => {
   const { db, raw } = d1();
   const short = await order(db, 'month');
   const s = signed(paid(short, 5100));
@@ -135,12 +135,14 @@ test('webhook: never paid for a wrong amount, cash, a non-UPI method or a payer-
   await handleWebhook(env, db, k.headers, k.raw, NOW);
   assert.equal(row(raw, card).status, 'pending');
 
+  assert.equal(premium(raw), undefined);
+
+  // A payer-typed UTR is not proof: the order stays pending until the owner or the bank confirms it
+  // (access is given meanwhile; see the manual UPI tests below).
   const claimed = await order(db);
   const m = signed({ event: 'MANUAL_REVIEW', orderId: claimed, utr: '999888777666' });
   await handleWebhook(env, db, m.headers, m.raw, NOW);
-  assert.deepEqual(row(raw, claimed), { status: 'pending', utr: '999888777666', note: 'Payer reports paying with UTR 999888777666. Check the bank statement.' });
-
-  assert.equal(premium(raw), undefined);
+  assert.equal(row(raw, claimed).status, 'pending');
 });
 
 test('webhook: forged, tampered, stale, future and unconfigured deliveries are refused', async () => {
@@ -218,4 +220,80 @@ test('test order: ₹1 for one report credit, applied like any pack', async () =
   const ev = signed(paid(orderId, 100));
   await handleWebhook(env, db, ev.headers, ev.raw, NOW);
   assert.deepEqual({ ...raw.prepare('SELECT credits FROM report_credits WHERE user_id = ?').get('admin-1') }, { credits: 1 });
+});
+
+const review = (orderId: string, utr: string, extra: object = {}) => ({ event: 'MANUAL_REVIEW', orderId, amountPaise: 24900, method: 'MANUAL_UPI', utr, ...extra });
+const creditsOf = (raw: ReturnType<typeof d1>['raw'], user = 'user-1') => (raw.prepare('SELECT credits FROM report_credits WHERE user_id = ?').get(user) as { credits: number } | undefined)?.credits ?? 0;
+
+test('manual UPI: a valid UTR gives access at once; a reused or malformed one gives nothing; the bank match adds nothing more', async () => {
+  const { db, raw } = d1();
+  const a = await order(db, 'r3');
+  let ev = signed(review(a, '412345678901'));
+  assert.deepEqual((await handleWebhook(env, db, ev.headers, ev.raw, NOW)).body, { received: true, provisional: true });
+  assert.equal(creditsOf(raw), 3);
+  assert.equal((await paymentStatus(db, 'user-1', a, NOW))?.status, 'provisional');
+  assert.equal((await paymentsForReview(db)).toCheck.length, 1);
+
+  // The same UTR on another order: no access.
+  const b = await order(db, 'r3');
+  ev = signed(review(b, '4123-4567-8901'));
+  await handleWebhook(env, db, ev.headers, ev.raw, NOW);
+  assert.equal(creditsOf(raw), 3);
+  assert.match(String((raw.prepare('SELECT note FROM payments WHERE id = ?').get(b) as { note: string }).note), /already used/);
+
+  // Not a 12-digit UTR: no access.
+  const c = await order(db, 'r1');
+  ev = signed(review(c, 'ABC123'));
+  await handleWebhook(env, db, ev.headers, ev.raw, NOW);
+  assert.equal(creditsOf(raw), 3);
+
+  // The bank statement matches the first one later: confirmed, nothing added twice.
+  ev = signed(paid(a, 24900, { event: 'RECONCILED', utr: '412345678901' }));
+  await handleWebhook(env, db, ev.headers, ev.raw, NOW + 1000);
+  assert.equal(creditsOf(raw), 3);
+  assert.deepEqual({ ...raw.prepare('SELECT status, reviewed FROM payments WHERE id = ?').get(a) }, { status: 'paid', reviewed: 'approved' });
+  assert.equal((await paymentsForReview(db)).toCheck.length, 0);
+});
+
+test('manual UPI: declining takes the access back (credits, then reports opened with them; Premium days), and five declines block buying', async () => {
+  const { db, raw } = d1();
+  // A pack whose credits were partly spent on a report.
+  const a = await order(db, 'r3');
+  let ev = signed(review(a, '400000000001'));
+  await handleWebhook(env, db, ev.headers, ev.raw, NOW);
+  raw.prepare('UPDATE report_credits SET credits = 1 WHERE user_id = ?').run('user-1');
+  raw.prepare("INSERT INTO reports (user_id, report_key, lang, content, created_at) VALUES ('user-1', 'career', 'en', '{}', ?), ('user-1', 'marriage', 'en', '{}', ?)").run(NOW + 10, NOW + 20);
+  assert.deepEqual(await declinePayment(db, a, NOW + 100), { declined: true, blocked: false });
+  assert.equal(creditsOf(raw), 0);
+  assert.equal((raw.prepare('SELECT COUNT(*) AS n FROM reports').get() as { n: number }).n, 0, 'both reports opened with those credits are locked again');
+
+  // Premium days are taken off again.
+  const w = await order(db, 'week');
+  ev = signed(review(w, '400000000002', { amountPaise: 5100 }));
+  await handleWebhook(env, db, ev.headers, ev.raw, NOW);
+  assert.ok(((raw.prepare('SELECT until FROM premium WHERE user_id = ?').get('user-1') as { until: number }).until) > NOW + 6 * DAY);
+  await declinePayment(db, w, NOW + 200);
+  assert.ok(((raw.prepare('SELECT until FROM premium WHERE user_id = ?').get('user-1') as { until: number }).until) <= NOW + 200);
+
+  // Three more declines (five in all): blocked from buying.
+  let last = { declined: false, blocked: false };
+  for (let i = 3; i <= 5; i++) {
+    const o = await order(db, 'r1');
+    ev = signed(review(o, `40000000000${i}`, { amountPaise: 9900 }));
+    await handleWebhook(env, db, ev.headers, ev.raw, NOW);
+    last = await declinePayment(db, o, NOW + 300 + i);
+  }
+  assert.equal(last.blocked, true);
+  gateway({ json: { checkoutUrl: 'https://pay.example.test/c/x' } });
+  await assert.rejects(startPayment(env, db, 'user-1', 'r1', 'https://kosmik.test', NOW + 400), (e: unknown) => e instanceof PaymentError && e.status === 403);
+  globalThis.fetch = realFetch;
+  assert.equal((await paymentsForReview(db)).blocked.length, 1);
+
+  // Unblocked: can buy again.
+  assert.equal(await unblockPayer(db, 'user-1', NOW + 500), true);
+  gateway({ json: { checkoutUrl: 'https://pay.example.test/c/y', paymentId: 'gw-y' } });
+  const again = await startPayment(env, db, 'user-1', 'r1', 'https://kosmik.test', NOW + 600);
+  globalThis.fetch = realFetch;
+  assert.match(again.orderId, ORDER_ID);
+  assert.equal(await approvePayment(db, again.orderId, NOW + 700), false, 'only orders with access given can be approved');
 });

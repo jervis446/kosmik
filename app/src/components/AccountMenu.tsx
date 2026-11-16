@@ -39,7 +39,7 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
   const [now] = useState(() => Date.now());
 
 
-  const go = (path: "/premium" | "/payments" | "/account" | "/help" | "/privacy" | "/terms" | "/reports") => {
+  const go = (path: "/premium" | "/payments" | "/account" | "/help" | "/privacy" | "/terms" | "/reports" | "/admin") => {
     onClose();
     shell.closeDrawer();
     router.push(path);
@@ -105,6 +105,7 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
           <Item label={tr("My birth details")} glyph="▦" onPress={() => setEditing(true)} s={s} />
           <Item label={tr("Payments & invoices")} glyph="₹" onPress={() => go("/payments")} s={s} />
           <Item label={tr("Account & privacy")} glyph="⚙" onPress={() => go("/account")} s={s} />
+          {me?.admin ? <Item label="Admin · payments to check" glyph="✓" onPress={() => go("/admin")} s={s} /> : null}
           <Item label={tr("Help")} glyph="?" onPress={() => setHelp((h) => !h)} open={help} s={s} />
           {help ? (
             <View style={shell.wide ? [s.pop, s.flyout] : s.help} testID="help-menu">

@@ -277,11 +277,35 @@ export type Me = {
   plans: Plan[];
 };
 export type PaymentState = {
-  status: "pending" | "paid" | "failed" | "expired" | "cancelled";
+  /** "provisional": access given on the payer's UTR while the payment is checked. */
+  status: "pending" | "provisional" | "paid" | "failed" | "expired" | "cancelled";
   plan: PlanId;
   premiumUntil: number | null;
 };
 
+export type AdminPayment = {
+  id: string;
+  userId: string;
+  name: string | null;
+  phone: string | null;
+  plan: string;
+  amountPaise: number;
+  days: number;
+  credits: number;
+  status: string;
+  utr: string | null;
+  note: string | null;
+  createdAt: number;
+  provisionalAt: number | null;
+  reviewed: string | null;
+  declines: number;
+};
+export type AdminPayments = {
+  toCheck: AdminPayment[];
+  recent: AdminPayment[];
+  blocked: { userId: string; name: string | null; phone: string | null; blockedAt: number; reason: string | null; declines: number }[];
+  blockAfter: number;
+};
 export type AdminErrors = {
   groups: {
     fingerprint: string;
@@ -569,6 +593,12 @@ export const api = {
       return r;
     }),
   adminErrors: () => call<AdminErrors>("/api/admin/errors"),
+  adminPayments: () => call<AdminPayments>("/api/admin/payments"),
+  approvePayment: (id: string) => call<{ approved: boolean }>(`/api/admin/payments/${id}/approve`, { method: "POST", body: "{}" }),
+  declinePayment: (id: string) =>
+    call<{ declined: boolean; blocked: boolean }>(`/api/admin/payments/${id}/decline`, { method: "POST", body: "{}" }),
+  unblockPayer: (userId: string) =>
+    call<{ unblocked: boolean }>(`/api/admin/payments/unblock/${userId}`, { method: "POST", body: "{}" }),
   payment: (id: string) => call<PaymentState>(`/api/pay/${id}`),
   feedback: (messageId: string, value: 1 | -1) =>
     call<{ saved: boolean }>("/api/feedback", {

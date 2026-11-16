@@ -135,7 +135,7 @@ export default function Premium() {
             accessibilityLiveRegion="polite"
             testID="payment-status"
           >
-            {payment.status === "paid" ? (
+            {payment.status === "paid" || payment.status === "provisional" ? (
               <Text style={[text, { fontFamily: font.bold }]}>
                 Payment confirmed. Premium is on
                 {until ? ` until ${date(until)}` : ""}.
