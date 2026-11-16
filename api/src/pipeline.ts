@@ -7,7 +7,7 @@
  * Answers about one person's own life are never stored in the shared cache.
  */
 import type { AiClient, AstroMode } from './ai.ts';
-import { dashaLine, deepChart } from './lib/jyotish.ts';
+import { dashaLine, deepChart, devanagari, fmtDateHi } from './lib/jyotish.ts';
 import { matchIntent, type Intent } from './lib/intents.ts';
 import { CONTEXT_MESSAGES, describeConversation, isFollowUp } from './lib/conversation.ts';
 import { planFor, type Plan } from './lib/limits.ts';
@@ -18,8 +18,8 @@ import { calculateChart, type Chart } from './lib/chart.ts';
 import { type Profile, type Profiles, toBirth } from './profiles.ts';
 import type { AnswerCache, History, Library, Usage, VectorSearch } from './store.ts';
 import { aggravated, AGNI_LABEL, type Ayurveda, dominant, type Dosha, herbBlock, type HerbFilter, type Prakriti, prakritiBlock, prakritiLabel, type Vikriti, vikritiBlock } from './ayurveda.ts';
-import { rituAt } from './lib/ritu.ts';
-import { describeTropical, MOON_VIBE_HI, MOON_VIBE_HINGLISH, SIGNS, SIGNS_HI, SUN_VIBE_HI, SUN_VIBE_HINGLISH, zodiac } from './lib/tropical.ts';
+import { rituAt, RITUS_HI } from './lib/ritu.ts';
+import { describeTropical, MOON_VIBE_HI, MOON_VIBE_HINGLISH, SIGNS, SIGNS_HI, SUN_VIBE_HI, SUN_VIBE_HINGLISH, zodiac, zodiacHi } from './lib/tropical.ts';
 import type { AskResult, Block, CacheEntry, Layer, Meaning, Verse } from './types.ts';
 
 export const MAX_QUESTION = 500;
@@ -232,6 +232,11 @@ export async function ask(
   if (question.length > MAX_QUESTION) throw new BadQuestion(`Questions can be up to ${MAX_QUESTION} characters.`);
   const chosen = LANGS.includes(input.lang as Lang) ? (input.lang as Lang) : undefined;
   let lang: Lang = chosen ?? requestedLang(question) ?? detectLang(question);
+  // The libraries answer in the chat's language: Hindi text where it exists, English otherwise.
+  const localize = () => {
+    deps = { ...deps, library: deps.library.inLang?.(lang) ?? deps.library, ayurveda: deps.ayurveda.inLang?.(lang) ?? deps.ayurveda };
+  };
+  localize();
   const turn = await startTurn(deps, input.identity, input.conversationId, question, () => lang, now);
   const { finish } = turn;
   // The AI layer failing never costs a question: say so politely instead.
@@ -286,7 +291,10 @@ export async function ask(
       conversation = describeConversation(past);
       // "tell me more" carries no language of its own: keep the one the chat is in.
       const lastAsked = past.filter((m) => m.role === 'user').at(-1)?.content;
-      if (!chosen && !requestedLang(question) && lastAsked && normalizeQuestion(question).split(' ').length <= 4) lang = detectLang(lastAsked);
+      if (!chosen && !requestedLang(question) && lastAsked && normalizeQuestion(question).split(' ').length <= 4) {
+        lang = detectLang(lastAsked);
+        localize();
+      }
       try {
         q = await deps.ai.standalone(question, conversation);
       } catch (err) {
@@ -339,6 +347,11 @@ export async function ask(
     const profile = userId ? await deps.profiles.get(userId) : null;
     if (!profile) return finish('direct', [{ type: 'notice', kind: 'needs-details', text: T.needsDetails[lang] }], { count: false });
     const z = zodiac(calculateChart(toBirth(profile)), new Date(now));
+    if (lang === 'hi') {
+      z.sun = zodiacHi(z.sun, 'sun');
+      z.moon = zodiacHi(z.moon, 'moon');
+      z.rising = z.rising ? zodiacHi(z.rising, 'rising') : null;
+    }
     return finish('direct', [{ type: 'text', text: T.zodiacIntro[lang] }, { type: 'zodiac', sun: z.sun, moon: z.moon, rising: z.rising, planets: z.planets.map(({ graha, sign, glyph, degree }) => ({ graha, sign, glyph, degree })), siderealSun: z.siderealSun, cusp: z.cusp, solarReturn: z.solarReturn }], { count: false });
   }
 
@@ -536,7 +549,7 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number,
       return {
         blocks: [
           { type: 'text', text: T.herbList[lang] },
-          { type: 'herb-list', title: herbListTitle(intent), total, herbs: herbs.map((h) => ({ key: h.key, name: h.name, english: h.english, virya: h.virya })) },
+          { type: 'herb-list', title: lang === 'hi' ? herbListTitleHi(intent) : herbListTitle(intent), total, herbs: herbs.map((h) => ({ key: h.key, name: h.name, english: h.english, virya: h.virya })) },
         ],
         counts: true,
       };
@@ -556,7 +569,10 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number,
       };
     }
     case 'ritu': {
-      const { now: r, next, nextFrom } = rituAt(new Date(now));
+      const { now: rEn, next: nextEn, nextFrom } = rituAt(new Date(now));
+      const hi = lang === 'hi';
+      const r = hi ? { ...rEn, ...RITUS_HI[rEn.key] } : rEn;
+      const next = hi ? { ...nextEn, ...RITUS_HI[nextEn.key] } : nextEn;
       return {
         blocks: [
           { type: 'text', text: T.rituIntro[lang] },
@@ -572,7 +588,9 @@ async function answerDirect(deps: Deps, intent: Intent, lang: Lang, now: number,
             favour: r.favour,
             avoid: r.avoid,
             routine: r.routine,
-            next: `${next.ritu} begins around ${new Date(nextFrom).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })}`,
+            next: hi
+              ? `${next.ritu} लगभग ${fmtDateHi(new Date(nextFrom))} से शुरू`
+              : `${next.ritu} begins around ${new Date(nextFrom).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })}`,
           },
         ],
         counts: true,
@@ -657,19 +675,20 @@ const nameOf = {
   graha: (k: string) => GRAHAS.find((g) => g.key === k)!,
 };
 
-export function chartBlock(chart: Chart, now?: Date): Block {
-  const r = (k: string) => `${nameOf.rashi(k).name} (${nameOf.rashi(k).english})`;
+export function chartBlock(chart: Chart, now?: Date, lang: Lang = 'en'): Block {
+  const hi = lang === 'hi';
+  const r = (k: string) => (hi ? devanagari(nameOf.rashi(k)) : `${nameOf.rashi(k).name} (${nameOf.rashi(k).english})`);
   const nak = NAKSHATRAS.find((n) => n.key === chart.moonNakshatra.key)!;
   return {
     type: 'chart',
     lagna: chart.lagna ? r(chart.lagna.rashi) : null,
     moon: r(chart.grahas.find((p) => p.graha === 'moon')!.rashi),
-    nakshatra: `${nak.name}, pada ${chart.moonNakshatra.pada}`,
-    dasha: now ? dashaLine(chart, now) : null,
+    nakshatra: hi ? `${devanagari(nak)}, पद ${chart.moonNakshatra.pada}` : `${nak.name}, pada ${chart.moonNakshatra.pada}`,
+    dasha: now ? dashaLine(chart, now, lang) : null,
     rows: chart.grahas.map((p) => ({
-      graha: `${nameOf.graha(p.graha).name} (${nameOf.graha(p.graha).english})`,
+      graha: hi ? devanagari(nameOf.graha(p.graha)) : `${nameOf.graha(p.graha).name} (${nameOf.graha(p.graha).english})`,
       rashi: r(p.rashi),
-      house: p.house ? ordinal(p.house) : null,
+      house: p.house ? (hi ? `भाव ${p.house}` : ordinal(p.house)) : null,
       retrograde: p.retrograde && p.graha !== 'rahu' && p.graha !== 'ketu',
     })),
   };
@@ -691,7 +710,7 @@ async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Pr
     ...(showWestern ? [{ type: 'text', text: western } as Block] : []),
     { type: 'text', text: showWestern ? `${T.vedicIntro[lang]} ${grounded.answer}` : grounded.answer },
     ...extras(grounded, (t) => !contentProblems(t, [], { open }).length).filter((b) => b.type === 'behind'),
-    chartBlock(chart, new Date(now)),
+    chartBlock(chart, new Date(now), lang),
     ...cited.map((m): Block => ({ type: 'meaning', ...m })),
     ...extras(grounded, (t) => !contentProblems(t, [], { open }).length).filter((b) => b.type === 'followups'),
   ];
@@ -752,6 +771,32 @@ export function herbListTitle(f: { dosha?: Dosha; effect: 'pacify' | 'aggravate'
   const base = f.dosha ? (f.effect === 'pacify' ? `Herbs that balance ${cap(f.dosha)}` : `Herbs that may increase ${cap(f.dosha)}`) : 'Herbs';
   if (!props.length) return f.dosha ? base : f.virya === 'Sheeta' ? 'Cooling (sheeta) herbs' : 'Heating (ushna) herbs';
   return `${base} with ${props.join(', ')}`;
+}
+
+const DOSHA_HI: Record<string, string> = { vata: 'वात', pitta: 'पित्त', kapha: 'कफ' };
+const TERM_HI: Record<string, string> = {
+  Katu: 'कटु', Tikta: 'तिक्त', Amla: 'अम्ल', Kashaya: 'कषाय', Madhura: 'मधुर', Lavana: 'लवण',
+  Laghu: 'लघु', Ruksha: 'रूक्ष', Snigdha: 'स्निग्ध', Guru: 'गुरु', Sara: 'सर', Tikshna: 'तीक्ष्ण',
+};
+
+/** The herb list title in Hindi, e.g. "पित्त को संतुलित करने वाली जड़ी-बूटियाँ (मधुर रस)". */
+export function herbListTitleHi(f: { dosha?: Dosha; effect: 'pacify' | 'aggravate'; virya?: string; rasa?: string[]; guna?: string[]; vipaka?: string }): string {
+  const props = [
+    ...(f.rasa ?? []).map((r) => `${TERM_HI[r] ?? r} रस`),
+    ...(f.guna ?? []).map((g) => TERM_HI[g] ?? g),
+    ...(f.virya ? [f.virya === 'Sheeta' ? 'शीत वीर्य' : 'उष्ण वीर्य'] : []),
+    ...(f.vipaka ? [`${TERM_HI[f.vipaka] ?? f.vipaka} विपाक`] : []),
+  ];
+  const base = f.dosha
+    ? f.effect === 'pacify'
+      ? `${DOSHA_HI[f.dosha]} को संतुलित करने वाली जड़ी-बूटियाँ`
+      : `${DOSHA_HI[f.dosha]} बढ़ा सकने वाली जड़ी-बूटियाँ`
+    : f.virya === 'Sheeta'
+      ? 'शीत (ठंडक देने वाली) जड़ी-बूटियाँ'
+      : f.virya === 'Ushna' && !props.length
+        ? 'उष्ण (गर्म) जड़ी-बूटियाँ'
+        : 'जड़ी-बूटियाँ';
+  return props.length ? `${base} (${props.join(', ')})` : base;
 }
 
 /** Library meanings as cards: herbs get their full herb card. */

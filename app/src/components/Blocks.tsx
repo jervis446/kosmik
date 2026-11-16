@@ -285,16 +285,16 @@ function HerbCompare({
   const s = styles(colors);
   const rows: [string, (h: CompareHerb) => string][] = [
     [tr("Botanical"), (h) => h.botanical],
-    [tr("Rasa"), (h) => h.rasa.join(", ")],
-    [tr("Guna"), (h) => h.guna.join(", ")],
+    [tr("Rasa"), (h) => h.rasa.map((x) => tr(x)).join(", ")],
+    [tr("Guna"), (h) => h.guna.map((x) => tr(x)).join(", ")],
     [
       tr("Virya"),
-      (h) => `${h.virya}${VIRYA[h.virya] ? ` (${VIRYA[h.virya]})` : ""}`,
+      (h) => `${tr(h.virya)}${VIRYA[h.virya] ? ` (${tr(VIRYA[h.virya])})` : ""}`,
     ],
-    [tr("Vipaka"), (h) => h.vipaka],
-    [tr("Balances"), (h) => h.pacify.map(cap).join(", ") || "—"],
-    [tr("May increase"), (h) => h.aggravate.map(cap).join(", ") || "—"],
-    [tr("Parts used"), (h) => h.parts.join(", ") || "—"],
+    [tr("Vipaka"), (h) => tr(h.vipaka)],
+    [tr("Balances"), (h) => h.pacify.map((x) => tr(cap(x))).join(", ") || "—"],
+    [tr("May increase"), (h) => h.aggravate.map((x) => tr(cap(x))).join(", ") || "—"],
+    [tr("Parts used"), (h) => h.parts.map((x) => tr(x)).join(", ") || "—"],
   ];
   return (
     <View style={s.card} testID="herb-compare">
@@ -559,25 +559,25 @@ export function Blocks({
                 <View style={s.facts}>
                   {(
                     [
-                      [tr("Rasa (taste)"), b.rasa.join(", ")],
-                      [tr("Guna (quality)"), b.guna.join(", ")],
+                      [tr("Rasa (taste)"), b.rasa.map((x) => tr(x)).join(", ")],
+                      [tr("Guna (quality)"), b.guna.map((x) => tr(x)).join(", ")],
                       [
                         tr("Virya (potency)"),
-                        `${b.virya}${VIRYA[b.virya] ? ` (${VIRYA[b.virya]})` : ""}`,
+                        `${tr(b.virya)}${VIRYA[b.virya] ? ` (${tr(VIRYA[b.virya])})` : ""}`,
                       ],
-                      [tr("Vipaka"), b.vipaka],
+                      [tr("Vipaka"), tr(b.vipaka)],
                       ...(b.synonyms?.length
-                        ? [[tr("Paryaya (synonyms)"), b.synonyms.join(", ")]]
+                        ? [[tr("Paryaya (synonyms)"), b.synonyms.map((x) => tr(x)).join(", ")]]
                         : []),
                       ...(b.parts?.length
-                        ? [[tr("Prayojyanga (parts used)"), b.parts.join(", ")]]
+                        ? [[tr("Prayojyanga (parts used)"), b.parts.map((x) => tr(x)).join(", ")]]
                         : []),
                       [
                         tr("Balances"),
-                        b.pacify.map(cap).join(", ") || tr("None listed"),
+                        b.pacify.map((x) => tr(cap(x))).join(", ") || tr("None listed"),
                       ],
                       ...(b.aggravate.length
-                        ? [[tr("May increase"), b.aggravate.map(cap).join(", ")]]
+                        ? [[tr("May increase"), b.aggravate.map((x) => tr(cap(x))).join(", ")]]
                         : []),
                     ] as [string, string][]
                   ).map(([k, v]) => (
@@ -627,7 +627,7 @@ export function Blocks({
                           <Text style={s.small}> · {h.english}</Text>
                         ) : null}
                       </Text>
-                      <Text style={s.small}>{VIRYA[h.virya] ?? h.virya}</Text>
+                      <Text style={s.small}>{tr(VIRYA[h.virya] ?? h.virya)}</Text>
                     </Pressable>
                   ))}
                 </View>

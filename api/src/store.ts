@@ -11,6 +11,8 @@ export interface Library {
   verseAt(index: number): Promise<Verse | null>;
   meaning(kind: string, key: string): Promise<Meaning | null>;
   meanings(ids: string[]): Promise<Meaning[]>;
+  /** The same library, giving Hindi text where it has it (English otherwise). */
+  inLang?(lang: string): Library;
 }
 
 export interface AnswerCache {
@@ -40,40 +42,57 @@ export interface History {
   recent(userId: string, conversationId: string, limit: number): Promise<PastMessage[]>;
 }
 
-type VerseRow = { ref: string; chapter: number; verse: number; sanskrit: string; iast: string; translation: string; translator: string };
-const VERSE_COLS = 'ref, chapter, verse, sanskrit, iast, translation, translator';
+type VerseRow = { ref: string; chapter: number; verse: number; sanskrit: string; iast: string; translation: string; translator: string; translation_hi?: string | null };
+const VERSE_COLS = 'ref, chapter, verse, sanskrit, iast, translation, translator, translation_hi';
+export const HINDI_TRANSLATOR = 'हिंदी अनुवाद: Kosmik';
 const toMeaning = (r: { kind: string; key: string; title: string; body: string; reviewed: number }): Meaning => ({ ...r, reviewed: !!r.reviewed });
 
 export class D1Library implements Library {
   private readonly db: D1Database;
-  constructor(db: D1Database) {
+  private readonly lang: string;
+  constructor(db: D1Database, lang = 'en') {
     this.db = db;
+    this.lang = lang === 'hi' ? 'hi' : 'en';
+  }
+  inLang(lang: string) {
+    return new D1Library(this.db, lang);
+  }
+  /** In Hindi, the Hindi rendering replaces the English translation when there is one. */
+  private verseOut(r: VerseRow | null): Verse | null {
+    if (!r) return null;
+    const { translation_hi, ...v } = r;
+    return this.lang === 'hi' && translation_hi ? { ...v, translation: translation_hi, translator: HINDI_TRANSLATOR } : v;
   }
   async verse(chapter: number, verse: number) {
-    return (await this.db.prepare(`SELECT ${VERSE_COLS} FROM verses WHERE chapter = ? AND verse = ?`).bind(chapter, verse).first<VerseRow>()) ?? null;
+    return this.verseOut((await this.db.prepare(`SELECT ${VERSE_COLS} FROM verses WHERE chapter = ? AND verse = ?`).bind(chapter, verse).first<VerseRow>()) ?? null);
   }
   async verses(refs: string[]) {
     if (!refs.length) return [];
     const { results } = await this.db.prepare(`SELECT ${VERSE_COLS} FROM verses WHERE ref IN (${refs.map(() => '?').join(',')})`).bind(...refs).all<VerseRow>();
-    return refs.map((r) => results.find((v) => v.ref === r)).filter((v): v is VerseRow => !!v);
+    return refs.map((r) => this.verseOut(results.find((v) => v.ref === r) ?? null)).filter((v): v is Verse => !!v);
   }
   async verseCount() {
     return (await this.db.prepare('SELECT COUNT(*) AS n FROM verses').first<{ n: number }>())?.n ?? 0;
   }
   async verseAt(index: number) {
-    return (await this.db.prepare(`SELECT ${VERSE_COLS} FROM verses ORDER BY chapter, verse LIMIT 1 OFFSET ?`).bind(index).first<VerseRow>()) ?? null;
+    return this.verseOut((await this.db.prepare(`SELECT ${VERSE_COLS} FROM verses ORDER BY chapter, verse LIMIT 1 OFFSET ?`).bind(index).first<VerseRow>()) ?? null);
   }
   async meaning(kind: string, key: string) {
-    const r = await this.db.prepare("SELECT kind, key, title, body, reviewed FROM meanings WHERE kind = ? AND key = ? AND lang = 'en'").bind(kind, key).first<Parameters<typeof toMeaning>[0]>();
-    return r ? toMeaning(r) : null;
+    return (await this.meanings([`${kind}/${key}`]))[0] ?? null;
   }
+  /** Meanings in the library's language, falling back to English for any not yet translated. */
   async meanings(ids: string[]) {
     if (!ids.length) return [];
     const { results } = await this.db
-      .prepare(`SELECT kind, key, title, body, reviewed FROM meanings WHERE lang = 'en' AND (kind || '/' || key) IN (${ids.map(() => '?').join(',')})`)
-      .bind(...ids)
-      .all<Parameters<typeof toMeaning>[0]>();
-    return results.map(toMeaning);
+      .prepare(`SELECT kind, key, lang, title, body, reviewed FROM meanings WHERE lang IN ('en', ?) AND (kind || '/' || key) IN (${ids.map(() => '?').join(',')})`)
+      .bind(this.lang, ...ids)
+      .all<Parameters<typeof toMeaning>[0] & { lang: string }>();
+    const best = new Map<string, (typeof results)[number]>();
+    for (const r of results) {
+      const id = `${r.kind}/${r.key}`;
+      if (!best.has(id) || r.lang === this.lang) best.set(id, r);
+    }
+    return [...best.values()].map(({ lang: _lang, ...r }) => toMeaning(r));
   }
 }
 

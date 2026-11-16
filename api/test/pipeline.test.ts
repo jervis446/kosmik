@@ -595,6 +595,9 @@ test('kundli answers in Hindi: the Western lines and the Vedic label are in Hind
   assert.match(west, /^पश्चिमी ज्योतिष: सूर्य . \d+°\d+′ [ऀ-ॿ]+ \(\w+\) · चंद्र/);
   assert.match(west.split('\n')[1], /^[ऀ-ॿ]/);
   assert.equal(r.blocks[1].type === 'text' && r.blocks[1].text, 'वैदिक ज्योतिष (आपकी कुंडली): आपकी कुंडली में दसवें भाव का स्वामी मज़बूत है।');
+  const chart = r.blocks.find((b) => b.type === 'chart');
+  assert.ok(chart?.type === 'chart' && chart.rows.every((x) => /^[ऀ-ॿ]/.test(x.graha) && /^[ऀ-ॿ]/.test(x.rashi)), 'chart rows in Devanagari');
+  assert.match(chart?.type === 'chart' ? chart.dasha ?? '' : '', /^[ऀ-ॿ]+–[ऀ-ॿ]+, \d+ [ऀ-ॿ]+ \d{4} तक$/);
 });
 
 test('answers end with the astrology behind them and questions to ask next', async () => {

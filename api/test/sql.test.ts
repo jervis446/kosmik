@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { purgeExpired } from '../src/retention.ts';
-import { D1AnswerCache, D1History } from '../src/store.ts';
+import { D1Ayurveda } from '../src/ayurveda.ts';
+import { D1AnswerCache, D1History, D1Library, HINDI_TRANSLATOR } from '../src/store.ts';
 import { d1 } from './d1.ts';
 
 const entry = (over: Partial<Parameters<D1AnswerCache['put']>[0]> = {}) => ({
@@ -85,4 +86,29 @@ test('history: recent messages come oldest first, and only from your own chat', 
   const recent = await history.recent('u1', first.conversationId, 3);
   assert.deepEqual(recent.map((m) => (m.role === 'user' ? m.content : (m.blocks?.[0] as { text: string }).text)), ['A1', 'Q2', 'A2']);
   assert.deepEqual(await history.recent('someone-else', first.conversationId, 6), []);
+});
+
+test('Hindi library: Hindi meanings, verses and herb names where translated, English otherwise', async () => {
+  const { db, raw } = d1();
+  const blob = new Uint8Array(8);
+  raw.prepare("INSERT INTO verses (ref, work, chapter, verse, sanskrit, iast, translation, translator, source, embedding, translation_hi) VALUES ('BG 2.47', 'Bhagavad Gita', 2, 47, 'कर्मण्येवाधिकारस्ते', 'karmaṇy', 'Thy right is to work only.', 'Swami Sivananda', 's', ?, 'तुम्हारा अधिकार केवल कर्म में है।')").run(blob);
+  raw.prepare("INSERT INTO verses (ref, work, chapter, verse, sanskrit, iast, translation, translator, source, embedding) VALUES ('BG 2.48', 'Bhagavad Gita', 2, 48, 'योगस्थः', 'yogasthaḥ', 'Perform action, steadfast in yoga.', 'Swami Sivananda', 's', ?)").run(blob);
+  for (const [kind, key, lang, title] of [['graha', 'sun', 'en', 'Surya (Sun)'], ['graha', 'sun', 'hi', 'सूर्य'], ['graha', 'moon', 'en', 'Chandra (Moon)']]) {
+    raw.prepare('INSERT INTO meanings (kind, key, lang, title, body) VALUES (?, ?, ?, ?, ?)').run(kind, key, lang, title, `${title} body`);
+  }
+  raw.prepare(`INSERT INTO herbs (key, name, english, botanical, family, synonyms, parts, rasa, guna, virya, vipaka, pacify, aggravate, description, caution, link, name_hi) VALUES ('tulsi', 'Tulsi', 'Holy Basil', 'Ocimum sanctum', 'L', '[]', '[]', '[]', '[]', 'Ushna', 'Katu', '[]', '[]', 'English card', 0, 'x', 'तुलसी')`).run();
+  raw.prepare("INSERT INTO meanings (kind, key, lang, title, body) VALUES ('herb', 'tulsi', 'hi', 'तुलसी', 'हिंदी कार्ड')").run();
+
+  const en = new D1Library(db);
+  const hi = en.inLang('hi');
+  assert.equal((await en.verse(2, 47))?.translation, 'Thy right is to work only.');
+  assert.deepEqual(await hi.verse(2, 47).then((v) => [v?.translation, v?.translator]), ['तुम्हारा अधिकार केवल कर्म में है।', HINDI_TRANSLATOR]);
+  assert.equal((await hi.verses(['BG 2.48']))[0].translation, 'Perform action, steadfast in yoga.', 'not yet translated: English');
+  const titles = async (lib: D1Library) => (await lib.meanings(['graha/sun', 'graha/moon'])).map((m) => m.title).sort();
+  assert.deepEqual(await titles(en), ['Chandra (Moon)', 'Surya (Sun)']);
+  assert.deepEqual(await titles(hi), ['Chandra (Moon)', 'सूर्य']);
+
+  const herb = await new D1Ayurveda(db).inLang('hi').herb('tulsi');
+  assert.deepEqual([herb?.name, herb?.description], ['तुलसी (Tulsi)', 'हिंदी कार्ड']);
+  assert.equal((await new D1Ayurveda(db).herb('tulsi'))?.name, 'Tulsi');
 });

@@ -84,6 +84,28 @@ export const MOON_VIBE_HI = [
   'करीबी रिश्तों में भी आपको खुद जैसा रहने की जगह चाहिए।',
   'आप हर कमरे का मूड अपने अंदर समा लेते हैं।',
 ];
+export const RISING_VIBE_HI = [
+  'पहली छाप: बेबाक, सीधे, हमेशा तैयार।',
+  'पहली छाप: शांत, ज़मीन से जुड़े, भरोसेमंद।',
+  'पहली छाप: बातूनी, हाज़िरजवाब, जिज्ञासु।',
+  'पहली छाप: परवाह करने वाले, नरम, थोड़े संकोची।',
+  'पहली छाप: आत्मविश्वासी और नज़र से न छूटने वाले।',
+  'पहली छाप: सलीकेदार, तेज़, व्यवस्थित।',
+  'पहली छाप: आकर्षक और जिनके साथ रहना आसान है।',
+  'पहली छाप: चुंबकीय और थोड़े रहस्यमय।',
+  'पहली छाप: खुले दिल के, मज़ाकिया, हर चीज़ के लिए तैयार।',
+  'पहली छाप: गंभीर, काबिल, उम्र से ज़्यादा परिपक्व।',
+  'पहली छाप: दोस्ताना, अनोखे, मौलिक।',
+  'पहली छाप: नरम, सपनों में खोए, दयालु।',
+];
+
+/** The zodiac card in Hindi: Hindi sign names (English in brackets) and the Hindi lines. */
+export function zodiacHi<T extends { sign: string; lon: number; vibe: string }>(p: T, kind: 'sun' | 'moon' | 'rising'): T {
+  const i = Math.floor((((p.lon % 360) + 360) % 360) / 30);
+  const vibe = (kind === 'sun' ? SUN_VIBE_HI : kind === 'moon' ? MOON_VIBE_HI : RISING_VIBE_HI)[i];
+  return { ...p, sign: `${SIGNS_HI[i]} (${p.sign})`, vibe };
+}
+
 export const SUN_VIBE_HINGLISH = [
   'Main-character energy: aap shuruaat karte ho aur sabse pehle move karte ho.',
   'Steady, loyal aur life ki achhi cheezon ke shaukeen.',

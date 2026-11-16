@@ -66,6 +66,8 @@ export const vikritiBlock = (v: Vikriti, prakriti: Prakriti | null): Block => ({
 });
 
 export interface Ayurveda {
+  /** The same store, with Hindi herb names and cards where there are some. */
+  inLang?(lang: string): Ayurveda;
   herb(key: string): Promise<Herb | null>;
   herbs(keys: string[]): Promise<Herb[]>;
   /** Herbs matching a filter, and how many match in all. */
@@ -147,6 +149,8 @@ type HerbRow = {
   link: string;
 };
 const HERB_COLS = 'key, name, english, botanical, rasa, guna, virya, vipaka, pacify, aggravate, parts, synonyms, description, caution, link';
+/** In Hindi: the Devanagari name first, and the Hindi herb card as the description where there is one. */
+const HERB_COLS_HI = `herbs.key, CASE WHEN herbs.name_hi IS NOT NULL THEN herbs.name_hi || ' (' || herbs.name || ')' ELSE herbs.name END AS name, english, botanical, rasa, guna, virya, vipaka, pacify, aggravate, parts, synonyms, COALESCE((SELECT body FROM meanings m WHERE m.kind = 'herb' AND m.key = herbs.key AND m.lang = 'hi'), description) AS description, caution, link`;
 const toHerb = (r: HerbRow): Herb => ({
   ...r,
   rasa: JSON.parse(r.rasa),
@@ -160,16 +164,21 @@ const toHerb = (r: HerbRow): Herb => ({
 
 export class D1Ayurveda implements Ayurveda {
   private readonly db: D1Database;
-  constructor(db: D1Database) {
+  private readonly cols: string;
+  constructor(db: D1Database, lang = 'en') {
     this.db = db;
+    this.cols = lang === 'hi' ? HERB_COLS_HI : HERB_COLS;
+  }
+  inLang(lang: string) {
+    return new D1Ayurveda(this.db, lang);
   }
   async herb(key: string) {
-    const r = await this.db.prepare(`SELECT ${HERB_COLS} FROM herbs WHERE key = ?`).bind(key).first<HerbRow>();
+    const r = await this.db.prepare(`SELECT ${this.cols} FROM herbs WHERE key = ?`).bind(key).first<HerbRow>();
     return r ? toHerb(r) : null;
   }
   async herbs(keys: string[]) {
     if (!keys.length) return [];
-    const { results } = await this.db.prepare(`SELECT ${HERB_COLS} FROM herbs WHERE key IN (${keys.map(() => '?').join(',')})`).bind(...keys).all<HerbRow>();
+    const { results } = await this.db.prepare(`SELECT ${this.cols} FROM herbs WHERE key IN (${keys.map(() => '?').join(',')})`).bind(...keys).all<HerbRow>();
     return keys.map((k) => results.find((r) => r.key === k)).filter((r): r is HerbRow => !!r).map(toHerb);
   }
   async findHerbs(filter: HerbFilter, limit: number) {
@@ -207,7 +216,7 @@ export class D1Ayurveda implements Ayurveda {
     const suits = filter.dosha && filter.effect === 'pacify' ? SUITS[filter.dosha] : '';
     const [{ results }, total] = await Promise.all([
       this.db
-        .prepare(`SELECT ${HERB_COLS} FROM herbs WHERE ${clause} ORDER BY (virya = ?) DESC, json_array_length(pacify) ASC, name LIMIT ?`)
+        .prepare(`SELECT ${this.cols} FROM herbs WHERE ${clause} ORDER BY (virya = ?) DESC, json_array_length(pacify) ASC, name LIMIT ?`)
         .bind(...binds, suits, limit)
         .all<HerbRow>(),
       this.db.prepare(`SELECT COUNT(*) AS n FROM herbs WHERE ${clause}`).bind(...binds).first<{ n: number }>(),

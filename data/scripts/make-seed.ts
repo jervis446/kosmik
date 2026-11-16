@@ -8,6 +8,8 @@
 import type { Herb } from './build-herbs.ts';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
+import { hindiLines } from './make-seed-hi.ts';
+
 type Verse = { ref: string; work: string; chapter: number; verse: number; sanskrit: string; iast: string; translation: string; translator: string; translationAlt: string; translatorAlt: string };
 type Meaning = { kind: string; key: string; lang: string; title: string; body: string; reviewed: boolean };
 
@@ -56,6 +58,8 @@ function main() {
       ].join(', ')});`,
     );
   }
+  // The Hindi library (translate-hi.ts) on top of the English one.
+  lines.push(...hindiLines());
   mkdirSync(new URL('../api/seed/', root), { recursive: true });
   writeFileSync(new URL('../api/seed/library.sql', root), lines.join('\n') + '\n');
   console.log(`Seed: ${verses.length} verses, ${meanings.length} meanings, ${herbs.length} herbs (${Object.keys(meaningVectors).length} with embeddings)`);

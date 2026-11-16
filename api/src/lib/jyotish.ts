@@ -18,6 +18,15 @@ const rName = (i: number) => `${RASHIS[i].name} (${RASHIS[i].english})`;
 /** "12 March 2027" */
 export const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
 
+const MONTHS_HI = ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'];
+/** "12 मार्च 2027", in India time. */
+export const fmtDateHi = (d: Date) => {
+  const ist = new Date(+d + 330 * 60_000);
+  return `${ist.getUTCDate()} ${MONTHS_HI[ist.getUTCMonth()]} ${ist.getUTCFullYear()}`;
+};
+/** The Devanagari name of a graha, rashi or nakshatra: the first alias written in Devanagari. */
+export const devanagari = (x: { name: string; aliases: string[] }) => x.aliases.find((a) => /[ऀ-ॿ]/.test(a)) ?? x.name;
+
 // ---------------------------------------------------------------- Vimshottari dasha
 
 export const DASHA_ORDER: [string, number][] = [
@@ -263,8 +272,13 @@ export function deepChart(chart: Chart, now: Date, name?: string | null): string
 }
 
 /** A one-line summary of the running dasha, for the chart card. */
-export function dashaLine(chart: Chart, now: Date): string | null {
+export function dashaLine(chart: Chart, now: Date, lang = 'en'): string | null {
   const moon = chart.grahas.find((p) => p.graha === 'moon')!;
   const c = vimshottari(moon.lon, chart.born, now).current;
-  return c ? `${gName(c.maha.lord)}–${gName(c.antar.lord)} until ${fmtDate(c.antar.end)}` : null;
+  if (!c) return null;
+  if (lang === 'hi') {
+    const hi = (k: string) => devanagari(GRAHAS.find((g) => g.key === k)!);
+    return `${hi(c.maha.lord)}–${hi(c.antar.lord)}, ${fmtDateHi(c.antar.end)} तक`;
+  }
+  return `${gName(c.maha.lord)}–${gName(c.antar.lord)} until ${fmtDate(c.antar.end)}`;
 }
