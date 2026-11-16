@@ -92,3 +92,22 @@ test('palm: "is_palm" without readable lines counts as not a palm; junk is rejec
   assert.equal(parsePalm('no json here'), null);
   assert.equal(parsePalm('{"is_palm":true,"overview":"","lines":[]}'), null);
 });
+
+test('a reply in the wrong language is asked for again, with the language repeated at the end', async () => {
+  const english = 'Patience in the Gita means staying steady through both pleasure and pain, doing your duty without clinging to the result.';
+  const hindi = 'गीता में धैर्य का अर्थ है सुख और दुख दोनों में स्थिर रहना, और फल की चिंता किए बिना अपना कर्तव्य करना।';
+  let n = 0;
+  const calls = fakeFetch(() => ({ json: { choices: [{ message: { content: JSON.stringify({ answer: n++ === 0 ? english : hindi, cited: [], follow_ups: [] }) } }] } }));
+  const g = await new GeminiAi({ apiKey: 'k' }).answer('What does the Gita say about patience?', 'hi', sources);
+  assert.equal(g.answer, hindi);
+  assert.equal(calls.length, 2);
+  const user = (c: Call) => String((c.body.messages as { content: string }[])[1].content);
+  assert.match(user(calls[0]), /LANGUAGE: Reply in Hindi, in Devanagari script\.[^\n]*$/);
+  assert.match(user(calls[1]), /previous reply was in the wrong language/);
+});
+
+test('a reply already in the right language is not asked for twice', async () => {
+  const calls = fakeFetch(() => ({ json: { choices: [{ message: { content: JSON.stringify({ answer: 'Gita mein dhairya ka matlab hai sukh aur dukh dono mein steady rehna, aur result ki chinta kiye bina apna kaam karna.', cited: [], follow_ups: [] }) } }] } }));
+  await new GeminiAi({ apiKey: 'k' }).answer('Gita patience ke baare mein kya kehti hai?', 'hinglish', sources);
+  assert.equal(calls.length, 1);
+});

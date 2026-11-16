@@ -54,6 +54,65 @@ const RISING_VIBE = [
   'First impression: soft, dreamy, kind.',
 ];
 
+/** The same lines in Hindi and Hinglish, sign by sign. */
+export const SIGNS_HI = ['मेष', 'वृषभ', 'मिथुन', 'कर्क', 'सिंह', 'कन्या', 'तुला', 'वृश्चिक', 'धनु', 'मकर', 'कुंभ', 'मीन'];
+export const SUN_VIBE_HI = [
+  'मेन-कैरेक्टर एनर्जी: आप शुरुआत करते हैं और सबसे पहले कदम उठाते हैं।',
+  'स्थिर, वफ़ादार और ज़िंदगी की अच्छी चीज़ों के शौकीन।',
+  'जिज्ञासु, तेज़ और एक साथ तीन बातचीत में।',
+  'दिल नरम, बाहर से मज़बूत; आपके अपने ही आपकी दुनिया हैं।',
+  'गर्मजोशी भरे, दिलदार और सबकी नज़रों में रहने के लिए बने।',
+  'बारीकी वाला दिमाग़: आप सुधारते हैं और चुपचाप टीम संभालते हैं।',
+  'आकर्षण, अच्छा टेस्ट और हर चीज़ में न्याय की चाह।',
+  'गहरे, निजी और जिसकी परवाह करें उसके लिए पूरी तरह समर्पित।',
+  'आज़ाद रूह, बड़े सवाल और उससे भी बड़े प्लान।',
+  'लंबी रेस के खिलाड़ी: महत्वाकांक्षी, धैर्यवान, टिकाऊ।',
+  'मौलिक सोच वाले, जो हर काम अपने तरीके से करते हैं।',
+  'सपनों में खोए, अंतर्ज्ञानी और जितना दिखाते हैं उससे ज़्यादा दयालु।',
+];
+export const MOON_VIBE_HI = [
+  'आप जल्दी महसूस करते हैं, जल्दी भड़कते हैं और फिर आगे बढ़ जाते हैं।',
+  'सुरक्षित महसूस करने के लिए आपको सुकून, आराम और रूटीन चाहिए।',
+  'आप अपनी भावनाएँ बात करके सुलझाते हैं।',
+  'आप हर चीज़ गहराई से महसूस करते हैं और आपको एक नरम सहारा चाहिए।',
+  'आपको सराहना चाहिए; अपनापन ही आपको भरता है।',
+  'आप चीज़ें व्यवस्थित करके और सुधारकर शांत होते हैं।',
+  'आपको सामंजस्य चाहिए; झगड़ा आपको थका देता है।',
+  'आपकी भावनाएँ गहरी हैं और आप उन्हें संभालकर रखते हैं।',
+  'आपको स्पेस और आगे देखने के लिए कुछ नया चाहिए।',
+  'आप भावनाओं को काबू में रखते हैं और ढाँचे पर भरोसा करते हैं।',
+  'करीबी रिश्तों में भी आपको खुद जैसा रहने की जगह चाहिए।',
+  'आप हर कमरे का मूड अपने अंदर समा लेते हैं।',
+];
+export const SUN_VIBE_HINGLISH = [
+  'Main-character energy: aap shuruaat karte ho aur sabse pehle move karte ho.',
+  'Steady, loyal aur life ki achhi cheezon ke shaukeen.',
+  'Curious, quick aur ek saath teen conversations mein.',
+  'Dil soft, bahar se strong; aapke apne hi aapki duniya hain.',
+  'Warm, dildaar aur sabki nazron mein rehne ke liye bane.',
+  'Detail-brain: aap fix karte ho aur chupchaap team sambhalte ho.',
+  'Charm, achha taste aur har cheez mein fairness ki chaah.',
+  'Deep, private aur jiski care karo uske liye all-in.',
+  'Free spirit, bade sawaal aur usse bhi bade plans.',
+  'Long-game player: ambitious, patient aur tikau.',
+  'Original thinker jo har kaam apne tareeke se karta hai.',
+  'Dreamy, intuitive aur jitna dikhate ho usse zyada kind.',
+];
+export const MOON_VIBE_HINGLISH = [
+  'Aap jaldi feel karte ho, jaldi bhadakte ho, phir move on kar lete ho.',
+  'Safe feel karne ke liye aapko sukoon, comfort aur routine chahiye.',
+  'Aap feelings baat karke process karte ho.',
+  'Aap sab kuch deeply feel karte ho aur ek soft sahara chahiye.',
+  'Aapko appreciation chahiye; apnapan hi aapka cup bharta hai.',
+  'Aap cheezein sort aur fix karke calm hote ho.',
+  'Aapko harmony chahiye; jhagda aapko drain karta hai.',
+  'Aapki feelings gehri hain aur aap unhe sambhal kar rakhte ho.',
+  'Aapko space aur aage dekhne ke liye kuch naya chahiye.',
+  'Aap feelings control mein rakhte ho aur structure pe bharosa karte ho.',
+  'Closeness mein bhi aapko khud jaisa rehne ki jagah chahiye.',
+  'Aap har room ka mood apne andar le lete ho.',
+];
+
 const norm = (x: number) => ((x % 360) + 360) % 360;
 /** "23°41′ Scorpio" */
 export const degreeText = (lon: number) => {

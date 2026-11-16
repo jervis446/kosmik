@@ -1,5 +1,5 @@
 /** Gemini: question embeddings and answers grounded in retrieved sources (RAG). */
-import type { Lang } from './lib/text.ts';
+import { inLang, type Lang } from './lib/text.ts';
 import type { Meaning, Verse } from './types.ts';
 
 /** Multilingual, so Hindi and Hinglish questions find English passages. The library vectors must use the same model and size. */
@@ -92,6 +92,21 @@ export function parsePalm(output: unknown): PalmReading | null {
         .map((l) => ({ name: l.name.trim().slice(0, 40), reading: l.reading.trim() }))
     : [];
   return { isPalm: obj.is_palm === true && lines.length > 0, overview: obj.overview.trim(), lines };
+}
+
+/** Repeated at the end of every request: the long English facts above can pull the model into English. */
+const LANGUAGE_END = (lang: Lang, retry: boolean) =>
+  `\n\nLANGUAGE: ${LANGUAGE[lang]} Write every text field (answer, readings, lists, follow-up questions) in this language, even though the facts and sources above are in English. Keep Sanskrit shlokas, names and technical terms as they are.${
+    retry ? ' Your previous reply was in the wrong language: this time follow the LANGUAGE line exactly.' : ''
+  }`;
+
+/** Runs a request; if the reply comes back in the wrong language, asks once more and keeps the better one. */
+async function inLanguage<T>(lang: Lang, run: (end: string) => Promise<T>, text: (r: T) => string): Promise<T> {
+  const first = await run(LANGUAGE_END(lang, false));
+  if (inLang(text(first), lang)) return first;
+  console.warn('reply in the wrong language, asking again', lang);
+  const second = await run(LANGUAGE_END(lang, true)).catch(() => first);
+  return inLang(text(second), lang) ? second : first;
 }
 
 const LANGUAGE: Record<Lang, string> = {
@@ -350,10 +365,14 @@ export class GeminiAi implements AiClient {
     return v;
   }
 
-  async answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter = false, facts?: string, conversation?: string): Promise<Grounded> {
+  answer(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter = false, facts?: string, conversation?: string): Promise<Grounded> {
+    return inLanguage(lang, (end) => this.answerOnce(question, lang, sources, stricter, end, facts, conversation), (g) => [g.answer, ...(g.followUps ?? [])].join(' '));
+  }
+
+  private async answerOnce(question: string, lang: Lang, sources: { verses: Verse[]; meanings: Meaning[] }, stricter: boolean, end: string, facts?: string, conversation?: string): Promise<Grounded> {
     const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}${facts ? `${facts}\n\n` : ''}SOURCES:\n${buildSources(sources.verses, sources.meanings)}\n\nQUESTION: ${question}${
       stricter ? '\n\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''
-    }`;
+    }${end}`;
     const chart = facts?.startsWith('CHART') ?? false;
     const out = (await this.post('/chat/completions', {
       model: this.model,
@@ -371,8 +390,12 @@ export class GeminiAi implements AiClient {
     return parsed;
   }
 
-  async ayurveda(question: string, lang: Lang, context: string, conversation?: string): Promise<AyurConsult> {
-    const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}${context}\n\nMESSAGE: ${question}`;
+  ayurveda(question: string, lang: Lang, context: string, conversation?: string): Promise<AyurConsult> {
+    return inLanguage(lang, (end) => this.ayurvedaOnce(question, lang, context, end, conversation), (c) => [c.reply, ...c.favour, ...c.avoid, ...c.lifestyle].join(' '));
+  }
+
+  private async ayurvedaOnce(question: string, lang: Lang, context: string, end: string, conversation?: string): Promise<AyurConsult> {
+    const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}${context}\n\nMESSAGE: ${question}${end}`;
     const out = (await this.post('/chat/completions', {
       model: this.model,
       messages: [
@@ -389,9 +412,13 @@ export class GeminiAi implements AiClient {
     return parsed;
   }
 
-  async tarot(question: string, lang: Lang, cards: { name: string; reversed: boolean; position: string; meaning: string }[], context: string, conversation?: string): Promise<TarotReading> {
+  tarot(question: string, lang: Lang, cards: { name: string; reversed: boolean; position: string; meaning: string }[], context: string, conversation?: string): Promise<TarotReading> {
+    return inLanguage(lang, (end) => this.tarotOnce(question, lang, cards, context, end, conversation), (r) => [r.answer, ...r.readings, r.advice].join(' '));
+  }
+
+  private async tarotOnce(question: string, lang: Lang, cards: { name: string; reversed: boolean; position: string; meaning: string }[], context: string, end: string, conversation?: string): Promise<TarotReading> {
     const drawn = cards.map((c, i) => `${i + 1}. ${c.position}: ${c.name}${c.reversed ? ' (reversed)' : ' (upright)'}. Library meaning: ${c.meaning}`).join('\n');
-    const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}${context ? `${context}\n\n` : ''}CARDS PICKED:\n${drawn}\n\nQUESTION: ${question}`;
+    const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}${context ? `${context}\n\n` : ''}CARDS PICKED:\n${drawn}\n\nQUESTION: ${question}${end}`;
     const out = (await this.post('/chat/completions', {
       model: this.model,
       messages: [
@@ -429,8 +456,12 @@ export class GeminiAi implements AiClient {
     return parseStandalone(out.choices?.[0]?.message?.content, question);
   }
 
-  async readPalm(images: PalmImage[], lang: Lang, opts: { question?: string; stricter?: boolean } = {}): Promise<PalmReading> {
-    const intro = `${LANGUAGE[lang]}${opts.question ? `\nThe person asks: ${opts.question}` : ''}${opts.stricter ? '\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''}`;
+  readPalm(images: PalmImage[], lang: Lang, opts: { question?: string; stricter?: boolean } = {}): Promise<PalmReading> {
+    return inLanguage(lang, (end) => this.readPalmOnce(images, lang, opts, end), (r) => (r.isPalm ? [r.overview, ...r.lines.map((l) => l.reading)].join(' ') : ''));
+  }
+
+  private async readPalmOnce(images: PalmImage[], lang: Lang, opts: { question?: string; stricter?: boolean }, end: string): Promise<PalmReading> {
+    const intro = `${LANGUAGE[lang]}${opts.question ? `\nThe person asks: ${opts.question}` : ''}${opts.stricter ? '\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''}${end}`;
     const out = (await this.post('/chat/completions', {
       model: this.model,
       messages: [

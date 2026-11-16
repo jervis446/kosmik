@@ -141,3 +141,17 @@ test('language asked for by name wins; stray number runs are cleaned from answer
   assert.equal(cleanAnswer('Gussa control karna zaroori hai. 1 2 3\n\nAgla para. 01.12.2026'), 'Gussa control karna zaroori hai.\n\nAgla para.');
   assert.equal(cleanAnswer('The Gita (2.47) says act without attachment.'), 'The Gita (2.47) says act without attachment.');
 });
+
+test('inLang: Hindi needs Devanagari, English and Hinglish need Latin, short text always passes', async () => {
+  const { inLang } = await import('../src/lib/text.ts');
+  const en = 'Your Sun sits in the eleventh house, which supports gains through friends and networks this year.';
+  const hi = 'आपका सूर्य ग्यारहवें भाव में है, जो इस साल दोस्तों और नेटवर्क से लाभ दिलाता है।';
+  const hinglish = 'Aapka Sun 11th house mein hai, jo is saal dosto aur network se gains dilata hai, isliye networking pe dhyan dijiye.';
+  assert.equal(inLang(en, 'en'), true);
+  assert.equal(inLang(en, 'hi'), false);
+  assert.equal(inLang(hi, 'hi'), true);
+  assert.equal(inLang(hi, 'en'), false);
+  assert.equal(inLang(hinglish, 'hinglish'), true);
+  assert.equal(inLang(en, 'hinglish'), false);
+  assert.equal(inLang('OK', 'hi'), true);
+});

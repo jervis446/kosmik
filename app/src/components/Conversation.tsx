@@ -21,6 +21,7 @@ import {
   type Layer,
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useAnswerLang } from "../lib/lang";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { Blocks } from "./Blocks";
@@ -47,6 +48,29 @@ const LANGS: { key: Lang | undefined; label: string }[] = [
   { key: "hi", label: "हिंदी" },
   { key: "hinglish", label: "Hinglish" },
 ];
+
+/** The layer label in the answer's own language: Hindi when the answer is in Devanagari. */
+const LAYER_LABEL_HI: Partial<Record<Layer, string>> = {
+  direct: "लाइब्रेरी से",
+  exact: "पहले दिया गया जवाब",
+  semantic: "पहले दिया गया जवाब",
+  ai: "आपके लिए लिखा, Kosmik ने",
+};
+const LAYER_LABEL_HINGLISH: Partial<Record<Layer, string>> = {
+  direct: "Library se",
+  exact: "Pehle diya gaya jawaab",
+  semantic: "Pehle diya gaya jawaab",
+  ai: "Aapke liye likha, Kosmik ne",
+};
+function layerLabel(layer: Layer, blocks: Block[], picked: Lang | undefined): string {
+  if (!LAYER_LABEL[layer]) return "";
+  const text = blocks.map((b) => (b.type === "text" ? b.text : "")).join(" ");
+  const letters = [...text].filter((c) => /\p{L}/u.test(c));
+  const deva = letters.filter((c) => /[\u0900-\u097F]/.test(c)).length;
+  if (letters.length && deva / letters.length > 0.5) return LAYER_LABEL_HI[layer] ?? LAYER_LABEL[layer];
+  if (picked === "hinglish") return LAYER_LABEL_HINGLISH[layer] ?? LAYER_LABEL[layer];
+  return LAYER_LABEL[layer];
+}
 
 const LAYER_LABEL: Record<Layer, string> = {
   direct: "From the library",
@@ -90,7 +114,8 @@ export function Conversation({
   );
   const [input, setInput] = useState("");
   const [inputHeight, setInputHeight] = useState(24);
-  const [lang, setLang] = useState<Lang | undefined>(undefined);
+  const [lang, setLang] = useAnswerLang();
+  const [langOpen, setLangOpen] = useState(false);
   const [busy, setBusy] = useState<"ask" | "palm" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -238,10 +263,6 @@ export function Conversation({
     }
   };
 
-  const cycleLang = () =>
-    setLang(
-      LANGS[(LANGS.findIndex((l) => l.key === lang) + 1) % LANGS.length].key,
-    );
   const langLabel = LANGS.find((l) => l.key === lang)?.label ?? "Auto";
   const canSend = !busy && !!input.trim();
 
@@ -312,13 +333,13 @@ export function Conversation({
                   }
                 />
                 <View style={s.metaRow}>
-                  {t.layer && LAYER_LABEL[t.layer] ? (
+                  {t.layer && layerLabel(t.layer, t.blocks, lang) ? (
                     <Text
                       style={s.meta}
                       testID="layer"
                       accessibilityHint={t.layer}
                     >
-                      {LAYER_LABEL[t.layer]}
+                      {layerLabel(t.layer, t.blocks, lang)}
                     </Text>
                   ) : (
                     <View style={{ flex: 1 }} />
@@ -386,14 +407,36 @@ export function Conversation({
             editable={!busy}
           />
           <View style={s.toolRow}>
-            <Pressable
-              onPress={cycleLang}
-              style={s.langPill}
-              accessibilityRole="button"
-              accessibilityLabel={`Answer language: ${langLabel}. Tap to change.`}
-            >
-              <Text style={s.langText}>{langLabel}</Text>
-            </Pressable>
+            {langOpen ? (
+              <View style={s.langMenu} accessibilityRole="radiogroup" accessibilityLabel="Answer language">
+                {LANGS.map((l) => (
+                  <Pressable
+                    key={l.label}
+                    onPress={() => {
+                      setLang(l.key);
+                      setLangOpen(false);
+                      track(`lang/${l.key ?? "auto"}`);
+                    }}
+                    style={[s.langPill, l.key === lang && s.langOn]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: l.key === lang }}
+                  >
+                    <Text style={[s.langText, l.key === lang && { color: colors.bg }]}>{l.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => setLangOpen(true)}
+                style={s.langPill}
+                accessibilityRole="button"
+                accessibilityLabel={`Answer language: ${langLabel}. Tap to change.`}
+              >
+                <Text style={s.langText}>
+                  {lang ? `Answers in ${langLabel}` : "Auto language"} ▾
+                </Text>
+              </Pressable>
+            )}
             <View style={{ flex: 1 }} />
             <Pressable
               onPress={() => send(input)}
@@ -550,6 +593,8 @@ const styles = (c: Colors) =>
       minHeight: 38,
       justifyContent: "center",
     },
+    langMenu: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    langOn: { backgroundColor: c.text, borderColor: c.text },
     langText: { color: c.text, fontFamily: font.semibold, fontSize: 13 },
     send: {
       width: 40,

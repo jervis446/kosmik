@@ -44,6 +44,22 @@ export function detectLang(text: string): Lang {
   return hits >= 2 || (words.length <= 4 && hits >= 1) ? 'hinglish' : 'en';
 }
 
+/**
+ * Whether a reply is written in the language asked for. Hindi needs mostly Devanagari; English and
+ * Hinglish need mostly Latin letters, and Hinglish also needs a few everyday Hindi words.
+ * Short texts always pass: there is too little to judge.
+ */
+export function inLang(text: string, lang: Lang): boolean {
+  const letters = [...text].filter((c) => /[\p{L}\p{M}]/u.test(c));
+  if (letters.length < 30) return true;
+  const deva = letters.filter((c) => /[ऀ-ॿ]/.test(c)).length / letters.length;
+  if (lang === 'hi') return deva >= 0.5;
+  if (deva > 0.2) return false;
+  if (lang === 'en') return true;
+  const words = normalizeQuestion(text).split(' ');
+  return words.filter((w) => HINGLISH_WORDS.has(w)).length >= Math.min(4, Math.ceil(words.length / 40));
+}
+
 export async function sha256(text: string): Promise<string> {
   const data = new TextEncoder().encode(text);
   const digest = await crypto.subtle.digest('SHA-256', data);

@@ -586,6 +586,17 @@ test('memory: a follow-up that turns out to be about self-harm gets the helpline
   assert.ok(r.blocks.some((b) => b.type === 'notice' && b.kind === 'helpline'));
 });
 
+test('kundli answers in Hindi: the Western lines and the Vedic label are in Hindi too', async () => {
+  const f = new Fakes();
+  f.profile = birth;
+  f.reply = { answer: 'आपकी कुंडली में दसवें भाव का स्वामी मज़बूत है।', cited: [] };
+  const r = await ask(f.deps(), { question: 'What does my kundli say about career?', lang: 'hi', identity: user });
+  const west = r.blocks[0].type === 'text' ? r.blocks[0].text : '';
+  assert.match(west, /^पश्चिमी ज्योतिष: सूर्य . \d+°\d+′ [ऀ-ॿ]+ \(\w+\) · चंद्र/);
+  assert.match(west.split('\n')[1], /^[ऀ-ॿ]/);
+  assert.equal(r.blocks[1].type === 'text' && r.blocks[1].text, 'वैदिक ज्योतिष (आपकी कुंडली): आपकी कुंडली में दसवें भाव का स्वामी मज़बूत है।');
+});
+
 test('answers end with the astrology behind them and questions to ask next', async () => {
   const f = new Fakes();
   f.profile = birth;

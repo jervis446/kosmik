@@ -19,7 +19,7 @@ import { type Profile, type Profiles, toBirth } from './profiles.ts';
 import type { AnswerCache, History, Library, Usage, VectorSearch } from './store.ts';
 import { aggravated, AGNI_LABEL, type Ayurveda, dominant, type Dosha, herbBlock, type HerbFilter, type Prakriti, prakritiBlock, prakritiLabel, type Vikriti, vikritiBlock } from './ayurveda.ts';
 import { rituAt } from './lib/ritu.ts';
-import { describeTropical, zodiac } from './lib/tropical.ts';
+import { describeTropical, MOON_VIBE_HI, MOON_VIBE_HINGLISH, SIGNS, SIGNS_HI, SUN_VIBE_HI, SUN_VIBE_HINGLISH, zodiac } from './lib/tropical.ts';
 import type { AskResult, Block, CacheEntry, Layer, Meaning, Verse } from './types.ts';
 
 export const MAX_QUESTION = 500;
@@ -114,6 +114,7 @@ const T = {
     hi: 'आपकी हथेली पढ़ने के लिए Kosmik को दोनों हथेलियों की फ़ोटो चाहिए। एक बार जोड़ें, फिर हर हस्तरेखा सवाल में काम आएगी। यह सवाल गिना नहीं गया।',
     hinglish: 'Aapki hatheli padhne ke liye Kosmik ko dono hatheliyon ki photo chahiye. Ek baar add kijiye, phir har palm sawaal mein kaam aayegi. Yeh sawaal count nahi hua.',
   },
+  vedicIntro: { en: 'Vedic astrology (your kundli):', hi: 'वैदिक ज्योतिष (आपकी कुंडली):', hinglish: 'Vedic astrology (aapki kundli):' },
   chartIntro: { en: 'From your birth chart:', hi: 'आपकी जन्म कुंडली से:', hinglish: 'Aapki janam kundli se:' },
   palmIntro: { en: 'Your palm, as palmistry reads it:', hi: 'हस्तरेखा शास्त्र के अनुसार आपकी हथेली:', hinglish: 'Hast rekha ke hisaab se aapki hatheli:' },
   palmRetake: {
@@ -678,8 +679,8 @@ export function chartBlock(chart: Chart, now?: Date): Block {
 async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile, conversation: string | undefined, now: number): Promise<Block[]> {
   const chart = calculateChart(toBirth(profile));
   const meanings = await deps.library.meanings(chartSources(chart, question));
-  const western = westernIntro(chart, now);
-  const showWestern = !conversation?.includes('Western astrology:');
+  const western = westernIntro(chart, now, lang);
+  const showWestern = !/Western astrology:|पश्चिमी ज्योतिष:/.test(conversation ?? '');
   const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nWESTERN (tropical). ${showWestern ? 'The app already shows the person this two-line Western summary just above your answer, so do NOT repeat it; write only the Vedic reading from the kundli' : 'Use only if they ask about Western astrology or sun signs'}:\n${describeTropical(chart, new Date(now))}`;
   const open = deps.astroMode === 'open';
   let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts, conversation);
@@ -688,7 +689,7 @@ async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Pr
   const cited = meanings.filter((m) => grounded.cited.includes(`${m.kind}/${m.key}`)).slice(0, 3);
   return [
     ...(showWestern ? [{ type: 'text', text: western } as Block] : []),
-    { type: 'text', text: showWestern ? `Vedic astrology (your kundli): ${grounded.answer}` : grounded.answer },
+    { type: 'text', text: showWestern ? `${T.vedicIntro[lang]} ${grounded.answer}` : grounded.answer },
     ...extras(grounded, (t) => !contentProblems(t, [], { open }).length).filter((b) => b.type === 'behind'),
     chartBlock(chart, new Date(now)),
     ...cited.map((m): Block => ({ type: 'meaning', ...m })),
@@ -696,12 +697,21 @@ async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Pr
   ];
 }
 
-/** Two lines of Western (tropical) astrology, shown before the Vedic reading. */
-export function westernIntro(chart: Parameters<typeof zodiac>[0], now: number): string {
+/** Two lines of Western (tropical) astrology, shown before the Vedic reading, in the chat's language. */
+export function westernIntro(chart: Parameters<typeof zodiac>[0], now: number, lang: Lang = 'en'): string {
   const z = zodiac(chart, new Date(now));
-  const big = [`Sun ${z.sun.glyph} ${z.sun.degree}`, `Moon ${z.moon.glyph} ${z.moon.degree}`, z.rising ? `Rising ${z.rising.glyph} ${z.rising.degree}` : null].filter(Boolean).join(' · ');
-  const vibe = [z.sun.vibe, z.moon.vibe].join(' ');
-  return `Western astrology: ${big}${z.cusp ? ` (born on the ${z.cusp})` : ''}.\n${vibe}`;
+  const sign = (lon: number) => Math.floor((((lon % 360) + 360) % 360) / 30);
+  const deg = (lon: number) => `${Math.floor(lon % 30)}°${String(Math.floor(((lon % 30) % 1) * 60)).padStart(2, '0')}′`;
+  const name = (lon: number) => (lang === 'hi' ? `${SIGNS_HI[sign(lon)]} (${SIGNS[sign(lon)]})` : SIGNS[sign(lon)]);
+  const label = { en: ['Western astrology', 'Sun', 'Moon', 'Rising'], hi: ['पश्चिमी ज्योतिष', 'सूर्य', 'चंद्र', 'लग्न (राइज़िंग)'], hinglish: ['Western astrology', 'Sun', 'Moon', 'Rising'] }[lang];
+  const parts = [
+    `${label[1]} ${z.sun.glyph} ${deg(z.sun.lon)} ${name(z.sun.lon)}`,
+    `${label[2]} ${z.moon.glyph} ${deg(z.moon.lon)} ${name(z.moon.lon)}`,
+    z.rising ? `${label[3]} ${z.rising.glyph} ${deg(z.rising.lon)} ${name(z.rising.lon)}` : null,
+  ].filter(Boolean);
+  const vibe = lang === 'hi' ? [SUN_VIBE_HI[sign(z.sun.lon)], MOON_VIBE_HI[sign(z.moon.lon)]] : lang === 'hinglish' ? [SUN_VIBE_HINGLISH[sign(z.sun.lon)], MOON_VIBE_HINGLISH[sign(z.moon.lon)]] : [z.sun.vibe, z.moon.vibe];
+  const cusp = z.cusp ? (lang === 'hi' ? ` (${z.cusp} पर जन्म)` : ` (born on the ${z.cusp})`) : '';
+  return `${label[0]}: ${parts.join(' · ')}${cusp}${lang === 'hi' ? '।' : '.'}\n${vibe.join(' ')}`;
 }
 
 /** Reads the person's saved palm photos, with their question in mind. */
