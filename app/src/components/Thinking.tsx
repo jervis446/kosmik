@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Animated, Easing, Text, View } from "react-native";
 
 import { font, useTheme } from "../lib/theme";
+import { tr } from "../lib/i18n";
 import { Logo } from "./Logo";
 
 /** A Sanskrit word for the mood, with a GenZ line. */
@@ -90,7 +91,7 @@ export function Thinking({
           </Text>
         </Text>
         <Text style={{ color: colors.muted, fontFamily: font.body, fontSize: 14 }}>
-          {meaning}…
+          {tr(meaning)}…
         </Text>
       </View>
     </View>

@@ -30,6 +30,7 @@ import { Engines } from "./Engines";
 import { Logo } from "./Logo";
 import { Thinking } from "./Thinking";
 import { track } from "../lib/analytics";
+import { tr } from "../lib/i18n";
 
 export type Turn =
   | { id: string; role: "user"; text: string }
@@ -94,7 +95,7 @@ const message = (e: unknown) =>
     ? e.message
     : e instanceof Error
       ? e.message
-      : "Something went wrong. Please try again.";
+      : tr("Something went wrong. Please try again.");
 
 /** The chat: home screen with topics when empty, the thread, and the composer. Mount with a key to reset. */
 export function Conversation({
@@ -178,7 +179,7 @@ export function Conversation({
     const q = text.trim();
     if (!q || busy) return;
     if (q.length > MAX_LEN) {
-      setError(`Please keep your question under ${MAX_LEN} characters.`);
+      setError(tr("Please keep your question under {v0} characters.", { v0: MAX_LEN }));
       return;
     }
     setError(null);
@@ -282,10 +283,9 @@ export function Conversation({
         {turns.length === 0 ? (
           <View style={{ gap: 18, paddingTop: 12 }}>
             <View style={{ gap: 6 }}>
-              <Text style={s.hello}>Namaste. What’s on your mind?</Text>
+              <Text style={s.hello}>{tr("Namaste. What’s on your mind?")}</Text>
               <Text style={s.sub}>
-                Just ask, in English, Hindi or Hinglish. Or hover a card for
-                ideas.
+                {tr("Just ask, in English, Hindi or Hinglish. Or hover a card for ideas.")}
               </Text>
             </View>
             <Engines onAsk={(q) => send(q)} />
@@ -358,7 +358,7 @@ export function Conversation({
                           ]}
                           accessibilityRole="button"
                           accessibilityLabel={
-                            v === 1 ? "Helpful" : "Not helpful"
+                            v === 1 ? tr("Helpful") : tr("Not helpful")
                           }
                           accessibilityState={{ selected: t.feedback === v }}
                         >
@@ -391,7 +391,7 @@ export function Conversation({
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Ask Kosmik anything…"
+            placeholder={tr("Ask Kosmik anything…")}
             placeholderTextColor={colors.muted}
             style={[
               s.input,
@@ -433,7 +433,7 @@ export function Conversation({
                 accessibilityLabel={`Answer language: ${langLabel}. Tap to change.`}
               >
                 <Text style={s.langText}>
-                  {lang ? `Answers in ${langLabel}` : "Auto language"} ▾
+                  {lang ? tr("Answers in {v0}", { v0: langLabel }) : tr("Auto language")} ▾
                 </Text>
               </Pressable>
             )}
@@ -452,11 +452,11 @@ export function Conversation({
         <Text style={s.foot}>
           {remaining !== null ? (
             <Text testID="remaining">
-              {remaining} {session ? "left this week" : "left today"}
-              {session ? " · " : " · Sign in for 11 a week · "}
+              {tr(session ? "{v0} left this week" : "{v0} left today", { v0: remaining })}
+              {session ? " · " : tr(" · Sign in for 11 a week · ")}
             </Text>
           ) : null}
-          For reflection, not medical, legal or financial advice.
+          {tr("For reflection, not medical, legal or financial advice.")}
         </Text>
       </View>
       <DetailsModal

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { type Colors, font, useTheme } from "./theme";
+import { tr } from "./i18n";
 
 const read = () =>
   fetch(`/version.json?t=${Date.now()}`, { cache: "no-store" })
@@ -46,7 +47,7 @@ export function UpdateBanner() {
         style={s.pill}
         accessibilityRole="button"
       >
-        <Text style={s.text}>✦ Kosmik just got better · Refresh</Text>
+        <Text style={s.text}>{tr("✦ Kosmik just got better · Refresh")}</Text>
       </Pressable>
     </View>
   );

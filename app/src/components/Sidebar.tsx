@@ -14,13 +14,14 @@ import { useAuth } from "../lib/auth";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { Logo } from "./Logo";
+import { tr } from "../lib/i18n";
 
 function group(chats: ConversationSummary[], now: number) {
   const day = 24 * 60 * 60 * 1000;
   const buckets: { label: string; items: ConversationSummary[] }[] = [
-    { label: "Today", items: [] },
-    { label: "Previous 7 days", items: [] },
-    { label: "Older", items: [] },
+    { label: tr("Today"), items: [] },
+    { label: tr("Previous 7 days"), items: [] },
+    { label: tr("Older"), items: [] },
   ];
   for (const c of chats) {
     const age = now - c.updatedAt;
@@ -84,7 +85,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
         accessibilityRole="button"
         accessibilityLabel="New chat"
       >
-        <Text style={s.newChatText}>＋ New chat</Text>
+        <Text style={s.newChatText}>{tr("＋ New chat")}</Text>
       </Pressable>
 
       <ScrollView
@@ -98,7 +99,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
             <Text
               style={[s.section, { textTransform: "none", letterSpacing: 0 }]}
             >
-              Your chats will appear here.
+              {tr("Your chats will appear here.")}
             </Text>
           ) : (
             group(shell.chats, now).map((g) => (
@@ -111,7 +112,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
                       style={[s.row, { backgroundColor: colors.surface2 }]}
                     >
                       <Text style={[s.rowText, { flex: 1 }]} numberOfLines={1}>
-                        Delete this chat?
+                        {tr("Delete this chat?")}
                       </Text>
                       <Pressable
                         onPress={() => {
@@ -124,7 +125,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
                         accessibilityRole="button"
                       >
                         <Text style={[s.smallText, { color: colors.danger }]}>
-                          Delete
+                          {tr("Delete")}
                         </Text>
                       </Pressable>
                       <Pressable
@@ -132,7 +133,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
                         style={s.smallBtn}
                         accessibilityRole="button"
                       >
-                        <Text style={s.smallText}>Keep</Text>
+                        <Text style={s.smallText}>{tr("Keep")}</Text>
                       </Pressable>
                     </View>
                   ) : (
@@ -176,7 +177,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
         ) : (
           <View style={s.guestNote}>
             <Text style={s.rowText}>
-              Sign in to save your chats and get 11 free questions a week.
+              {tr("Sign in to save your chats and get 11 free questions a week.")}
             </Text>
           </View>
         )}
@@ -199,7 +200,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
             <Text style={s.rowText} numberOfLines={1}>
               {email}
             </Text>
-            <Text style={s.small}>Account · Upgrade</Text>
+            <Text style={s.small}>{tr("Account · Upgrade")}</Text>
           </View>
         </Pressable>
       ) : (
@@ -216,7 +217,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
           accessibilityLabel="Sign in"
         >
           <Text style={[s.newChatText, { color: colors.onPrimary }]}>
-            Sign in
+            {tr("Sign in")}
           </Text>
         </Pressable>
       )}

@@ -12,9 +12,10 @@ import {
 import { api, ApiError } from "../lib/api";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { track } from "../lib/analytics";
+import { tr } from "../lib/i18n";
 
 const message = (e: unknown) =>
-  e instanceof ApiError ? e.message : "Something went wrong. Please try again.";
+  e instanceof ApiError ? e.message : tr("Something went wrong. Please try again.");
 
 /**
  * Asks for a WhatsApp number once, before the first question. It can't be skipped: one number
@@ -57,11 +58,10 @@ export function PhoneForm({ onDone }: { onDone: (phone: string) => void }) {
     <View style={{ gap: 12 }}>
       <Text style={s.glyph}>✆</Text>
       <Text style={s.title} role="heading">
-        Add your WhatsApp number
+        {tr("Add your WhatsApp number")}
       </Text>
       <Text style={s.small}>
-        Kosmik sends a 6-digit code on WhatsApp. One number per account keeps
-        the free questions fair. We never share it or send marketing.
+        {tr("Kosmik sends a 6-digit code on WhatsApp. One number per account keeps the free questions fair. We never share it or send marketing.")}
       </Text>
 
       {sentTo === null ? (
@@ -95,19 +95,19 @@ export function PhoneForm({ onDone }: { onDone: (phone: string) => void }) {
             {busy ? (
               <ActivityIndicator color={colors.onPrimary} />
             ) : (
-              <Text style={s.primaryText}>Send code on WhatsApp</Text>
+              <Text style={s.primaryText}>{tr("Send code on WhatsApp")}</Text>
             )}
           </Pressable>
         </>
       ) : (
         <>
           <Text style={s.small}>
-            Code sent to {sentTo} on WhatsApp. It may take a minute.
+            {tr("Code sent to {v0} on WhatsApp. It may take a minute.", { v0: sentTo })}
           </Text>
           <TextInput
             value={code}
             onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))}
-            placeholder="6-digit code"
+            placeholder={tr("6-digit code")}
             placeholderTextColor={colors.muted}
             keyboardType="number-pad"
             autoComplete="one-time-code"
@@ -124,7 +124,7 @@ export function PhoneForm({ onDone }: { onDone: (phone: string) => void }) {
             {busy ? (
               <ActivityIndicator color={colors.onPrimary} />
             ) : (
-              <Text style={s.primaryText}>Verify</Text>
+              <Text style={s.primaryText}>{tr("Verify")}</Text>
             )}
           </Pressable>
           <View style={{ flexDirection: "row", gap: 16 }}>
@@ -133,14 +133,14 @@ export function PhoneForm({ onDone }: { onDone: (phone: string) => void }) {
               disabled={busy}
               accessibilityRole="button"
             >
-              <Text style={s.link}>Send again</Text>
+              <Text style={s.link}>{tr("Send again")}</Text>
             </Pressable>
             <Pressable
               onPress={() => setSentTo(null)}
               disabled={busy}
               accessibilityRole="button"
             >
-              <Text style={s.link}>Change number</Text>
+              <Text style={s.link}>{tr("Change number")}</Text>
             </Pressable>
           </View>
         </>
@@ -172,7 +172,7 @@ export function PhoneGate({
           <PhoneForm onDone={onDone} />
           <Pressable onPress={onClose ?? onSignOut} accessibilityRole="button">
             <Text style={[s.small, { textDecorationLine: "underline" }]}>
-              {onClose ? "Not now" : "Sign out"}
+              {onClose ? tr("Not now") : tr("Sign out")}
             </Text>
           </Pressable>
         </View>

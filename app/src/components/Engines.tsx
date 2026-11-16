@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { type Colors, font, useTheme } from "../lib/theme";
+import { tr } from "../lib/i18n";
 import { track } from "../lib/analytics";
 
 type Engine = {
@@ -169,8 +170,8 @@ function EngineCard({
               <Text style={[s.glyph, { color: e.tint }]}>{e.glyph}</Text>
             </View>
             <View style={{ gap: 2 }}>
-              <Text style={s.title}>{e.title}</Text>
-              <Text style={s.tagline}>{e.tagline}</Text>
+              <Text style={s.title}>{tr(e.title)}</Text>
+              <Text style={s.tagline}>{tr(e.tagline)}</Text>
             </View>
           </Pressable>
         </Animated.View>
@@ -185,14 +186,14 @@ function EngineCard({
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Text style={[s.glyphSmall, { color: e.tint }]}>{e.glyph}</Text>
-            <Text style={s.titleSmall}>{e.title}</Text>
+            <Text style={s.titleSmall}>{tr(e.title)}</Text>
           </View>
           <Text style={s.detail} numberOfLines={3}>
-            {e.detail}
+            {tr(e.detail)}
           </Text>
           <View style={s.chips}>
             {e.examples.map((q) => (
-              <Chip key={q} q={q} tint={e.tint} onAsk={onAsk} />
+              <Chip key={q} q={tr(q)} tint={e.tint} onAsk={onAsk} />
             ))}
           </View>
         </Animated.View>

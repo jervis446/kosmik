@@ -22,6 +22,7 @@ import { useAuth } from "../lib/auth";
 import { OPERATOR } from "../lib/legal";
 import { font, useTheme } from "../lib/theme";
 import { Sky } from "../components/Sky";
+import { tr } from "../lib/i18n";
 
 const POLL_MS = 4000;
 const POLL_TRIES = 45; // about 3 minutes; after that the page explains and stops asking
@@ -34,7 +35,7 @@ const date = (ms: number) =>
   });
 const rupees = (paise: number) => `₹${paise / 100}`;
 const message = (e: unknown) =>
-  e instanceof ApiError ? e.message : "Something went wrong. Please try again.";
+  e instanceof ApiError ? e.message : tr("Something went wrong. Please try again.");
 
 /**
  * Buy Premium with UPI through Noha Pay. The gateway sends people back here with ?order=<id>;
@@ -118,7 +119,7 @@ export default function Premium() {
       edges={["top", "bottom"]}
     >
       <Sky />
-      <Header title="Premium" back />
+      <Header title={tr("Premium")} back />
       <ScrollView
         contentContainerStyle={{
           padding: 20,
@@ -142,22 +143,19 @@ export default function Premium() {
             ) : payment.status === "pending" ? (
               <>
                 <Text style={[text, { fontFamily: font.bold }]}>
-                  Waiting for your payment to be confirmed
+                  {tr("Waiting for your payment to be confirmed")}
                 </Text>
                 <Text style={muted}>
-                  Premium switches on by itself as soon as the payment reaches
-                  our bank account, usually within a few minutes. You can close
-                  this page.
+                  {tr("Premium switches on by itself as soon as the payment reaches our bank account, usually within a few minutes. You can close this page.")}
                 </Text>
               </>
             ) : (
               <>
                 <Text style={[text, { fontFamily: font.bold }]}>
-                  This payment wasn’t completed
+                  {tr("This payment wasn’t completed")}
                 </Text>
                 <Text style={muted}>
-                  If money did leave your account, email {OPERATOR.email} with
-                  the UTR and we’ll sort it out.
+                  {tr("If money did leave your account, email {v0} with the UTR and we’ll sort it out.", { v0: OPERATOR.email })}
                 </Text>
               </>
             )}
@@ -173,12 +171,12 @@ export default function Premium() {
             }}
             role="heading"
           >
-            {active ? "You have Premium" : "Unlimited questions"}
+            {active ? tr("You have Premium") : tr("Unlimited questions")}
           </Text>
           <Text style={muted}>
             {active
-              ? `Premium is on until ${date(until!)}. Buying more adds days after that.`
-              : "Starter gives you 11 questions a week. Premium removes the limit for 7 or 30 days. It’s a one-time UPI payment and doesn’t renew on its own."}
+              ? tr("Premium is on until {v0}. Buying more adds days after that.", { v0: date(until!) })
+              : tr("Starter gives you 11 questions a week. Premium removes the limit for 7 or 30 days. It’s a one-time UPI payment and doesn’t renew on its own.")}
           </Text>
         </View>
 
@@ -201,7 +199,7 @@ export default function Premium() {
                   fontSize: 17,
                 }}
               >
-                {p.days} days
+                {tr("{v0} days", { v0: p.days })}
               </Text>
               <Text
                 style={{
@@ -214,7 +212,7 @@ export default function Premium() {
               </Text>
             </View>
             <Text style={muted}>
-              Unlimited questions for {p.days} days. Launch price, GST included.
+              {tr("Unlimited questions for {v0} days. Launch price, GST included.", { v0: p.days })}
             </Text>
             {me.paymentsEnabled && Platform.OS === "web" ? (
               <Pressable
@@ -241,7 +239,7 @@ export default function Premium() {
                       fontSize: 16,
                     }}
                   >
-                    Pay {rupees(p.amountPaise)} with UPI
+                    {tr("Pay {v0} with UPI", { v0: rupees(p.amountPaise) })}
                   </Text>
                 )}
               </Pressable>
@@ -251,12 +249,12 @@ export default function Premium() {
 
         {me && !me.paymentsEnabled ? (
           <Text style={[text, { fontFamily: font.semibold }]} testID="pay-soon">
-            Premium payments open soon.
+            {tr("Premium payments open soon.")}
           </Text>
         ) : null}
         {me?.paymentsEnabled && Platform.OS !== "web" ? (
           <Text style={muted}>
-            Premium can be bought on the Kosmik website.
+            {tr("Premium can be bought on the Kosmik website.")}
           </Text>
         ) : null}
         {error ? (

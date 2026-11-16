@@ -16,6 +16,7 @@ import { useAuth } from "../lib/auth";
 import { authConfigured } from "../lib/supabase";
 import { font, useTheme } from "../lib/theme";
 import { Sky } from "../components/Sky";
+import { tr } from "../lib/i18n";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -123,20 +124,20 @@ export default function SignIn() {
       edges={["top", "bottom"]}
     >
       <Sky />
-      <Header title="Sign in" back />
+      <Header title={tr("Sign in")} back />
       <View style={s.wrap}>
         <Text style={s.h}>
           {step === "email"
-            ? "Sign in with your Asanoha account"
-            : "Check your email"}
+            ? tr("Sign in with your Asanoha account")
+            : tr("Check your email")}
         </Text>
         <Text style={s.p}>
           {step === "email"
-            ? "One account for every Asanoha app. Continue with Google, or we’ll email you a 6-digit code. You get 11 free questions a week and your chats are saved."
-            : `We sent a code to ${email.trim()}. It expires in a few minutes.`}
+            ? tr("One account for every Asanoha app. Continue with Google, or we’ll email you a 6-digit code. You get 11 free questions a week and your chats are saved.")
+            : tr("We sent a code to {v0}. It expires in a few minutes.", { v0: email.trim() })}
         </Text>
         {!authConfigured ? (
-          <Text style={s.error}>Sign-in isn’t set up in this build.</Text>
+          <Text style={s.error}>{tr("Sign-in isn’t set up in this build.")}</Text>
         ) : null}
         {step === "email" && Platform.OS === "web" ? (
           <>
@@ -151,10 +152,10 @@ export default function SignIn() {
               accessibilityLabel="Continue with Google"
             >
               <Text style={s.googleG}>G</Text>
-              <Text style={s.googleText}>Continue with Google</Text>
+              <Text style={s.googleText}>{tr("Continue with Google")}</Text>
             </Pressable>
             <Text style={[s.p, { textAlign: "center" }]}>
-              or use your email
+              {tr("or use your email")}
             </Text>
           </>
         ) : null}
@@ -163,7 +164,7 @@ export default function SignIn() {
             style={s.input}
             value={email}
             onChangeText={setEmail}
-            placeholder="you@example.com"
+            placeholder={tr("you@example.com")}
             placeholderTextColor={colors.muted}
             autoCapitalize="none"
             autoComplete="email"
@@ -204,7 +205,7 @@ export default function SignIn() {
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={s.btnText}>
-              {step === "email" ? "Email me a code" : "Sign in"}
+              {step === "email" ? tr("Email me a code") : tr("Sign in")}
             </Text>
           )}
         </Pressable>
@@ -217,7 +218,7 @@ export default function SignIn() {
             }}
             accessibilityRole="button"
           >
-            <Text style={s.link}>Use a different email</Text>
+            <Text style={s.link}>{tr("Use a different email")}</Text>
           </Pressable>
         ) : null}
       </View>

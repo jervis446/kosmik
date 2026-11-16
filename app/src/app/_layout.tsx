@@ -13,6 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { pageView, reportError, startAnalytics } from "../lib/analytics";
+import { useAnswerLang, useLangReady } from "../lib/lang";
 import { UpdateBanner } from "../lib/updates";
 
 import { AuthProvider } from "../lib/auth";
@@ -21,6 +22,22 @@ import { ThemeProvider, useTheme } from "../lib/theme";
 
 function Shell() {
   const { colors, isDark } = useTheme();
+  // Screen labels follow the answer language: redraw the screens when it changes.
+  const [lang] = useAnswerLang();
+  const langReady = useLangReady();
+  // Letter-spaced small caps break Devanagari apart: in Hindi, turn the spacing off everywhere.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const hi = lang === "hi";
+    document.documentElement.lang = hi ? "hi" : "en";
+    let tag = document.getElementById("kosmik-hi-spacing");
+    if (!tag) {
+      tag = document.createElement("style");
+      tag.id = "kosmik-hi-spacing";
+      tag.textContent = 'html[lang="hi"] * { letter-spacing: 0 !important; }';
+      document.head.appendChild(tag);
+    }
+  }, [lang]);
   const path = usePathname();
   useEffect(() => startAnalytics(), []);
   useEffect(() => pageView(path), [path]);
@@ -28,12 +45,15 @@ function Shell() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style={isDark ? "light" : "dark"} />
       <UpdateBanner />
+      {langReady ? (
       <Stack
+        key={lang === "hi" ? "hi" : "en"}
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: "transparent" },
         }}
       />
+      ) : null}
     </View>
   );
 }

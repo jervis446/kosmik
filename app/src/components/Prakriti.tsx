@@ -10,6 +10,7 @@ import {
 import { api, ApiError, type Prakriti } from "../lib/api";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { track } from "../lib/analytics";
+import { tr } from "../lib/i18n";
 
 type Choice = "v" | "p" | "k";
 
@@ -107,7 +108,7 @@ const QUESTIONS: [string, [string, string, string]][] = [
 const CHOICES: Choice[] = ["v", "p", "k"];
 
 const message = (e: unknown) =>
-  e instanceof ApiError ? e.message : "Something went wrong. Please try again.";
+  e instanceof ApiError ? e.message : tr("Something went wrong. Please try again.");
 
 /** The dosha quiz. Saves the answers; the server works out the prakriti. */
 export function PrakritiQuiz({ onSaved }: { onSaved: (p: Prakriti) => void }) {
@@ -137,7 +138,7 @@ export function PrakritiQuiz({ onSaved }: { onSaved: (p: Prakriti) => void }) {
   return (
     <View style={{ gap: 16 }}>
       <Text style={s.small}>
-        Pick what has been true for most of your life, not just this week.
+        {tr("Pick what has been true for most of your life, not just this week.")}
       </Text>
       {QUESTIONS.map(([q, options], i) => (
         <View
@@ -147,7 +148,7 @@ export function PrakritiQuiz({ onSaved }: { onSaved: (p: Prakriti) => void }) {
           accessibilityLabel={q}
         >
           <Text style={s.label}>
-            {i + 1}. {q}
+            {i + 1}. {tr(q)}
           </Text>
           {options.map((o, j) => {
             const selected = answers[i] === CHOICES[j];
@@ -162,16 +163,14 @@ export function PrakritiQuiz({ onSaved }: { onSaved: (p: Prakriti) => void }) {
                 accessibilityState={{ checked: selected }}
                 accessibilityLabel={o}
               >
-                <Text style={s.optionText}>{o}</Text>
+                <Text style={s.optionText}>{tr(o)}</Text>
               </Pressable>
             );
           })}
         </View>
       ))}
       <Text style={s.small}>
-        Saved to your account so Kosmik can tailor Ayurveda answers. A
-        self-assessment for reflection, not a diagnosis. Delete it any time in
-        Account → My details.
+        {tr("Saved to your account so Kosmik can tailor Ayurveda answers. A self-assessment for reflection, not a diagnosis. Delete it any time in Account → My details.")}
       </Text>
       {error ? <Text style={s.error}>{error}</Text> : null}
       <Pressable
@@ -190,7 +189,7 @@ export function PrakritiQuiz({ onSaved }: { onSaved: (p: Prakriti) => void }) {
           <Text style={s.primaryText}>
             {done < QUESTIONS.length
               ? `${done} of ${QUESTIONS.length} answered`
-              : "Save my prakriti"}
+              : tr("Save my prakriti")}
           </Text>
         )}
       </Pressable>
@@ -222,7 +221,7 @@ export function PrakritiBars({
           <View
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
-            <Text style={s.barLabel}>{label}</Text>
+            <Text style={s.barLabel}>{tr(label)}</Text>
             <Text style={s.barLabel}>{p[d]}%</Text>
           </View>
           <View
@@ -395,7 +394,7 @@ export function VikritiQuiz({ onSaved }: { onSaved: () => void }) {
   return (
     <View style={{ gap: 16 }}>
       <Text style={s.small}>
-        Think only about the last two to four weeks, not your whole life.
+        {tr("Think only about the last two to four weeks, not your whole life.")}
       </Text>
       {VIKRITI_QUESTIONS.map(([q, options], i) => (
         <View
@@ -405,7 +404,7 @@ export function VikritiQuiz({ onSaved }: { onSaved: () => void }) {
           accessibilityLabel={q}
         >
           <Text style={s.label}>
-            {i + 1}. {q}
+            {i + 1}. {tr(q)}
           </Text>
           {options.map((o, j) => {
             const selected = answers[i] === SIGNS[j];
@@ -420,14 +419,14 @@ export function VikritiQuiz({ onSaved }: { onSaved: () => void }) {
                 accessibilityState={{ checked: selected }}
                 accessibilityLabel={o}
               >
-                <Text style={s.optionText}>{o}</Text>
+                <Text style={s.optionText}>{tr(o)}</Text>
               </Pressable>
             );
           })}
         </View>
       ))}
       <Text style={s.small}>
-        Saved to your account. A self-assessment, not a diagnosis.
+        {tr("Saved to your account. A self-assessment, not a diagnosis.")}
       </Text>
       {error ? <Text style={s.error}>{error}</Text> : null}
       <Pressable
@@ -446,7 +445,7 @@ export function VikritiQuiz({ onSaved }: { onSaved: () => void }) {
           <Text style={s.primaryText}>
             {done < VIKRITI_QUESTIONS.length
               ? `${done} of ${VIKRITI_QUESTIONS.length} answered`
-              : "Save my vikriti"}
+              : tr("Save my vikriti")}
           </Text>
         )}
       </Pressable>

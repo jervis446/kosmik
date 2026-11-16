@@ -22,6 +22,7 @@ import {
 import { type Colors, font, useTheme } from "../lib/theme";
 import { Logo } from "./Logo";
 import { PhoneForm } from "./PhoneGate";
+import { tr } from "../lib/i18n";
 
 type Step = "phone" | "about" | "birth" | "snapshot";
 
@@ -43,7 +44,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const message = (e: unknown) =>
   e instanceof ApiError || e instanceof Error
     ? e.message
-    : "Something went wrong. Please try again.";
+    : tr("Something went wrong. Please try again.");
 
 /**
  * The first-run journey after sign-in: WhatsApp number (when required), a little about you,
@@ -91,25 +92,25 @@ export function Onboarding({
   const HEAD: Record<Step, [string, string, string]> = {
     phone: [
       "Verify",
-      "Your WhatsApp number",
+      tr("Your WhatsApp number"),
       "A 6-digit code keeps one free account per person.",
     ],
     about: [
-      "About you",
+      tr("About you"),
       "A little about you",
-      "So Kosmik knows how to talk to you.",
+      tr("So Kosmik knows how to talk to you."),
     ],
     birth: [
-      "Birth details",
-      "Your birth details",
-      "Your chart is drawn from the exact moment and place you were born.",
+      tr("Birth details"),
+      tr("Your birth details"),
+      tr("Your chart is drawn from the exact moment and place you were born."),
     ],
     snapshot: [
       "Snapshot",
-      "Your cosmic snapshot",
+      tr("Your cosmic snapshot"),
       snap?.name
-        ? `Drawn from the moment you just gave us, ${snap.name}.`
-        : "Drawn from the moment you just gave us.",
+        ? tr("Drawn from the moment you just gave us, {v0}.", { v0: snap.name })
+        : tr("Drawn from the moment you just gave us."),
     ],
   };
   const [label, title, sub] = HEAD[step];
@@ -129,7 +130,7 @@ export function Onboarding({
                 <Text style={s.brand}>Kosmik</Text>
               </View>
               <Text style={s.sideTitle}>
-                {step === "snapshot" ? "Your sky, " : "Read the sky "}
+                {step === "snapshot" ? tr("Your sky, ") : tr("Read the sky ")}
                 <Text style={{ color: colors.highlight }}>
                   {step === "snapshot"
                     ? "now part of every answer"
@@ -138,9 +139,9 @@ export function Onboarding({
               </Text>
               <View style={{ flex: 1 }} />
               {[
-                "Your details stay private to you",
-                "Kosmik remembers every chat",
-                "Gita, tarot and herbs are always free",
+                tr("Your details stay private to you"),
+                tr("Kosmik remembers every chat"),
+                tr("Gita, tarot and herbs are always free"),
               ].map((t) => (
                 <View key={t} style={{ flexDirection: "row", gap: 10 }}>
                   <Text style={{ color: colors.success }}>✓</Text>
@@ -161,7 +162,7 @@ export function Onboarding({
                   onPress={() => setStep(steps[at - 1])}
                   accessibilityRole="button"
                 >
-                  <Text style={s.mono}>← BACK</Text>
+                  <Text style={s.mono}>{tr("← BACK")}</Text>
                 </Pressable>
               ) : (
                 <View />
@@ -182,7 +183,7 @@ export function Onboarding({
               <View style={s.row}>
                 <Text style={s.mono}>{label.toUpperCase()}</Text>
                 <Text style={s.mono}>
-                  STEP {at + 1} OF {steps.length}
+                  {tr("STEP {v0} OF {v1}", { v0: at + 1, v1: steps.length })}
                 </Text>
               </View>
               <View style={{ flexDirection: "row", gap: 6 }}>
@@ -218,11 +219,11 @@ export function Onboarding({
             {step === "about" ? (
               <View style={{ gap: 18 }}>
                 <View style={{ gap: 8 }}>
-                  <Text style={s.mono}>NAME</Text>
+                  <Text style={s.mono}>{tr("NAME")}</Text>
                   <TextInput
                     value={name}
                     onChangeText={setName}
-                    placeholder="What should Kosmik call you?"
+                    placeholder={tr("What should Kosmik call you?")}
                     placeholderTextColor={colors.muted}
                     style={s.input}
                     maxLength={80}
@@ -231,7 +232,7 @@ export function Onboarding({
                   />
                 </View>
                 <View style={{ gap: 8 }}>
-                  <Text style={s.mono}>GENDER</Text>
+                  <Text style={s.mono}>{tr("GENDER")}</Text>
                   <View
                     style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}
                   >
@@ -256,12 +257,12 @@ export function Onboarding({
                   </View>
                 </View>
                 <Primary
-                  label="Continue"
+                  label={tr("Continue")}
                   disabled={!name.trim()}
                   onPress={() => setStep("birth")}
                 />
                 <Text style={[s.mono, { textAlign: "center" }]}>
-                  ● YOU CAN CHANGE THIS LATER
+                  {tr("● YOU CAN CHANGE THIS LATER")}
                 </Text>
               </View>
             ) : null}
@@ -327,19 +328,19 @@ export function Onboarding({
                           flexWrap: "wrap",
                         }}
                       >
-                        <Text style={s.snapTitle}>Your Western big three</Text>
-                        <Text style={s.tag}>TROPICAL</Text>
+                        <Text style={s.snapTitle}>{tr("Your Western big three")}</Text>
+                        <Text style={s.tag}>{tr("TROPICAL")}</Text>
                       </View>
                       <Text style={[s.sub, { color: colors.text }]}>
-                        Sun {snap.western.sun} · Moon {snap.western.moon}
+                        {tr("Sun")} {snap.western.sun} · {tr("Moon")} {snap.western.moon}
                         {snap.western.rising
-                          ? ` · Rising ${snap.western.rising}`
+                          ? ` · ${tr("Rising")} ${snap.western.rising}`
                           : ""}
                       </Text>
                       <Text style={s.sub}>
-                        Next solar return: {snap.western.solarReturn}
+                        {tr("Next solar return")}: {snap.western.solarReturn}
                         {snap.western.cusp
-                          ? ` · born on the ${snap.western.cusp}`
+                          ? tr(" · born on the {v0}", { v0: snap.western.cusp })
                           : ""}
                       </Text>
                     </View>
@@ -354,13 +355,13 @@ export function Onboarding({
                   </Text>
                 ) : null}
                 <Text style={[s.mono, { marginTop: 6 }]}>
-                  YOUR FIRST QUESTION
+                  {tr("YOUR FIRST QUESTION")}
                 </Text>
                 <View style={s.askRow}>
                   <TextInput
                     value={first}
                     onChangeText={setFirst}
-                    placeholder="e.g. Should I switch jobs this year?"
+                    placeholder={tr("e.g. Should I switch jobs this year?")}
                     placeholderTextColor={colors.muted}
                     style={[s.input, { flex: 1, borderWidth: 0 }]}
                     onSubmitEditing={() => first.trim() && onAsk(first.trim())}
@@ -380,7 +381,7 @@ export function Onboarding({
                 </View>
                 <Pressable onPress={onClose} accessibilityRole="button">
                   <Text style={[s.mono, { textAlign: "center" }]}>
-                    MAYBE LATER · TAKE ME IN
+                    {tr("MAYBE LATER · TAKE ME IN")}
                   </Text>
                 </Pressable>
               </View>
@@ -552,7 +553,7 @@ function BirthStep({
     <View style={{ gap: 16 }}>
       <View style={{ flexDirection: "row", gap: 12, flexWrap: "wrap" }}>
         <View style={{ flex: 1, minWidth: 180, gap: 8 }}>
-          <Text style={s.mono}>DATE OF BIRTH</Text>
+          <Text style={s.mono}>{tr("DATE OF BIRTH")}</Text>
           <Pressable
             onPress={() => setOpen(open === "date" ? null : "date")}
             style={[s.input, s.field]}
@@ -560,13 +561,13 @@ function BirthStep({
             accessibilityLabel="Date of birth"
           >
             <Text style={dateText ? s.value : s.placeholder}>
-              {dateText || "Select a date"}
+              {dateText || tr("Select a date")}
             </Text>
             <Text style={s.placeholder}>▦</Text>
           </Pressable>
         </View>
         <View style={{ flex: 1, minWidth: 180, gap: 8 }}>
-          <Text style={s.mono}>TIME OF BIRTH</Text>
+          <Text style={s.mono}>{tr("TIME OF BIRTH")}</Text>
           <Pressable
             onPress={() => !noTime && setOpen(open === "time" ? null : "time")}
             style={[s.input, s.field, noTime && { opacity: 0.5 }]}
@@ -574,7 +575,7 @@ function BirthStep({
             accessibilityLabel="Time of birth"
           >
             <Text style={timeText && !noTime ? s.value : s.placeholder}>
-              {noTime ? "Not known" : timeText || "Select a time"}
+              {noTime ? tr("Not known") : timeText || tr("Select a time")}
             </Text>
             <Text style={s.placeholder}>◷</Text>
           </Pressable>
@@ -585,7 +586,7 @@ function BirthStep({
         <View style={s.picker}>
           <View style={s.row}>
             <Text style={s.mono}>
-              {open === "date" ? "DAY · MONTH · YEAR" : "TIME OF DAY"}
+              {open === "date" ? tr("DAY · MONTH · YEAR") : tr("TIME OF DAY")}
             </Text>
             <Text style={[s.mono, { color: colors.text }]}>
               {open === "date" ? dateText || "--" : timeText || "--:--"}
@@ -594,7 +595,7 @@ function BirthStep({
           {open === "date" ? (
             <View style={{ flexDirection: "row", gap: 6 }}>
               <Column
-                label="Day"
+                label={tr("Day")}
                 value={day}
                 onPick={(v) => setDay(v as number)}
                 items={[...Array(31)].map((_, i) => ({
@@ -603,13 +604,13 @@ function BirthStep({
                 }))}
               />
               <Column
-                label="Month"
+                label={tr("Month")}
                 value={month}
                 onPick={(v) => setMonth(v as number)}
                 items={MONTHS.map((m, i) => ({ v: i + 1, t: m }))}
               />
               <Column
-                label="Year"
+                label={tr("Year")}
                 value={year}
                 onPick={(v) => setYear(v as number)}
                 items={[...Array(thisYear - 1919)].map((_, i) => ({
@@ -621,7 +622,7 @@ function BirthStep({
           ) : (
             <View style={{ flexDirection: "row", gap: 6 }}>
               <Column
-                label="Hour"
+                label={tr("Hour")}
                 value={hour}
                 onPick={(v) => setHour(v as number)}
                 items={[...Array(12)].map((_, i) => ({
@@ -630,13 +631,13 @@ function BirthStep({
                 }))}
               />
               <Column
-                label="Minute"
+                label={tr("Minute")}
                 value={minute}
                 onPick={(v) => setMinute(v as number)}
                 items={[...Array(60)].map((_, i) => ({ v: i, t: pad(i) }))}
               />
               <Column
-                label="AM or PM"
+                label={tr("AM or PM")}
                 value={ampm}
                 onPick={(v) => setAmpm(v as "AM" | "PM")}
                 items={[
@@ -660,14 +661,14 @@ function BirthStep({
               }}
               accessibilityRole="button"
             >
-              <Text style={s.mono}>CLEAR</Text>
+              <Text style={s.mono}>{tr("CLEAR")}</Text>
             </Pressable>
             <Pressable
               onPress={() => setOpen(null)}
               style={s.done}
               accessibilityRole="button"
             >
-              <Text style={[s.mono, { color: colors.onPrimary }]}>DONE</Text>
+              <Text style={[s.mono, { color: colors.onPrimary }]}>{tr("DONE")}</Text>
             </Pressable>
           </View>
         </View>
@@ -688,11 +689,11 @@ function BirthStep({
             },
           ]}
         />
-        <Text style={s.sub}>I don’t know my time of birth</Text>
+        <Text style={s.sub}>{tr("I don’t know my time of birth")}</Text>
       </Pressable>
 
       <View style={{ gap: 8 }}>
-        <Text style={s.mono}>PLACE OF BIRTH</Text>
+        <Text style={s.mono}>{tr("PLACE OF BIRTH")}</Text>
         {place ? (
           <Pressable
             onPress={() => setPlace(null)}
@@ -703,7 +704,7 @@ function BirthStep({
             <Text style={s.value} numberOfLines={1}>
               ⌖ {place.name}
             </Text>
-            <Text style={s.placeholder}>change</Text>
+            <Text style={s.placeholder}>{tr("change")}</Text>
           </Pressable>
         ) : (
           <View style={[s.input, s.field, { paddingRight: 6 }]}>
@@ -711,7 +712,7 @@ function BirthStep({
               value={query}
               onChangeText={setQuery}
               onSubmitEditing={search}
-              placeholder="⌖  City, State, Country"
+              placeholder={tr("⌖  City, State, Country")}
               placeholderTextColor={colors.muted}
               style={
                 {
@@ -731,7 +732,7 @@ function BirthStep({
               accessibilityRole="button"
               accessibilityLabel="Search places"
             >
-              <Text style={[s.mono, { color: colors.onPrimary }]}>SEARCH</Text>
+              <Text style={[s.mono, { color: colors.onPrimary }]}>{tr("SEARCH")}</Text>
             </Pressable>
           </View>
         )}
@@ -755,14 +756,14 @@ function BirthStep({
               ))
             ) : (
               <Text style={[s.sub, { padding: 12 }]}>
-                No places found. Try the nearest city.
+                {tr("No places found. Try the nearest city.")}
               </Text>
             )}
           </View>
         ) : null}
         {place && place.tzOffsetMin === null ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Text style={s.sub}>Time zone at birth:</Text>
+            <Text style={s.sub}>{tr("Time zone at birth:")}</Text>
             <Pressable
               onPress={() => setTz(tz - 30)}
               style={s.step}
@@ -806,8 +807,7 @@ function BirthStep({
           ) : null}
         </View>
         <Text style={[s.sub, { flex: 1 }]}>
-          Kosmik may keep my birth details to read my chart. Only I can see
-          them, and I can delete them any time.
+          {tr("Kosmik may keep my birth details to read my chart. Only I can see them, and I can delete them any time.")}
         </Text>
       </Pressable>
 
@@ -817,13 +817,13 @@ function BirthStep({
         </Text>
       ) : null}
       <Primary
-        label="See my snapshot"
+        label={tr("See my snapshot")}
         onPress={save}
         busy={busy}
         disabled={!dateOk || !timeOk || !place || !consent}
       />
       <Text style={[s.mono, { textAlign: "center" }]}>
-        ● YOU CAN REFINE THESE ANY TIME
+        {tr("● YOU CAN REFINE THESE ANY TIME")}
       </Text>
     </View>
   );

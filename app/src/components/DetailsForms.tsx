@@ -22,13 +22,14 @@ import { pickPalmPhoto } from "../lib/palm";
 import { PrakritiQuiz, VikritiQuiz } from "./Prakriti";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { track } from "../lib/analytics";
+import { tr } from "../lib/i18n";
 
 const message = (e: unknown) =>
   e instanceof ApiError
     ? e.message
     : e instanceof Error
       ? e.message
-      : "Something went wrong. Please try again.";
+      : tr("Something went wrong. Please try again.");
 
 /** "+05:30" style label for minutes east of UTC. */
 export const tzLabel = (min: number) =>
@@ -144,7 +145,7 @@ export function BirthForm({
       setPlaces(r.places);
       if (!r.places.length)
         setError(
-          "No places found. Try the city and state, e.g. “Etawah, Uttar Pradesh”.",
+          tr("No places found. Try the city and state, e.g. “Etawah, Uttar Pradesh”."),
         );
     } catch (e) {
       setError(message(e));
@@ -160,11 +161,11 @@ export function BirthForm({
     const birthTime = noTime ? null : time.trim();
     if (birthTime !== null && !/^([01]?\d|2[0-3]):[0-5]\d$/.test(birthTime))
       return setError(
-        "Enter the birth time as HH:MM in 24-hour time (e.g. 06:45 or 18:30), or tick “I don’t know my birth time”.",
+        tr("Enter the birth time as HH:MM in 24-hour time (e.g. 06:45 or 18:30), or tick “I don’t know my birth time”."),
       );
     if (!place)
       return setError(
-        "Search for your place of birth and choose it from the list.",
+        tr("Search for your place of birth and choose it from the list."),
       );
     if (!consent)
       return setError("Please agree to Kosmik keeping your birth details.");
@@ -191,36 +192,36 @@ export function BirthForm({
   return (
     <View style={{ gap: 14 }}>
       <View style={s.field}>
-        <Text style={s.label}>Name (optional)</Text>
+        <Text style={s.label}>{tr("Name (optional)")}</Text>
         <TextInput
           value={name}
           onChangeText={setName}
           style={s.input}
-          placeholder="As you’d like to be addressed"
+          placeholder={tr("As you’d like to be addressed")}
           placeholderTextColor={colors.muted}
           accessibilityLabel="Name"
         />
       </View>
       <View style={s.field}>
-        <Text style={s.label}>Date of birth</Text>
+        <Text style={s.label}>{tr("Date of birth")}</Text>
         <TextInput
           value={date}
           onChangeText={setDate}
           style={s.input}
-          placeholder="DD/MM/YYYY"
+          placeholder={tr("DD/MM/YYYY")}
           placeholderTextColor={colors.muted}
           inputMode="numeric"
           accessibilityLabel="Date of birth"
         />
       </View>
       <View style={s.field}>
-        <Text style={s.label}>Time of birth</Text>
+        <Text style={s.label}>{tr("Time of birth")}</Text>
         {!noTime ? (
           <TextInput
             value={time}
             onChangeText={setTime}
             style={s.input}
-            placeholder="HH:MM, 24-hour (e.g. 06:45)"
+            placeholder={tr("HH:MM, 24-hour (e.g. 06:45)")}
             placeholderTextColor={colors.muted}
             accessibilityLabel="Time of birth"
           />
@@ -228,11 +229,11 @@ export function BirthForm({
         <Check
           on={noTime}
           onToggle={() => setNoTime((v) => !v)}
-          label="I don’t know my birth time (Kosmik can’t work out your lagna or houses without it)"
+          label={tr("I don’t know my birth time (Kosmik can’t work out your lagna or houses without it)")}
         />
       </View>
       <View style={s.field}>
-        <Text style={s.label}>Place of birth</Text>
+        <Text style={s.label}>{tr("Place of birth")}</Text>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <TextInput
             value={query}
@@ -242,7 +243,7 @@ export function BirthForm({
             }}
             onSubmitEditing={search}
             style={[s.input, { flex: 1 }]}
-            placeholder="City, state"
+            placeholder={tr("City, state")}
             placeholderTextColor={colors.muted}
             accessibilityLabel="Place of birth"
           />
@@ -258,7 +259,7 @@ export function BirthForm({
             {busy === "search" ? (
               <ActivityIndicator color={colors.text} />
             ) : (
-              <Text style={s.secondaryText}>Search</Text>
+              <Text style={s.secondaryText}>{tr("Search")}</Text>
             )}
           </Pressable>
         </View>
@@ -288,8 +289,7 @@ export function BirthForm({
         {place && place.tzOffsetMin === null ? (
           <View style={{ gap: 6 }}>
             <Text style={s.small}>
-              Born outside India: choose the time zone in force there on your
-              birthday.
+              {tr("Born outside India: choose the time zone in force there on your birthday.")}
             </Text>
             <View
               style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
@@ -319,13 +319,13 @@ export function BirthForm({
           </View>
         ) : null}
         <Text style={s.small}>
-          Only the place name is sent to OpenStreetMap to find it.
+          {tr("Only the place name is sent to OpenStreetMap to find it.")}
         </Text>
       </View>
       <Check
         on={consent}
         onToggle={() => setConsent((v) => !v)}
-        label="I agree to Kosmik keeping my birth details to read my chart. I can delete them any time in Account."
+        label={tr("I agree to Kosmik keeping my birth details to read my chart. I can delete them any time in Account.")}
       />
       {error ? (
         <Text style={s.error} accessibilityRole="alert">
@@ -342,7 +342,7 @@ export function BirthForm({
         {busy === "save" ? (
           <ActivityIndicator color={colors.onPrimary} />
         ) : (
-          <Text style={s.primaryText}>Save birth details</Text>
+          <Text style={s.primaryText}>{tr("Save birth details")}</Text>
         )}
       </Pressable>
     </View>
@@ -432,14 +432,13 @@ export function PalmForm({
   return (
     <View style={{ gap: 14 }}>
       <Text style={s.small}>
-        Open hand, palm facing the camera, in good light, with the lines filling
-        most of the photo.
+        {tr("Open hand, palm facing the camera, in good light, with the lines filling most of the photo.")}
       </Text>
       <View style={{ flexDirection: "row", gap: 12, flexWrap: "wrap" }}>
         {(["left", "right"] as Hand[]).map((hand) => (
           <View key={hand} style={s.slot} testID={`palm-slot-${hand}`}>
             <Text style={s.label}>
-              {hand === "left" ? "Left hand" : "Right hand"}
+              {hand === "left" ? tr("Left hand") : tr("Right hand")}
             </Text>
             {saved[hand] === undefined ? (
               <ActivityIndicator color={colors.muted} />
@@ -474,7 +473,7 @@ export function PalmForm({
                   accessibilityRole="button"
                   accessibilityLabel={`Take ${hand} palm photo`}
                 >
-                  <Text style={s.secondaryText}>Camera</Text>
+                  <Text style={s.secondaryText}>{tr("Camera")}</Text>
                 </Pressable>
                 {saved[hand] ? (
                   <Pressable
@@ -484,7 +483,7 @@ export function PalmForm({
                     accessibilityLabel={`Delete ${hand} palm`}
                   >
                     <Text style={[s.secondaryText, { color: colors.danger }]}>
-                      Delete
+                      {tr("Delete")}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -496,7 +495,7 @@ export function PalmForm({
       <Check
         on={consent}
         onToggle={() => setConsent((v) => !v)}
-        label="I agree to Kosmik keeping my palm photos to read them when I ask. I can delete them any time."
+        label={tr("I agree to Kosmik keeping my palm photos to read them when I ask. I can delete them any time.")}
       />
       {error ? (
         <Text style={s.error} accessibilityRole="alert">
@@ -538,12 +537,12 @@ export function DetailsModal({
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Text style={s.sheetTitle} role="heading">
               {shown === "palm"
-                ? "Add your palm photos"
+                ? tr("Add your palm photos")
                 : shown === "prakriti"
-                  ? "Your dosha quiz"
+                  ? tr("Your dosha quiz")
                   : shown === "vikriti"
-                    ? "Your vikriti check"
-                    : "Your birth details"}
+                    ? tr("Your vikriti check")
+                    : tr("Your birth details")}
             </Text>
             <Pressable
               onPress={onClose}
@@ -557,12 +556,12 @@ export function DetailsModal({
           <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 6 }}>
             <Text style={s.small}>
               {shown === "palm"
-                ? "Kosmik reads both hands. Add them once and every palm question uses them."
+                ? tr("Kosmik reads both hands. Add them once and every palm question uses them.")
                 : shown === "prakriti"
-                  ? "Twelve quick questions. Your answers give your prakriti, the mix of Vata, Pitta and Kapha Ayurveda says you were born with."
+                  ? tr("Twelve quick questions. Your answers give your prakriti, the mix of Vata, Pitta and Kapha Ayurveda says you were born with.")
                   : shown === "vikriti"
-                    ? "Ten questions about how you have been lately. They show which dosha is raised right now, and your agni."
-                    : "Kosmik calculates your chart from these. Add them once and every chart question uses them."}
+                    ? tr("Ten questions about how you have been lately. They show which dosha is raised right now, and your agni.")
+                    : tr("Kosmik calculates your chart from these. Add them once and every chart question uses them.")}
             </Text>
             {shown === "prakriti" ? <PrakritiQuiz onSaved={onDone} /> : null}
             {shown === "vikriti" ? <VikritiQuiz onSaved={onDone} /> : null}
@@ -581,8 +580,8 @@ export function DetailsModal({
                 >
                   <Text style={s.primaryText}>
                     {palms.left && palms.right
-                      ? "Read my palms"
-                      : "Continue with one hand"}
+                      ? tr("Read my palms")
+                      : tr("Continue with one hand")}
                   </Text>
                 </Pressable>
               </>

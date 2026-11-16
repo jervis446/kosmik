@@ -5,6 +5,7 @@ import type { Block } from "../lib/api";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { PrakritiBars } from "./Prakriti";
 import { TarotPick, TarotReveal } from "./TarotCards";
+import { tr } from "../lib/i18n";
 
 /** Planets, houses and dates in an answer, picked out in the highlight colour. */
 const MARK =
@@ -58,10 +59,10 @@ function AyurPlan({ b }: { b: Extract<Block, { type: "ayur-plan" }> }) {
   const s = styles(colors);
   return (
     <View style={s.card} testID="ayur-plan">
-      <Text style={s.mono}>AYURVEDA · YOUR PLAN</Text>
+      <Text style={s.mono}>{tr("AYURVEDA · YOUR PLAN")}</Text>
       {b.shloka?.sanskrit ? (
         <View style={[s.sunBox, { gap: 4 }]} testID="ayur-shloka">
-          <Text style={s.mono}>FROM THE SAMHITAS</Text>
+          <Text style={s.mono}>{tr("FROM THE SAMHITAS")}</Text>
           <Text style={{ color: colors.text, fontFamily: font.verse, fontSize: 17, lineHeight: 28 }} selectable>
             {b.shloka.sanskrit}
           </Text>
@@ -75,23 +76,23 @@ function AyurPlan({ b }: { b: Extract<Block, { type: "ayur-plan" }> }) {
       ) : null}
       {b.assessment ? (
         <View style={s.sunBox}>
-          <Text style={s.mono}>ASSESSMENT</Text>
+          <Text style={s.mono}>{tr("ASSESSMENT")}</Text>
           {b.assessment.doshas ? (
             <Text style={[s.body, { fontSize: 15 }]}>
-              <Text style={{ fontFamily: font.semibold }}>Doshas: </Text>
+              <Text style={{ fontFamily: font.semibold }}>{tr("Doshas:")} </Text>
               {b.assessment.doshas}
             </Text>
           ) : null}
           {b.assessment.agni ? (
             <Text style={[s.body, { fontSize: 15 }]}>
-              <Text style={{ fontFamily: font.semibold }}>Agni and ama: </Text>
+              <Text style={{ fontFamily: font.semibold }}>{tr("Agni and ama:")} </Text>
               {b.assessment.agni}
             </Text>
           ) : null}
           {b.assessment.nidana.length ? (
             <Text style={[s.body, { fontSize: 15 }]}>
               <Text style={{ fontFamily: font.semibold }}>
-                Nidana (causes):{" "}
+                {tr("Nidana (causes):")}{" "}
               </Text>
               {b.assessment.nidana.join("; ")}
             </Text>
@@ -106,14 +107,14 @@ function AyurPlan({ b }: { b: Extract<Block, { type: "ayur-plan" }> }) {
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
         <View style={{ flexBasis: 240, flexGrow: 1 }}>
           <PlanList
-            label="FAVOUR (PATHYA)"
+            label={tr("FAVOUR (PATHYA)")}
             items={b.favour}
             dot={colors.success}
           />
         </View>
         <View style={{ flexBasis: 240, flexGrow: 1 }}>
           <PlanList
-            label="AVOID (APATHYA)"
+            label={tr("AVOID (APATHYA)")}
             items={b.avoid}
             dot={colors.danger}
           />
@@ -121,7 +122,7 @@ function AyurPlan({ b }: { b: Extract<Block, { type: "ayur-plan" }> }) {
       </View>
       {b.remedies.length ? (
         <View style={{ gap: 6 }}>
-          <Text style={s.mono}>KITCHEN REMEDIES</Text>
+          <Text style={s.mono}>{tr("KITCHEN REMEDIES")}</Text>
           {b.remedies.map((r) => (
             <View key={r.name} style={{ gap: 2 }}>
               <Text
@@ -143,7 +144,7 @@ function AyurPlan({ b }: { b: Extract<Block, { type: "ayur-plan" }> }) {
       ) : null}
       {b.formulations.length ? (
         <View style={{ gap: 4 }}>
-          <Text style={s.mono}>CLASSICAL FORMULATIONS</Text>
+          <Text style={s.mono}>{tr("CLASSICAL FORMULATIONS")}</Text>
           {b.formulations.map((f) => (
             <View key={f.name} style={s.factRow}>
               <Text
@@ -164,19 +165,19 @@ function AyurPlan({ b }: { b: Extract<Block, { type: "ayur-plan" }> }) {
         </View>
       ) : null}
       <PlanList
-        label="DAILY ROUTINE"
+        label={tr("DAILY ROUTINE")}
         items={b.lifestyle}
         dot={colors.highlight}
       />
       <PlanList
-        label="YOGA AND PRANAYAMA"
+        label={tr("YOGA AND PRANAYAMA")}
         items={b.yoga}
         dot={colors.highlight}
       />
       {b.redFlags.length ? (
         <View style={[s.sunBox, { backgroundColor: "rgba(248,113,113,0.10)" }]}>
           <Text style={[s.mono, { color: colors.danger }]}>
-            SEE A DOCTOR PROMPTLY IF
+            {tr("SEE A DOCTOR PROMPTLY IF")}
           </Text>
           {b.redFlags.map((x) => (
             <Text key={x} style={[s.body, { fontSize: 15 }]}>
@@ -208,9 +209,9 @@ function ZodiacCard({ b }: { b: Extract<Block, { type: "zodiac" }> }) {
   ][];
   return (
     <View style={s.card} testID="zodiac">
-      <Text style={s.mono}>WESTERN · TROPICAL ZODIAC</Text>
+      <Text style={s.mono}>{tr("WESTERN · TROPICAL ZODIAC")}</Text>
       <Text style={s.title}>
-        Your big three:{" "}
+        {tr("Your big three:")}{" "}
         {three.map(([, , p]) => `${p.glyph} ${p.sign}`).join("  ")}
       </Text>
       {three.map(([k, what, p]) => (
@@ -222,9 +223,9 @@ function ZodiacCard({ b }: { b: Extract<Block, { type: "zodiac" }> }) {
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={[s.body, { fontFamily: font.semibold }]}>
-              {k} in {p.sign}{" "}
+              {tr("{v0} in {v1}", { v0: tr(k), v1: p.sign })}{" "}
               <Text style={s.small}>
-                · {what} · {p.degree}
+                · {tr(what)} · {p.degree}
               </Text>
             </Text>
             <Text style={[s.body, { fontSize: 15, color: colors.muted }]}>
@@ -234,11 +235,11 @@ function ZodiacCard({ b }: { b: Extract<Block, { type: "zodiac" }> }) {
         </View>
       ))}
       <View style={s.sunBox}>
-        <Text style={s.mono}>THE SUN ON YOUR BIRTHDAY</Text>
+        <Text style={s.mono}>{tr("THE SUN ON YOUR BIRTHDAY")}</Text>
         <Text style={[s.body, { fontSize: 15 }]}>
-          Tropical{" "}
-          <Text style={{ color: colors.highlight }}>{b.sun.degree}</Text> ·
-          Vedic (sidereal){" "}
+          {tr("Tropical")}{" "}
+          <Text style={{ color: colors.highlight }}>{b.sun.degree}</Text> ·{" "}
+          {tr("Vedic (sidereal)")}{" "}
           <Text style={{ color: colors.highlight }}>{b.siderealSun}</Text>
         </Text>
         {b.cusp ? (
@@ -283,21 +284,21 @@ function HerbCompare({
   const { colors } = useTheme();
   const s = styles(colors);
   const rows: [string, (h: CompareHerb) => string][] = [
-    ["Botanical", (h) => h.botanical],
-    ["Rasa", (h) => h.rasa.join(", ")],
-    ["Guna", (h) => h.guna.join(", ")],
+    [tr("Botanical"), (h) => h.botanical],
+    [tr("Rasa"), (h) => h.rasa.join(", ")],
+    [tr("Guna"), (h) => h.guna.join(", ")],
     [
-      "Virya",
+      tr("Virya"),
       (h) => `${h.virya}${VIRYA[h.virya] ? ` (${VIRYA[h.virya]})` : ""}`,
     ],
-    ["Vipaka", (h) => h.vipaka],
-    ["Balances", (h) => h.pacify.map(cap).join(", ") || "—"],
-    ["May increase", (h) => h.aggravate.map(cap).join(", ") || "—"],
-    ["Parts used", (h) => h.parts.join(", ") || "—"],
+    [tr("Vipaka"), (h) => h.vipaka],
+    [tr("Balances"), (h) => h.pacify.map(cap).join(", ") || "—"],
+    [tr("May increase"), (h) => h.aggravate.map(cap).join(", ") || "—"],
+    [tr("Parts used"), (h) => h.parts.join(", ") || "—"],
   ];
   return (
     <View style={s.card} testID="herb-compare">
-      <Text style={s.mono}>DRAVYAGUNA · SIDE BY SIDE</Text>
+      <Text style={s.mono}>{tr("DRAVYAGUNA · SIDE BY SIDE")}</Text>
       <View style={s.factRow}>
         <View style={{ flex: 0.9 }} />
         {herbs.map((h) => (
@@ -330,8 +331,7 @@ function HerbCompare({
         </View>
       ))}
       <Text style={s.small}>
-        Traditional knowledge, not medical advice. Source: Amidha Ayurveda Herb
-        Database v2.0 (Sparsh Varshney), CC BY 4.0.
+        {tr("Traditional knowledge, not medical advice. Source: Amidha Ayurveda Herb Database v2.0 (Sparsh Varshney), CC BY 4.0.")}
       </Text>
     </View>
   );
@@ -343,7 +343,7 @@ function RituCard({ b }: { b: Extract<Block, { type: "ritu" }> }) {
   const s = styles(colors);
   return (
     <View style={s.card} testID="ritu">
-      <Text style={s.mono}>RITUCHARYA · NOW</Text>
+      <Text style={s.mono}>{tr("RITUCHARYA · NOW")}</Text>
       <Text style={s.title}>
         {b.ritu}{" "}
         <Text style={{ fontFamily: font.verse, color: colors.highlight }}>
@@ -356,9 +356,9 @@ function RituCard({ b }: { b: Extract<Block, { type: "ritu" }> }) {
       <View>
         {(
           [
-            ["Strength (bala)", b.strength],
-            ["Rasa of the season", b.rasa],
-            ["Doshas", b.doshas],
+            [tr("Strength (bala)"), b.strength],
+            [tr("Rasa of the season"), b.rasa],
+            [tr("Doshas"), b.doshas],
           ] as [string, string][]
         ).map(([k, v]) => (
           <View key={k} style={s.factRow}>
@@ -369,9 +369,9 @@ function RituCard({ b }: { b: Extract<Block, { type: "ritu" }> }) {
       </View>
       {(
         [
-          ["Favour (pathya)", b.favour, colors.success],
-          ["Avoid (apathya)", b.avoid, colors.danger],
-          ["Routine", b.routine, colors.highlight],
+          [tr("Favour (pathya)"), b.favour, colors.success],
+          [tr("Avoid (apathya)"), b.avoid, colors.danger],
+          [tr("Routine"), b.routine, colors.highlight],
         ] as [string, string[], string][]
       ).map(([k, items, c]) => (
         <View key={k} style={{ gap: 4 }}>
@@ -385,8 +385,7 @@ function RituCard({ b }: { b: Extract<Block, { type: "ritu" }> }) {
         </View>
       ))}
       <Text style={s.small}>
-        Next: {b.next}. Traditional guidance from Charaka Samhita and Ashtanga
-        Hridaya; adapt it with your vaidya.
+        {tr("Next: {v0}. Traditional guidance from Charaka Samhita and Ashtanga Hridaya; adapt it with your vaidya.", { v0: b.next })}
       </Text>
     </View>
   );
@@ -407,7 +406,7 @@ function Behind({ points }: { points: string[] }) {
       >
         <Text style={{ color: colors.highlight }}>✦</Text>
         <Text style={[s.body, { fontSize: 15 }]}>
-          The astrology behind this
+          {tr("The astrology behind this")}
         </Text>
         <Text style={{ color: colors.muted }}>{open ? "⌃" : "⌄"}</Text>
       </Pressable>
@@ -497,14 +496,14 @@ export function Blocks({
           case "chart":
             return (
               <View key={i} style={s.card} testID="chart">
-                <Text style={s.title}>☉ Your birth chart</Text>
+                <Text style={s.title}>{tr("☉ Your birth chart")}</Text>
                 <Text style={s.small}>
-                  Lagna: {b.lagna ?? "unknown (no birth time)"} · Moon: {b.moon}{" "}
-                  · Nakshatra: {b.nakshatra}
+                  {tr("Lagna")}: {b.lagna ?? tr("unknown (no birth time)")} · {tr("Moon")}: {b.moon}{" "}
+                  · {tr("Nakshatra")}: {b.nakshatra}
                 </Text>
                 {b.dasha ? (
                   <Text style={[s.small, { fontFamily: font.bold }]}>
-                    Running dasha: {b.dasha}
+                    {tr("Running dasha")}: {b.dasha}
                   </Text>
                 ) : null}
                 <View style={{ gap: 4 }}>
@@ -524,15 +523,14 @@ export function Blocks({
                   ))}
                 </View>
                 <Text style={s.small}>
-                  Sidereal (Lahiri), whole-sign houses, Vimshottari dasha. ℞ =
-                  retrograde.
+                  {tr("Sidereal (Lahiri), whole-sign houses, Vimshottari dasha. ℞ = retrograde.")}
                 </Text>
               </View>
             );
           case "palm":
             return (
               <View key={i} style={s.card} testID="palm-reading">
-                <Text style={s.title}>✋ Your lines</Text>
+                <Text style={s.title}>{tr("✋ Your lines")}</Text>
                 {b.lines.map((l) => (
                   <View key={l.name} style={{ gap: 2 }}>
                     <Text style={[s.ref, { fontSize: 14 }]}>{l.name}</Text>
@@ -561,25 +559,25 @@ export function Blocks({
                 <View style={s.facts}>
                   {(
                     [
-                      ["Rasa (taste)", b.rasa.join(", ")],
-                      ["Guna (quality)", b.guna.join(", ")],
+                      [tr("Rasa (taste)"), b.rasa.join(", ")],
+                      [tr("Guna (quality)"), b.guna.join(", ")],
                       [
-                        "Virya (potency)",
+                        tr("Virya (potency)"),
                         `${b.virya}${VIRYA[b.virya] ? ` (${VIRYA[b.virya]})` : ""}`,
                       ],
-                      ["Vipaka", b.vipaka],
+                      [tr("Vipaka"), b.vipaka],
                       ...(b.synonyms?.length
-                        ? [["Paryaya (synonyms)", b.synonyms.join(", ")]]
+                        ? [[tr("Paryaya (synonyms)"), b.synonyms.join(", ")]]
                         : []),
                       ...(b.parts?.length
-                        ? [["Prayojyanga (parts used)", b.parts.join(", ")]]
+                        ? [[tr("Prayojyanga (parts used)"), b.parts.join(", ")]]
                         : []),
                       [
-                        "Balances",
-                        b.pacify.map(cap).join(", ") || "None listed",
+                        tr("Balances"),
+                        b.pacify.map(cap).join(", ") || tr("None listed"),
                       ],
                       ...(b.aggravate.length
-                        ? [["May increase", b.aggravate.map(cap).join(", ")]]
+                        ? [[tr("May increase"), b.aggravate.map(cap).join(", ")]]
                         : []),
                     ] as [string, string][]
                   ).map(([k, v]) => (
@@ -591,13 +589,11 @@ export function Blocks({
                 </View>
                 {b.caution ? (
                   <Text style={[s.small, { color: colors.danger }]}>
-                    Classical texts class this plant as poisonous. It is used
-                    only after special purification, by a qualified vaidya.
+                    {tr("Classical texts class this plant as poisonous. It is used only after special purification, by a qualified vaidya.")}
                   </Text>
                 ) : null}
                 <Text style={s.small}>
-                  Traditional knowledge, not medical advice. Talk to a doctor or
-                  a qualified vaidya before taking any herb.
+                  {tr("Traditional knowledge, not medical advice. Talk to a doctor or a qualified vaidya before taking any herb.")}
                 </Text>
                 <Text
                   style={[s.small, { textDecorationLine: "underline" }]}
@@ -637,7 +633,7 @@ export function Blocks({
                 </View>
                 <Text style={s.small}>
                   {b.total > b.herbs.length
-                    ? `${b.herbs.length} of ${b.total} herbs in Kosmik’s library. `
+                    ? tr("{v0} of {v1} herbs in Kosmik’s library. ", { v0: b.herbs.length, v1: b.total })
                     : ""}
                   Traditional knowledge, not medical advice. Source: Amidha
                   Ayurveda Herb Database v2.0 (Sparsh Varshney), CC BY 4.0.
@@ -647,11 +643,10 @@ export function Blocks({
           case "prakriti":
             return (
               <View key={i} style={s.card} testID="prakriti">
-                <Text style={s.title}>❀ Your prakriti: {b.label}</Text>
+                <Text style={s.title}>❀ {tr("Your prakriti")}: {b.label}</Text>
                 <PrakritiBars p={b} />
                 <Text style={s.small}>
-                  From your dosha quiz on {takenOn(b.takenAt)}. A
-                  self-assessment, not a diagnosis.
+                  {tr("From your dosha quiz on {v0}. A self-assessment, not a diagnosis.", { v0: takenOn(b.takenAt) })}
                 </Text>
                 {onPrakriti ? (
                   <Pressable
@@ -659,7 +654,7 @@ export function Blocks({
                     accessibilityRole="button"
                     style={s.outlineBtn}
                   >
-                    <Text style={s.outlineBtnText}>Retake the quiz</Text>
+                    <Text style={s.outlineBtnText}>{tr("Retake the quiz")}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -667,7 +662,7 @@ export function Blocks({
           case "ayur-intake":
             return (
               <View key={i} style={s.card} testID="ayur-intake">
-                <Text style={s.mono}>A FEW QUESTIONS FIRST</Text>
+                <Text style={s.mono}>{tr("A FEW QUESTIONS FIRST")}</Text>
                 {b.questions.map((q, n) => (
                   <View key={q} style={{ flexDirection: "row", gap: 10 }}>
                     <Text
@@ -682,8 +677,7 @@ export function Blocks({
                   </View>
                 ))}
                 <Text style={s.small}>
-                  Answer them in one message below. The more detail, the better
-                  the plan.
+                  {tr("Answer them in one message below. The more detail, the better the plan.")}
                 </Text>
               </View>
             );
@@ -698,11 +692,11 @@ export function Blocks({
           case "vikriti":
             return (
               <View key={i} style={s.card} testID="vikriti">
-                <Text style={s.mono}>VIKRITI · LAST FEW WEEKS</Text>
+                <Text style={s.mono}>{tr("VIKRITI · LAST FEW WEEKS")}</Text>
                 <Text style={s.title}>
                   {b.aggravated.length
-                    ? `Raised now: ${b.aggravated.join(", ")}`
-                    : "No dosha clearly raised"}
+                    ? tr("Raised now: {v0}", { v0: b.aggravated.join(", ") })
+                    : tr("No dosha clearly raised")}
                 </Text>
                 <PrakritiBars
                   p={{
@@ -714,13 +708,11 @@ export function Blocks({
                 <Text style={[s.body, { fontSize: 15 }]}>{b.agni}</Text>
                 {b.prakriti ? (
                   <Text style={s.small}>
-                    Your prakriti: {b.prakriti}. Ayurveda aims to bring the
-                    present state back towards it.
+                    {tr("Your prakriti: {v0}. Ayurveda aims to bring the present state back towards it.", { v0: b.prakriti })}
                   </Text>
                 ) : null}
                 <Text style={s.small}>
-                  From your check on {takenOn(b.takenAt)}. A self-assessment,
-                  not a diagnosis.
+                  {tr("From your check on {v0}. A self-assessment, not a diagnosis.", { v0: takenOn(b.takenAt) })}
                 </Text>
                 {onVikriti ? (
                   <Pressable
@@ -728,7 +720,7 @@ export function Blocks({
                     accessibilityRole="button"
                     style={s.outlineBtn}
                   >
-                    <Text style={s.outlineBtnText}>Check again</Text>
+                    <Text style={s.outlineBtnText}>{tr("Check again")}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -738,7 +730,7 @@ export function Blocks({
           case "followups":
             return (
               <View key={i} style={{ gap: 8 }} testID="followups">
-                <Text style={s.mono}>ASK NEXT</Text>
+                <Text style={s.mono}>{tr("ASK NEXT")}</Text>
                 <View style={s.nextGrid}>
                   {b.questions.map((q) => (
                     <Pressable
@@ -785,7 +777,7 @@ export function Blocks({
                     accessibilityRole="button"
                     style={s.noticeBtn}
                   >
-                    <Text style={s.noticeBtnText}>Sign in</Text>
+                    <Text style={s.noticeBtnText}>{tr("Sign in")}</Text>
                   </Pressable>
                 ) : null}
                 {b.kind === "needs-details" && onDetails ? (
@@ -794,7 +786,7 @@ export function Blocks({
                     accessibilityRole="button"
                     style={s.noticeBtn}
                   >
-                    <Text style={s.noticeBtnText}>Add birth details</Text>
+                    <Text style={s.noticeBtnText}>{tr("Add birth details")}</Text>
                   </Pressable>
                 ) : null}
                 {(b.kind === "needs-palm" || b.kind === "retake") && onPalm ? (
@@ -805,8 +797,8 @@ export function Blocks({
                   >
                     <Text style={s.noticeBtnText}>
                       {b.kind === "retake"
-                        ? "Replace palm photos"
-                        : "Add palm photos"}
+                        ? tr("Replace palm photos")
+                        : tr("Add palm photos")}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -816,7 +808,7 @@ export function Blocks({
                     accessibilityRole="button"
                     style={s.noticeBtn}
                   >
-                    <Text style={s.noticeBtnText}>Take the vikriti check</Text>
+                    <Text style={s.noticeBtnText}>{tr("Take the vikriti check")}</Text>
                   </Pressable>
                 ) : null}
                 {b.kind === "needs-prakriti" && onPrakriti ? (
@@ -825,7 +817,7 @@ export function Blocks({
                     accessibilityRole="button"
                     style={s.noticeBtn}
                   >
-                    <Text style={s.noticeBtnText}>Take the dosha quiz</Text>
+                    <Text style={s.noticeBtnText}>{tr("Take the dosha quiz")}</Text>
                   </Pressable>
                 ) : null}
                 {b.kind === "limit" && onPremium ? (
@@ -834,7 +826,7 @@ export function Blocks({
                     accessibilityRole="button"
                     style={s.noticeBtn}
                   >
-                    <Text style={s.noticeBtnText}>Go Premium</Text>
+                    <Text style={s.noticeBtnText}>{tr("Go Premium")}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -848,7 +840,7 @@ export function Blocks({
                 style={s.outlineBtn}
                 accessibilityRole="button"
               >
-                <Text style={s.outlineBtnText}>Refresh Kosmik to see this</Text>
+                <Text style={s.outlineBtnText}>{tr("Refresh Kosmik to see this")}</Text>
               </Pressable>
             );
         }

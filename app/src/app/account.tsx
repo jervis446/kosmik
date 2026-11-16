@@ -22,6 +22,7 @@ import { useAuth } from "../lib/auth";
 import { GRIEVANCE } from "../lib/legal";
 import { type Colors, font, type ThemePref, useTheme } from "../lib/theme";
 import { Sky } from "../components/Sky";
+import { tr } from "../lib/i18n";
 
 const date = (ms: number) =>
   new Date(ms).toLocaleDateString("en-IN", {
@@ -86,7 +87,7 @@ export default function Account() {
       edges={["top", "bottom"]}
     >
       <Sky />
-      <Header title="Account" back />
+      <Header title={tr("Account")} back />
       <ScrollView contentContainerStyle={s.page}>
         <View style={s.profile}>
           <View style={s.avatar}>
@@ -98,8 +99,8 @@ export default function Account() {
             </Text>
             <Text style={s.muted}>
               {me?.phone
-                ? `WhatsApp ${me.phone} · verified`
-                : "Asanoha account · works across Asanoha apps"}
+                ? tr("WhatsApp {v0} · verified", { v0: me.phone })
+                : tr("Asanoha account · works across Asanoha apps")}
             </Text>
           </View>
         </View>
@@ -110,7 +111,7 @@ export default function Account() {
             style={[s.choice, { alignSelf: "flex-start" }]}
             accessibilityRole="button"
           >
-            <Text style={s.choiceText}>✆ Verify WhatsApp number</Text>
+            <Text style={s.choiceText}>{tr("✆ Verify WhatsApp number")}</Text>
           </Pressable>
         ) : null}
         <PhoneGate
@@ -124,7 +125,7 @@ export default function Account() {
 
         <View style={[s.card, premium && { borderColor: colors.primary }]}>
           <View style={s.row}>
-            <Text style={s.cardTitle}>{premium ? "Premium" : "Starter"}</Text>
+            <Text style={s.cardTitle}>{premium ? tr("Premium") : tr("Starter")}</Text>
             <Text
               style={[
                 s.badge,
@@ -134,15 +135,15 @@ export default function Account() {
                 },
               ]}
             >
-              {premium ? "Unlimited" : "Free"}
+              {premium ? tr("Unlimited") : tr("Free")}
             </Text>
           </View>
           <Text style={s.muted} testID="plan">
             {me === undefined
               ? "…"
               : premium
-                ? `Premium, unlimited questions until ${date(me!.premiumUntil!)}.`
-                : "Starter: 11 questions a week, refilled every Monday."}
+                ? tr("Premium, unlimited questions until {v0}.", { v0: date(me!.premiumUntil!) })
+                : tr("Starter: 11 questions a week, refilled every Monday.")}
           </Text>
           {!premium && limit !== null ? (
             <View style={{ gap: 6 }}>
@@ -158,8 +159,7 @@ export default function Account() {
                 />
               </View>
               <Text style={s.small}>
-                {used} of {limit} used this week · {Math.max(0, limit - used)}{" "}
-                left
+                {tr("{v0} of {v1} used this week · {v2} left", { v0: used, v1: limit, v2: Math.max(0, limit - used) })}
               </Text>
             </View>
           ) : null}
@@ -169,23 +169,22 @@ export default function Account() {
             accessibilityRole="button"
           >
             <Text style={s.primaryText}>
-              {premium ? "Add more Premium days" : "Get Premium"}
+              {premium ? tr("Add more Premium days") : tr("Get Premium")}
             </Text>
           </Pressable>
           {!premium ? (
             <Text style={s.small}>
-              ₹51 for 7 days or ₹101 for 30 days, paid once by UPI.
+              {tr("₹51 for 7 days or ₹101 for 30 days, paid once by UPI.")}
             </Text>
           ) : null}
         </View>
 
         <View style={s.card} testID="my-details">
-          <Text style={s.cardTitle}>My details</Text>
+          <Text style={s.cardTitle}>{tr("My details")}</Text>
           <Text style={s.muted}>
-            Used to calculate your kundli, read your palms and tailor Ayurveda
-            answers when you ask. Only you can see them.
+            {tr("Used to calculate your kundli, read your palms and tailor Ayurveda answers when you ask. Only you can see them.")}
           </Text>
-          <Text style={s.label}>Birth details</Text>
+          <Text style={s.label}>{tr("Birth details")}</Text>
           {details === undefined ? (
             <Text style={s.muted}>…</Text>
           ) : editing || !details ? (
@@ -202,7 +201,7 @@ export default function Account() {
                 <Text style={s.value}>{details.name}</Text>
               ) : null}
               <Text style={s.value}>
-                Born{" "}
+                {tr("Born")}{" "}
                 {new Date(details.birthDate + "T00:00:00Z").toLocaleDateString(
                   "en-IN",
                   {
@@ -213,8 +212,8 @@ export default function Account() {
                   },
                 )}
                 {details.birthTime
-                  ? ` at ${details.birthTime}`
-                  : ", time unknown"}
+                  ? tr(" at {v0}", { v0: details.birthTime })
+                  : tr(", time unknown")}
               </Text>
               <Text style={s.value}>{details.place}</Text>
               {details.tzOffsetMin !== 330 ? (
@@ -226,13 +225,13 @@ export default function Account() {
                 accessibilityRole="button"
                 accessibilityLabel="Edit birth details"
               >
-                <Text style={s.choiceText}>Edit</Text>
+                <Text style={s.choiceText}>{tr("Edit")}</Text>
               </Pressable>
             </View>
           )}
-          <Text style={[s.label, { marginTop: 8 }]}>Palm photos</Text>
+          <Text style={[s.label, { marginTop: 8 }]}>{tr("Palm photos")}</Text>
           <PalmForm key={palmKey} />
-          <Text style={[s.label, { marginTop: 8 }]}>Prakriti (dosha quiz)</Text>
+          <Text style={[s.label, { marginTop: 8 }]}>{tr("Prakriti (dosha quiz)")}</Text>
           {prakriti === undefined ? (
             <Text style={s.muted}>…</Text>
           ) : quiz || !prakriti ? (
@@ -243,7 +242,7 @@ export default function Account() {
                   style={[s.choice, { alignSelf: "flex-start" }]}
                   accessibilityRole="button"
                 >
-                  <Text style={s.choiceText}>Take the dosha quiz</Text>
+                  <Text style={s.choiceText}>{tr("Take the dosha quiz")}</Text>
                 </Pressable>
               ) : (
                 <PrakritiQuiz
@@ -264,12 +263,12 @@ export default function Account() {
                 accessibilityRole="button"
                 accessibilityLabel="Retake the dosha quiz"
               >
-                <Text style={s.choiceText}>Retake</Text>
+                <Text style={s.choiceText}>{tr("Retake")}</Text>
               </Pressable>
             </View>
           )}
           <Text style={[s.label, { marginTop: 8 }]}>
-            Vikriti (current state)
+            {tr("Vikriti (current state)")}
           </Text>
           {vQuiz ? (
             <VikritiQuiz
@@ -288,13 +287,13 @@ export default function Account() {
                   <Text style={s.value}>
                     {vikriti.aggravated.length
                       ? `Raised: ${vikriti.aggravated.map((d) => d[0].toUpperCase() + d.slice(1)).join(", ")}`
-                      : "No dosha clearly raised"}
+                      : tr("No dosha clearly raised")}
                   </Text>
                   <Text style={s.muted}>{vikriti.agniLabel}</Text>
                 </>
               ) : (
                 <Text style={s.muted}>
-                  Ten questions about the last few weeks, with your agni.
+                  {tr("Ten questions about the last few weeks, with your agni.")}
                 </Text>
               )}
               <Pressable
@@ -304,7 +303,7 @@ export default function Account() {
                 accessibilityLabel="Check vikriti"
               >
                 <Text style={s.choiceText}>
-                  {vikriti ? "Check again" : "Check vikriti"}
+                  {vikriti ? tr("Check again") : tr("Check vikriti")}
                 </Text>
               </Pressable>
             </View>
@@ -312,7 +311,7 @@ export default function Account() {
           {confirmDelete ? (
             <View style={{ gap: 8 }}>
               <Text style={s.muted}>
-                Delete your birth details, both palm photos and your prakriti?
+                {tr("Delete your birth details, both palm photos and your prakriti?")}
               </Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <Pressable
@@ -331,7 +330,7 @@ export default function Account() {
                   accessibilityRole="button"
                 >
                   <Text style={{ color: colors.danger, fontFamily: font.bold }}>
-                    Yes, delete
+                    {tr("Yes, delete")}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -339,7 +338,7 @@ export default function Account() {
                   style={s.choice}
                   accessibilityRole="button"
                 >
-                  <Text style={s.choiceText}>Keep them</Text>
+                  <Text style={s.choiceText}>{tr("Keep them")}</Text>
                 </Pressable>
               </View>
             </View>
@@ -354,14 +353,14 @@ export default function Account() {
               }}
             >
               <Text style={{ color: colors.danger, fontFamily: font.semibold }}>
-                Delete all my details
+                {tr("Delete all my details")}
               </Text>
             </Pressable>
           )}
         </View>
 
         <View style={s.card}>
-          <Text style={s.cardTitle}>Appearance</Text>
+          <Text style={s.cardTitle}>{tr("Appearance")}</Text>
           <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
             {(["system", "light", "dark"] as ThemePref[]).map((p) => (
               <Pressable
@@ -379,7 +378,7 @@ export default function Account() {
               >
                 <Text style={s.choiceText}>
                   {p === "system"
-                    ? "Same as phone"
+                    ? tr("Same as phone")
                     : p === "light"
                       ? "Light"
                       : "Dark"}
@@ -390,7 +389,7 @@ export default function Account() {
         </View>
 
         <View style={s.card}>
-          <Text style={s.cardTitle}>About</Text>
+          <Text style={s.cardTitle}>{tr("About")}</Text>
           {[
             ["Privacy", "/privacy"],
             ["Terms", "/terms"],
@@ -428,7 +427,7 @@ export default function Account() {
           accessibilityRole="button"
         >
           <Text style={{ color: colors.danger, fontFamily: font.bold }}>
-            Sign out
+            {tr("Sign out")}
           </Text>
         </Pressable>
       </ScrollView>

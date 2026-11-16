@@ -21,6 +21,7 @@ import Svg, {
 } from "react-native-svg";
 
 import { type Colors, font, useTheme } from "../lib/theme";
+import { tr } from "../lib/i18n";
 
 export type TarotCardData = {
   key: string;
@@ -465,9 +466,9 @@ export function TarotPick({
       </View>
       <Text style={s.hint}>
         {done
-          ? "Turning your card over…"
+          ? tr("Turning your card over…")
           : count === 1
-            ? "Tap the card that calls to you"
+            ? tr("Tap the card that calls to you")
             : `Pick ${3 - chosen.length} more · in order: past, present, future`}
       </Text>
     </View>
@@ -574,7 +575,7 @@ export function TarotReveal({
               <Text style={s.name}>
                 {c.name}
                 {c.reversed ? (
-                  <Text style={{ color: colors.accent }}> · reversed</Text>
+                  <Text style={{ color: colors.accent }}> {tr("· reversed")}</Text>
                 ) : null}
               </Text>
               <Text style={s.reading}>{c.reading ?? c.meaning}</Text>
@@ -584,7 +585,7 @@ export function TarotReveal({
       </View>
       {advice ? (
         <View style={s.advice}>
-          <Text style={s.mono}>THIS WEEK</Text>
+          <Text style={s.mono}>{tr("THIS WEEK")}</Text>
           <Text style={s.reading}>{advice}</Text>
         </View>
       ) : null}
