@@ -47,6 +47,7 @@ test('reports: no credit, no report; with one, it is written from the chart, kep
   const r = await unlockReport(deps, 'u1', 'marriage', 'en', NOW);
   assert.equal(r.report?.headline, written.headline);
   assert.match(facts[0], /^CHART \(calculated/);
+  assert.match(facts[0], /Navamsa \(D9\): marriage[^\n]*lagna \w+; Sun in/, 'marriage reads the D9');
   assert.equal(credits(raw), 1);
 
   // Opening it again is free, and so is a second unlock of the same report.
@@ -55,10 +56,17 @@ test('reports: no credit, no report; with one, it is written from the chart, kep
   assert.equal(credits(raw), 1);
   assert.equal(facts.length, 1, 'not written twice');
 
+  await deps.db.prepare('UPDATE report_credits SET credits = 1 WHERE user_id = ?').bind('u1').run();
+  await unlockReport(deps, 'u1', 'career', 'en', NOW);
+  assert.match(facts[1], /Dashamsa \(D10\): career/, 'career reads the D10');
+  assert.doesNotMatch(facts[1], /Navamsa \(D9\)/);
+  await deps.db.prepare('UPDATE report_credits SET credits = 1 WHERE user_id = ?').bind('u1').run();
+
   const list = await listReports(db, 'u1');
   assert.equal(list.credits, 1);
   assert.equal(list.reports.find((x) => x.key === 'marriage')?.owned, true);
-  assert.equal(list.reports.find((x) => x.key === 'career')?.owned, false);
+  assert.equal(list.reports.find((x) => x.key === 'education')?.owned, false);
+  assert.deepEqual(list.reports.find((x) => x.key === 'education')?.vargas, [24]);
   assert.ok(!('focus' in list.reports[0]), 'the model instructions stay on the server');
 });
 

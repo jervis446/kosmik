@@ -196,7 +196,7 @@ function ReportCard({ r, s }: { r: ReportSummary; s: ReturnType<typeof styles> }
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
         <View style={s.iconTile}>
-          <Text style={{ fontSize: 26 }}>{r.icon}</Text>
+          <Text style={{ fontSize: 22 }}>{r.icon}</Text>
         </View>
         {r.badge ? (
           <Text style={[s.badge, r.badge === "trending" ? s.badgeHot : s.badgeNew]}>
@@ -216,10 +216,10 @@ function ReportCard({ r, s }: { r: ReportSummary; s: ReturnType<typeof styles> }
 
 const styles = (c: Colors) =>
   StyleSheet.create({
-    page: { padding: 24, paddingTop: 32, gap: 22, maxWidth: 1180, width: "100%", alignSelf: "center" },
+    page: { padding: 24, paddingTop: 24, gap: 18, maxWidth: 1080, width: "100%", alignSelf: "center" },
     crumb: { color: c.muted, fontFamily: font.mono, fontSize: 12, letterSpacing: 3 },
-    title: { color: c.text, fontFamily: font.display, fontSize: 46, lineHeight: 54, marginTop: -10 },
-    lead: { color: c.muted, fontFamily: font.body, fontSize: 17, lineHeight: 26, marginTop: -12 },
+    title: { color: c.text, fontFamily: font.display, fontSize: 34, lineHeight: 42, marginTop: -8 },
+    lead: { color: c.muted, fontFamily: font.body, fontSize: 15, lineHeight: 23, marginTop: -10 },
     banner: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 16, padding: 16, backgroundColor: c.surface },
     bannerText: { flex: 1, color: c.text, fontFamily: font.medium, fontSize: 15 },
     error: { color: c.danger, fontFamily: font.medium, fontSize: 15 },
@@ -228,14 +228,14 @@ const styles = (c: Colors) =>
       flexWrap: "wrap",
       alignItems: "center",
       gap: 18,
-      padding: 22,
-      borderRadius: 20,
+      padding: 18,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: `${c.primary}66`,
       backgroundColor: `${c.primary}1c`,
     },
-    creditsTitle: { color: c.text, fontFamily: font.display, fontSize: 26 },
-    muted: { color: c.muted, fontFamily: font.body, fontSize: 15, lineHeight: 22 },
+    creditsTitle: { color: c.text, fontFamily: font.display, fontSize: 20 },
+    muted: { color: c.muted, fontFamily: font.body, fontSize: 14, lineHeight: 21 },
     packs: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     pack: {
       minWidth: 112,
@@ -249,32 +249,32 @@ const styles = (c: Colors) =>
       backgroundColor: c.surface,
     },
     packBest: { borderColor: c.primary, backgroundColor: c.primary },
-    packName: { color: c.text, fontFamily: font.semibold, fontSize: 14 },
-    packPrice: { color: c.text, fontFamily: font.display, fontSize: 20 },
+    packName: { color: c.text, fontFamily: font.semibold, fontSize: 12 },
+    packPrice: { color: c.text, fontFamily: font.display, fontSize: 17 },
     groupRow: { flexDirection: "row", alignItems: "center", gap: 14, marginTop: 10 },
     group: { color: c.muted, fontFamily: font.mono, fontSize: 12, letterSpacing: 3 },
     groupLine: { flex: 1, height: 1, backgroundColor: c.line },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
     card: {
-      flexBasis: 250,
+      flexBasis: 220,
       flexGrow: 1,
-      maxWidth: 360,
-      minHeight: 240,
-      gap: 8,
-      padding: 22,
-      borderRadius: 22,
+      maxWidth: 300,
+      minHeight: 190,
+      gap: 6,
+      padding: 18,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: c.line,
       backgroundColor: c.surface,
     },
     cardAyur: { borderColor: "#3FB68B66" },
-    iconTile: { width: 58, height: 58, borderRadius: 16, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", marginBottom: 8 },
-    badge: { fontFamily: font.mono, fontSize: 11, letterSpacing: 1.6, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10, overflow: "hidden" },
+    iconTile: { width: 44, height: 44, borderRadius: 12, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", marginBottom: 8 },
+    badge: { fontFamily: font.mono, fontSize: 9, letterSpacing: 1.4, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10, overflow: "hidden" },
     badgeHot: { backgroundColor: c.primary, color: c.onPrimary },
     badgeNew: { borderWidth: 1, borderColor: c.accent, color: c.accent },
-    cardTitle: { color: c.text, fontFamily: font.display, fontSize: 26 },
-    cardTag: { flex: 1, color: c.muted, fontFamily: font.body, fontSize: 15, lineHeight: 22 },
-    cardFoot: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: c.line, paddingTop: 14, marginTop: 8 },
-    mono: { color: c.muted, fontFamily: font.mono, fontSize: 12, letterSpacing: 2 },
+    cardTitle: { color: c.text, fontFamily: font.display, fontSize: 19 },
+    cardTag: { flex: 1, color: c.muted, fontFamily: font.body, fontSize: 13, lineHeight: 19 },
+    cardFoot: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: c.line, paddingTop: 12, marginTop: 6 },
+    mono: { color: c.muted, fontFamily: font.mono, fontSize: 10, letterSpacing: 1.8 },
     owned: { color: c.success },
   });

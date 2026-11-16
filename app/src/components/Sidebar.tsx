@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -43,6 +43,11 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | ChatKind>("all");
   const [menu, setMenu] = useState(false);
+  // Which part of Kosmik is open, so it can be highlighted.
+  const path = usePathname();
+  const newKind = shell.newKind === "ayurveda" ? "ayurveda" : "kosmik";
+  const activeKind = shell.activeId ? (shell.chats?.find((c) => c.id === shell.activeId)?.kind ?? newKind) : newKind;
+  const section = path.startsWith("/reports") ? "reports" : path.startsWith("/chat") ? activeKind : null;
   // Your name from your birth details; the email only until it loads (or if you gave none).
   const [name, setName] = useState<string | null>(null);
   useEffect(() => {
@@ -101,35 +106,52 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
 
       <Pressable
         onPress={() => shell.newChat()}
-        style={({ pressed }) => [s.askBtn, { borderColor: `${colors.primary}88`, backgroundColor: `${colors.primary}${pressed ? "33" : "1f"}` }]}
+        style={({ pressed }) => [
+          s.askBtn,
+          section === "kosmik"
+            ? { borderColor: colors.primary, backgroundColor: `${colors.primary}${pressed ? "44" : "33"}` }
+            : { borderColor: colors.line, backgroundColor: pressed ? `${colors.primary}1f` : "transparent" },
+        ]}
         accessibilityRole="button"
         accessibilityLabel="New chat"
+        accessibilityState={{ selected: section === "kosmik" }}
       >
         <Text style={[s.askGlyph, { color: colors.highlight }]}>✦</Text>
-        <Text style={s.askText}>{tr("Ask Kosmik")}</Text>
+        <Text style={[s.askText, section !== "kosmik" && { color: colors.muted }]}>{tr("Ask Kosmik")}</Text>
       </Pressable>
       <Pressable
         onPress={() => shell.newChat("ayurveda")}
-        style={({ pressed }) => [s.askBtn, { borderColor: `${AYUR}88`, backgroundColor: `${AYUR}${pressed ? "33" : "1a"}` }]}
+        style={({ pressed }) => [
+          s.askBtn,
+          section === "ayurveda"
+            ? { borderColor: AYUR, backgroundColor: `${AYUR}${pressed ? "40" : "2e"}` }
+            : { borderColor: colors.line, backgroundColor: pressed ? `${AYUR}1a` : "transparent" },
+        ]}
         accessibilityRole="button"
         accessibilityLabel="New Ayurveda chat"
+        accessibilityState={{ selected: section === "ayurveda" }}
       >
         <Text style={[s.askGlyph, { color: AYUR }]}>❀</Text>
-        <Text style={[s.askText, { color: AYUR }]}>{tr("Ask Ayurveda")}</Text>
+        <Text style={[s.askText, { color: section === "ayurveda" ? AYUR : colors.muted }]}>{tr("Ask Ayurveda")}</Text>
       </Pressable>
       <Pressable
         onPress={() => {
           shell.closeDrawer();
           router.push("/reports");
         }}
-        style={({ pressed }) => [s.navRow, pressed && { backgroundColor: colors.surface2 }]}
+        style={({ pressed }) => [
+          s.navRow,
+          section === "reports" && { backgroundColor: `${colors.accent}24`, borderColor: colors.accent },
+          pressed && { backgroundColor: colors.surface2 },
+        ]}
         accessibilityRole="link"
         accessibilityLabel="Reports"
+        accessibilityState={{ selected: section === "reports" }}
       >
         <View style={s.navIcon}>
           <Text style={{ fontSize: 15 }}>📖</Text>
         </View>
-        <Text style={s.navText}>{tr("Reports")}</Text>
+        <Text style={[s.navText, section === "reports" && { color: colors.accent, fontFamily: font.semibold }]}>{tr("Reports")}</Text>
       </Pressable>
 
       {session && shell.chats?.length ? (
@@ -317,7 +339,7 @@ const styles = (c: Colors) =>
       justifyContent: "center",
     },
     iconText: { color: c.muted, fontSize: 18 },
-    navRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 6, paddingHorizontal: 6, borderRadius: 12, marginBottom: 4 },
+    navRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 14, marginBottom: 4, borderWidth: 1, borderColor: "transparent" },
     navIcon: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center" },
     navText: { color: c.text, fontFamily: font.medium, fontSize: 15 },
     askBtn: {

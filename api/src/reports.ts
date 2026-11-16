@@ -9,7 +9,7 @@
 import type { AiClient, Report } from './ai.ts';
 import { AGNI_LABEL, aggravated, type Ayurveda, prakritiLabel } from './ayurveda.ts';
 import { calculateChart } from './lib/chart.ts';
-import { deepChart } from './lib/jyotish.ts';
+import { deepChart, describeVarga } from './lib/jyotish.ts';
 import { GROUPS, REPORTS, reportSpec } from './lib/reports.ts';
 import { rituAt } from './lib/ritu.ts';
 import type { Lang } from './lib/text.ts';
@@ -86,7 +86,8 @@ export async function unlockReport(
   } else {
     if (!profile) throw new ReportError('Add your birth details first: reports are written from your chart.', 409, 'needs-details');
     const chart = calculateChart(toBirth(profile));
-    facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nWESTERN (tropical, only if useful):\n${describeTropical(chart, new Date(now))}`;
+    const vargas = (spec.vargas ?? []).map((n) => describeVarga(chart, n)).join('\n');
+    facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nDIVISIONAL CHARTS for this topic (read them with the birth chart; name them in the report):\n${vargas || 'none'}\n\nWESTERN (tropical, only if useful):\n${describeTropical(chart, new Date(now))}`;
   }
 
   const report = await deps.ai.report({ title: spec.title, focus: spec.focus, ayurveda: spec.ayurveda }, lang, facts);

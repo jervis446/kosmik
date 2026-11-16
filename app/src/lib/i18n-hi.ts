@@ -553,6 +553,8 @@ export const HI: Record<string, string> = {
   "Ask Kosmik a question first": "पहले Kosmik से एक सवाल पूछें",
   "{v0} CREDITS LEFT": "{v0} क्रेडिट बाकी",
   "1 CREDIT LEFT": "1 क्रेडिट बाकी",
+  "Planetary positions, strengths, yogas and transits across your {v0} charts.": "आपकी {v0} कुंडलियों में ग्रहों की स्थिति, बल, योग और गोचर।",
+  "Read from your own {v0} charts": "आपकी अपनी {v0} कुंडलियों से पढ़ी गई",
   "UNLOCK WITH ANY REPORT PACK · FROM ₹99": "किसी भी रिपोर्ट पैक से अनलॉक करें · ₹99 से",
   "Your chart": "आपकी कुंडली",
   "NOT A TEMPLATE": "कोई टेम्पलेट नहीं",

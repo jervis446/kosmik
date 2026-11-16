@@ -227,6 +227,8 @@ export type ReportSummary = {
   about: string;
   badge?: "new" | "trending";
   ayurveda?: boolean;
+  /** Divisional charts read with the birth chart, e.g. [10] for D10. */
+  vargas?: number[];
   owned?: boolean;
   createdAt?: number | null;
 };

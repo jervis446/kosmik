@@ -118,7 +118,12 @@ export default function ReportPage() {
       </Shell>
     );
 
-  const inside = spec.ayurveda ? INSIDE_AYUR : INSIDE;
+  // The charts this report reads: the birth chart and the divisional chart(s) for its topic.
+  const charts = ["D1", ...(spec.vargas ?? []).map((n) => `D${n}`)].join(" + ");
+  const inside = spec.ayurveda
+    ? INSIDE_AYUR
+    : INSIDE.map(([t, d], i) => [t, i === 0 ? tr("Planetary positions, strengths, yogas and transits across your {v0} charts.", { v0: charts }) : d]);
+  const versus = VERSUS.map(([a, b], i) => [a, i === 0 ? tr("Read from your own {v0} charts", { v0: charts }) : b]);
   return (
     <Shell>
       <ScrollView contentContainerStyle={s.page}>
@@ -127,7 +132,8 @@ export default function ReportPage() {
         </Pressable>
 
         <View style={[s.hero, spec.ayurveda && { borderColor: "#3FB68B66" }]}>
-          <View style={{ flex: 1, minWidth: 260, gap: 14 }}>
+          <View style={s.heroTop}>
+          <View style={{ flex: 1, minWidth: 260, gap: 12 }}>
             <Text style={s.eyebrow}>
               {tr(spec.ayurveda ? "AYURVEDA READING" : "PREMIUM VEDIC READING")} · {tr(GROUP_LABEL[spec.group])}
             </Text>
@@ -156,15 +162,16 @@ export default function ReportPage() {
           </View>
           <View style={s.art}>
             <View style={s.artInner}>
-              <Text style={{ fontSize: 44 }}>{spec.icon}</Text>
+              <Text style={{ fontSize: 32 }}>{spec.icon}</Text>
             </View>
+          </View>
           </View>
           <View style={s.stats}>
             {(spec.ayurveda
               ? [["Your prakriti", "NOT A TEMPLATE"], ["Every season", "COVERED"], ["About a minute", "TO PREPARE"], ["Ask after", "IN AN AYURVEDA CHAT"]]
-              : [["Your chart", "NOT A TEMPLATE"], ["D1 + D9", "READ TOGETHER"], ["About a minute", "TO PREPARE"], ["Dated", "PERIODS AND TRANSITS"]]
-            ).map(([a, b]) => (
-              <View key={a} style={s.stat}>
+              : [["Your chart", "NOT A TEMPLATE"], [charts, "READ TOGETHER"], ["About a minute", "TO PREPARE"], ["Dated", "PERIODS AND TRANSITS"]]
+            ).map(([a, b], i, all) => (
+              <View key={a} style={[s.stat, i === all.length - 1 && { borderRightWidth: 0 }]}>
                 <Text style={s.statTop}>{tr(a)}</Text>
                 <Text style={s.mono}>{tr(b)}</Text>
               </View>
@@ -204,7 +211,7 @@ export default function ReportPage() {
                     <Text style={[s.mono, s.tCell]}>{tr("OTHER REPORTS")}</Text>
                     <Text style={[s.mono, s.tCell, s.tOurs]}>KOSMIK</Text>
                   </View>
-                  {VERSUS.map(([a, b]) => (
+                  {versus.map(([a, b]) => (
                     <View key={a} style={s.tRow}>
                       <Text style={[s.tText, s.tCell]}>✕ {tr(a)}</Text>
                       <Text style={[s.tText, s.tCell, s.tOurs]}>
@@ -232,7 +239,7 @@ export default function ReportPage() {
               {FAQ.map(([q, a], i) => (
                 <Pressable key={q} onPress={() => setOpen(open === i ? null : i)} style={s.faq} accessibilityRole="button" accessibilityState={{ expanded: open === i }}>
                   <View style={{ flexDirection: "row", gap: 10 }}>
-                    <Text style={[s.boxTitle, { flex: 1, fontSize: 17 }]}>{tr(q)}</Text>
+                    <Text style={[s.boxTitle, { flex: 1, fontSize: 15 }]}>{tr(q)}</Text>
                     <Text style={[s.boxTitle, { color: colors.primary }]}>{open === i ? "−" : "+"}</Text>
                   </View>
                   {open === i ? <Text style={s.muted}>{tr(a)}</Text> : null}
@@ -345,47 +352,43 @@ function ReportBody({ report, s, colors, onAsk }: { report: WrittenReport; s: Re
 
 const styles = (c: Colors) =>
   StyleSheet.create({
-    page: { padding: 24, paddingTop: 28, gap: 22, maxWidth: 1180, width: "100%", alignSelf: "center" },
+    page: { padding: 24, paddingTop: 24, gap: 18, maxWidth: 1080, width: "100%", alignSelf: "center" },
     crumb: { color: c.muted, fontFamily: font.mono, fontSize: 12, letterSpacing: 2.5 },
     hero: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 24,
-      padding: 28,
-      paddingBottom: 0,
       borderRadius: 24,
       borderWidth: 1,
       borderColor: `${c.primary}55`,
       backgroundColor: `${c.primary}16`,
       overflow: "hidden",
     },
+    heroTop: { flexDirection: "row", flexWrap: "wrap", gap: 20, padding: 24 },
     eyebrow: { color: c.muted, fontFamily: font.mono, fontSize: 11, letterSpacing: 2.5 },
-    heroTitle: { color: c.text, fontFamily: font.display, fontSize: 48, lineHeight: 56 },
+    heroTitle: { color: c.text, fontFamily: font.display, fontSize: 34, lineHeight: 42 },
     rule: { width: 72, height: 1, backgroundColor: c.line },
-    about: { color: c.text, fontFamily: font.body, fontSize: 16, lineHeight: 25, maxWidth: 560 },
-    cta: { backgroundColor: c.primary, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 20 },
-    ctaText: { color: c.onPrimary, fontFamily: font.semibold, fontSize: 15 },
-    ghost: { borderWidth: 1, borderColor: c.line, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 18, backgroundColor: c.surface },
-    ghostText: { color: c.text, fontFamily: font.medium, fontSize: 14 },
-    mono: { color: c.muted, fontFamily: font.mono, fontSize: 11, letterSpacing: 2 },
-    art: { width: 150, height: 190, borderRadius: 20, borderWidth: 1, borderColor: `${c.primary}66`, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center", alignSelf: "center" },
-    artInner: { width: 84, height: 84, borderRadius: 22, borderWidth: 1, borderColor: c.line, backgroundColor: c.bg, alignItems: "center", justifyContent: "center" },
-    stats: { flexBasis: "100%", flexDirection: "row", flexWrap: "wrap", borderTopWidth: 1, borderTopColor: c.line, marginHorizontal: -28 },
-    stat: { flexGrow: 1, flexBasis: 160, paddingVertical: 14, paddingHorizontal: 20, gap: 4, borderRightWidth: 1, borderRightColor: c.line },
-    statTop: { color: c.text, fontFamily: font.medium, fontSize: 17 },
+    about: { color: c.text, fontFamily: font.body, fontSize: 15, lineHeight: 23, maxWidth: 560 },
+    cta: { backgroundColor: c.primary, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 18 },
+    ctaText: { color: c.onPrimary, fontFamily: font.semibold, fontSize: 14 },
+    ghost: { borderWidth: 1, borderColor: c.line, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 16, backgroundColor: c.surface },
+    ghostText: { color: c.text, fontFamily: font.medium, fontSize: 13 },
+    mono: { color: c.muted, fontFamily: font.mono, fontSize: 10, letterSpacing: 1.8 },
+    art: { width: 112, height: 140, borderRadius: 20, borderWidth: 1, borderColor: `${c.primary}66`, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center", alignSelf: "center" },
+    artInner: { width: 60, height: 60, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.bg, alignItems: "center", justifyContent: "center" },
+    stats: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: 1, borderTopColor: c.line },
+    stat: { flexGrow: 1, flexBasis: 150, paddingVertical: 12, paddingHorizontal: 18, gap: 3, borderRightWidth: 1, borderRightColor: c.line },
+    statTop: { color: c.text, fontFamily: font.medium, fontSize: 15 },
     error: { color: c.danger, fontFamily: font.medium, fontSize: 15 },
     writing: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 16, padding: 20, borderRadius: 18, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
-    h2: { color: c.text, fontFamily: font.display, fontSize: 30, marginTop: 6 },
+    h2: { color: c.text, fontFamily: font.display, fontSize: 22, marginTop: 4 },
     row3: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
-    box: { flexBasis: 260, flexGrow: 1, gap: 8, padding: 20, borderRadius: 18, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
+    box: { flexBasis: 240, flexGrow: 1, gap: 6, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
     num: { color: c.muted, fontFamily: font.mono, fontSize: 11, borderWidth: 1, borderColor: c.line, borderRadius: 8, paddingVertical: 3, paddingHorizontal: 7, alignSelf: "flex-start" },
-    boxTitle: { color: c.text, fontFamily: font.display, fontSize: 19 },
-    muted: { color: c.muted, fontFamily: font.body, fontSize: 15, lineHeight: 22 },
+    boxTitle: { color: c.text, fontFamily: font.display, fontSize: 16 },
+    muted: { color: c.muted, fontFamily: font.body, fontSize: 14, lineHeight: 21 },
     table: { borderRadius: 18, borderWidth: 1, borderColor: c.line, overflow: "hidden" },
     tRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: c.line },
-    tCell: { flex: 1, paddingVertical: 13, paddingHorizontal: 16 },
+    tCell: { flex: 1, paddingVertical: 10, paddingHorizontal: 14 },
     tOurs: { backgroundColor: `${c.primary}14` },
-    tText: { color: c.muted, fontFamily: font.body, fontSize: 14 },
+    tText: { color: c.muted, fontFamily: font.body, fontSize: 13 },
     after: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -399,14 +402,14 @@ const styles = (c: Colors) =>
       borderLeftColor: c.primary,
       backgroundColor: `${c.primary}12`,
     },
-    faq: { gap: 10, padding: 18, borderRadius: 14, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
-    final: { alignItems: "center", gap: 14, paddingVertical: 48, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: `${c.primary}55`, backgroundColor: `${c.primary}14` },
-    finalTitle: { color: c.text, fontFamily: font.display, fontSize: 36, textAlign: "center", lineHeight: 44 },
+    faq: { gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
+    final: { alignItems: "center", gap: 12, paddingVertical: 36, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: `${c.primary}55`, backgroundColor: `${c.primary}14` },
+    finalTitle: { color: c.text, fontFamily: font.display, fontSize: 26, textAlign: "center", lineHeight: 34 },
     verdict: { gap: 10, padding: 24, borderRadius: 20, borderWidth: 1, borderColor: `${c.primary}66`, backgroundColor: `${c.primary}16` },
-    verdictText: { color: c.text, fontFamily: font.display, fontSize: 24, lineHeight: 32 },
+    verdictText: { color: c.text, fontFamily: font.display, fontSize: 20, lineHeight: 28 },
     section: { gap: 10, padding: 22, borderRadius: 18, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
-    secTitle: { color: c.text, fontFamily: font.display, fontSize: 22 },
-    body: { color: c.text, fontFamily: font.body, fontSize: 16, lineHeight: 25 },
+    secTitle: { color: c.text, fontFamily: font.display, fontSize: 18 },
+    body: { color: c.text, fontFamily: font.body, fontSize: 15, lineHeight: 24 },
     when: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: c.line },
     whenDate: { width: 200, color: c.accent, fontFamily: font.semibold, fontSize: 15 },
   });

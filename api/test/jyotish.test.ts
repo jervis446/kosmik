@@ -67,3 +67,18 @@ test('tropical: Western big three, the Sun on the birthday, and the next solar r
   assert.equal(cusp(30.5), 'Aries–Taurus cusp');
   assert.equal(cusp(45), null);
 });
+
+test('vargas follow Parashara: D2, D7, D9, D10 and D24 for odd and even signs', async () => {
+  const { varga } = await import('../src/lib/jyotish.ts');
+  const ARIES = 0, TAURUS = 30;
+  // Hora: odd sign Leo then Cancer, even sign Cancer then Leo.
+  assert.deepEqual([varga(ARIES + 10, 2), varga(ARIES + 20, 2), varga(TAURUS + 10, 2), varga(TAURUS + 20, 2)], [4, 3, 3, 4]);
+  // Saptamsa: even signs start from the 7th.
+  assert.equal(varga(TAURUS + 1, 7), 7);
+  // Navamsa: Aries starts at Aries, Taurus at Capricorn.
+  assert.deepEqual([varga(ARIES + 1, 9), varga(TAURUS + 1, 9)], [0, 9]);
+  // Dashamsa: 3° parts; odd signs from themselves, even signs from the 9th.
+  assert.deepEqual([varga(ARIES + 5, 10), varga(TAURUS + 5, 10), varga(TAURUS + 29.9, 10)], [1, 10, 6]);
+  // Chaturvimshamsa: odd signs from Leo, even from Cancer.
+  assert.deepEqual([varga(ARIES + 0.5, 24), varga(TAURUS + 0.5, 24), varga(ARIES + 29.9, 24)], [4, 3, 3]);
+});

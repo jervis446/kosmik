@@ -112,6 +112,50 @@ const countFrom = (from: number, n: number) => ((from - 1 + n - 1) % 12) + 1;
 /** Navamsa (D9) rashi index for a sidereal longitude. */
 export const navamsa = (lon: number) => Math.floor(norm(lon) / (30 / 9)) % 12;
 
+/**
+ * Divisional charts (vargas), by Parashara's rules: the rashi a longitude falls in for the D-n chart.
+ * D2 hora (wealth), D3 drekkana (siblings), D4 chaturthamsa (property), D7 saptamsa (children),
+ * D9 navamsa (marriage), D10 dashamsa (career), D12 dwadashamsa (parents), D16 shodashamsa
+ * (vehicles, comforts), D20 vimshamsa (spiritual life), D24 chaturvimshamsa (education).
+ */
+export type Varga = 2 | 3 | 4 | 7 | 9 | 10 | 12 | 16 | 20 | 24;
+export const VARGA_NAME: Record<Varga, string> = {
+  2: 'Hora (D2): wealth', 3: 'Drekkana (D3): siblings and courage', 4: 'Chaturthamsa (D4): home and property',
+  7: 'Saptamsa (D7): children', 9: 'Navamsa (D9): marriage and inner strength', 10: 'Dashamsa (D10): career and status',
+  12: 'Dwadashamsa (D12): parents', 16: 'Shodashamsa (D16): comforts and vehicles', 20: 'Vimshamsa (D20): spiritual life',
+  24: 'Chaturvimshamsa (D24): learning and education',
+};
+export function varga(lon: number, n: Varga): number {
+  const l = norm(lon);
+  const sign = Math.floor(l / 30);
+  const part = Math.floor((l % 30) / (30 / n));
+  const odd = sign % 2 === 0; // Mesha (index 0) is an odd sign
+  const movable = sign % 3 === 0, fixed = sign % 3 === 1;
+  switch (n) {
+    case 2: return odd ? (part === 0 ? 4 : 3) : part === 0 ? 3 : 4; // Leo (Sun) and Cancer (Moon)
+    case 3: return (sign + 4 * part) % 12;
+    case 4: return (sign + 3 * part) % 12;
+    case 7: return ((odd ? sign : sign + 6) + part) % 12;
+    case 9: return navamsa(l);
+    case 10: return ((odd ? sign : sign + 8) + part) % 12;
+    case 12: return (sign + part) % 12;
+    case 16: return ((movable ? 0 : fixed ? 4 : 8) + part) % 12;
+    case 20: return ((movable ? 0 : fixed ? 8 : 4) + part) % 12;
+    case 24: return ((odd ? 4 : 3) + part) % 12;
+  }
+}
+
+/** One divisional chart as lines for the model: its lagna and where each graha falls. */
+export function describeVarga(chart: Chart, n: Varga): string {
+  const lagnaLon = chart.lagna ? rashiIdx(chart.lagna.rashi) * 30 + chart.lagna.degree : null;
+  const lagna = lagnaLon === null ? null : varga(lagnaLon, n);
+  const where = chart.grahas.map((p) => {
+    const r = varga(p.lon, n);
+    return `${gName(p.graha)} in ${RASHIS[r].name}${lagna === null ? '' : ` (house ${((r - lagna + 12) % 12) + 1})`}`;
+  });
+  return `${VARGA_NAME[n]}: ${lagna === null ? 'lagna unknown (no birth time); ' : `lagna ${RASHIS[lagna].name}; `}${where.join('; ')}`;
+}
+
 const KENDRA = [1, 4, 7, 10];
 const TRIKONA = [1, 5, 9];
 
