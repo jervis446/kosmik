@@ -22,9 +22,11 @@ import { rituAt, RITUS_HI } from './lib/ritu.ts';
 import { describeTropical, MOON_VIBE_HI, MOON_VIBE_HINGLISH, SIGNS, SIGNS_HI, SUN_VIBE_HI, SUN_VIBE_HINGLISH, zodiac, zodiacHi } from './lib/tropical.ts';
 import type { AskResult, Block, CacheEntry, ChatKind, Layer, Meaning, Passage, Verse } from './types.ts';
 
-/** Up to 300 words; the character cap only stops abuse. */
-export const MAX_WORDS = 300;
-export const MAX_QUESTION = 2400;
+/** Up to 350 letters a question, counting every character as people see it (spaces too). */
+export const MAX_LETTERS = 350;
+const letters = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+/** Characters as people see them: "ffffff" is 6, "नमस्ते" is 3. */
+export const letterCount = (t: string) => [...letters.segment(t)].length;
 /**
  * Cosine similarity (gemini-embedding-2, 768 dims) above which two questions count as the same.
  * Measured: paraphrases 0.92–0.98; different questions up to 0.91 ("karma" vs "dharma" in the
@@ -284,7 +286,7 @@ export async function ask(
   const now = deps.now?.() ?? Date.now();
   const question = input.question.replace(/\s+/g, ' ').trim();
   if (question.length < 2) throw new BadQuestion('Ask a question to get started.');
-  if (question.length > MAX_QUESTION || question.split(' ').length > MAX_WORDS) throw new BadQuestion(`Questions can be up to ${MAX_WORDS} words.`);
+  if (letterCount(question) > MAX_LETTERS) throw new BadQuestion(`Questions can be up to ${MAX_LETTERS} letters.`);
   const chosen = LANGS.includes(input.lang as Lang) ? (input.lang as Lang) : undefined;
   let lang: Lang = chosen ?? requestedLang(question) ?? detectLang(question);
   // The libraries answer in the chat's language: Hindi text where it exists, English otherwise.

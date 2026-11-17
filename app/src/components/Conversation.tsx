@@ -104,10 +104,13 @@ const LAYER_LABEL: Record<Layer, string> = {
   limit: "",
 };
 
-/** Up to 300 words a question (the character cap only stops pasted essays). */
-const MAX_WORDS = 300;
-const MAX_LEN = 2400;
-const wordCount = (t: string) => (t.trim() ? t.trim().split(/\s+/).length : 0);
+/** Up to 350 letters a question, counting every character as people see it (spaces too), as the API does. */
+const MAX_LETTERS = 350;
+const graphemes = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
+const letterCount = (t: string) => {
+  const q = t.replace(/\s+/g, " ").trim();
+  return graphemes ? [...graphemes.segment(q)].length : [...q].length;
+};
 const PALM_WORDS =
   /palm|hast ?rekha|hatheli|life ?line|heart ?line|head ?line|fate ?line|हथेली|हस्तरेखा/i;
 
@@ -219,8 +222,8 @@ export function Conversation({
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || busy) return;
-    if (wordCount(q) > MAX_WORDS || q.length > MAX_LEN) {
-      setError(tr("Please keep your question under {v0} words.", { v0: MAX_WORDS }));
+    if (letterCount(q) > MAX_LETTERS) {
+      setError(tr("Please keep your question to {v0} letters.", { v0: MAX_LETTERS }));
       return;
     }
     setError(null);
@@ -510,7 +513,8 @@ export function Conversation({
               { height: Math.min(160, Math.max(24, inputHeight)) },
             ]}
             multiline
-            maxLength={MAX_LEN}
+            // A hard stop well past the limit, so a long paste shows in red instead of being cut silently.
+            maxLength={MAX_LETTERS * 4}
             onContentSizeChange={(e) =>
               setInputHeight(e.nativeEvent.contentSize.height)
             }
@@ -550,11 +554,11 @@ export function Conversation({
               </Pressable>
             )}
             <Text
-              style={[s.pill, wordCount(input) > MAX_WORDS && { color: colors.danger, borderColor: colors.danger }]}
+              style={[s.pill, letterCount(input) > MAX_LETTERS && { color: colors.danger, borderColor: colors.danger }]}
               testID="word-count"
-              accessibilityLabel={`${wordCount(input)} of ${MAX_WORDS} words`}
+              accessibilityLabel={`${letterCount(input)} of ${MAX_LETTERS} letters`}
             >
-              {wordCount(input)} / {MAX_WORDS}
+              {letterCount(input)} / {MAX_LETTERS}
             </Text>
             <View style={{ flex: 1 }} />
             {session && remaining !== null ? (
