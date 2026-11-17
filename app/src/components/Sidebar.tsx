@@ -37,14 +37,25 @@ function group(chats: ConversationSummary[], now: number) {
 }
 
 /** ChatGPT-style sidebar: new chat, topics, your chats, and your account at the bottom. */
-export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
+export function Sidebar({
+  onCollapse,
+  onMenuChange,
+}: {
+  onCollapse?: () => void;
+  /** Tells the shell when the account menu opens or closes (it is wider than the sidebar). */
+  onMenuChange?: (open: boolean) => void;
+} = {}) {
   const { colors } = useTheme();
   const { session } = useAuth();
   const shell = useShell();
   const s = styles(colors);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | ChatKind>("all");
-  const [menu, setMenu] = useState(false);
+  const [menu, setMenuState] = useState(false);
+  const setMenu = (open: boolean) => {
+    setMenuState(open);
+    onMenuChange?.(open);
+  };
   // Which part of Kosmik is open, so it can be highlighted.
   const path = usePathname();
   const newKind = shell.newKind === "ayurveda" || shell.newKind === "shanti" ? shell.newKind : "kosmik";
@@ -281,7 +292,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
 
       {session ? (
         <Pressable
-          onPress={() => setMenu((m) => !m)}
+          onPress={() => setMenu(!menu)}
           style={[s.account, menu && { backgroundColor: colors.surface2 }]}
           accessibilityRole="button"
           accessibilityLabel="Account"
