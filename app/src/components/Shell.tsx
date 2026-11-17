@@ -101,6 +101,12 @@ export function Shell({
   const [side, setSide] = useState<SideState>(loadSide);
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const [handleHover, setHandleHover] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // The handle is removed while the menu is open, so it never gets its pointer-leave: reset the highlight.
+  const onMenuChange = (open: boolean) => {
+    setMenuOpen(open);
+    if (open) setHandleHover(false);
+  };
   const update = (next: SideState) => {
     setSide(next);
     saveSide(next);
@@ -167,25 +173,28 @@ export function Shell({
           style={[s.sideWide, { width: sideWidth, opacity: closing ? 0.5 : 1 }]}
           testID="sidebar"
         >
-          <Sidebar onCollapse={() => update({ ...side, collapsed: true })} />
-          <View
-            {...drag.panHandlers}
-            onPointerEnter={() => setHandleHover(true)}
-            onPointerLeave={() => setHandleHover(false)}
-            style={[s.handle, { cursor: "col-resize" } as object]}
-            accessibilityRole="adjustable"
-            accessibilityLabel="Resize sidebar"
-            testID="sidebar-handle"
-          >
+          <Sidebar onCollapse={() => update({ ...side, collapsed: true })} onMenuChange={onMenuChange} />
+          {/* The account menu is wider than the sidebar: hide the resize handle so it can't sit on top of it. */}
+          {menuOpen ? null : (
             <View
-              style={[
-                s.handleLine,
-                (handleHover || dragWidth !== null) && {
-                  backgroundColor: colors.primary,
-                },
-              ]}
-            />
-          </View>
+              {...drag.panHandlers}
+              onPointerEnter={() => setHandleHover(true)}
+              onPointerLeave={() => setHandleHover(false)}
+              style={[s.handle, { cursor: "col-resize" } as object]}
+              accessibilityRole="adjustable"
+              accessibilityLabel="Resize sidebar"
+              testID="sidebar-handle"
+            >
+              <View
+                style={[
+                  s.handleLine,
+                  (handleHover || dragWidth !== null) && {
+                    backgroundColor: colors.primary,
+                  },
+                ]}
+              />
+            </View>
+          )}
         </View>
       ) : null}
 
