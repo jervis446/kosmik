@@ -68,18 +68,37 @@ type Ctx = {
   setPref: (p: ThemePref) => void;
 };
 const ThemeCtx = createContext<Ctx | null>(null);
+/** Shared with the landing page (same key on the web), so the two always show the same theme. */
 const KEY = "kosmik/theme";
+const isPref = (v: unknown): v is ThemePref => v === "light" || v === "dark" || v === "system";
+
+/** On the web the saved choice is read at once, so the first frame is already in the right theme. */
+function savedOnWeb(): ThemePref | null {
+  try {
+    const v = typeof localStorage !== "undefined" ? localStorage.getItem(KEY) ?? localStorage.getItem("kosmik-theme") : null;
+    return isPref(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const system = useColorScheme();
-  const [pref, setPrefState] = useState<ThemePref>("system");
+  const [pref, setPrefState] = useState<ThemePref>(() => savedOnWeb() ?? "system");
 
   useEffect(() => {
     AsyncStorage.getItem(KEY)
       .then((v) => {
-        if (v === "light" || v === "dark" || v === "system") setPrefState(v);
+        if (isPref(v)) setPrefState(v);
       })
       .catch(() => {});
+    // A change made on the landing page or in another tab shows here too.
+    if (typeof window === "undefined" || !window.addEventListener) return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === KEY) setPrefState(isPref(e.newValue) ? e.newValue : "system");
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const value = useMemo(() => {
