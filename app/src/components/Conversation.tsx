@@ -58,8 +58,9 @@ const SHANTI_STARTERS = [
   "I just went through a breakup",
   "I feel lost after failing",
   "How do I live with losing someone?",
-  "Fights at home are wearing me down",
   "I feel alone even with people around",
+  "What does the Gita say about karma?",
+  "What can Rama’s life teach me about patience?",
 ];
 
 /** Common first questions in an Ayurveda chat. */
@@ -154,6 +155,8 @@ export function Conversation({
   // Questions left, shown in the composer from the start (Premium has no limit, so no pill):
   // the saved account info at once, then the count each answer returns.
   const me = useMe();
+  // Your first name from your birth details, for the greeting.
+  const first = me?.name?.trim().split(/\s+/)[0] || null;
   const [answered, setRemaining] = useState<number | null>(null);
   const remaining = answered ?? (me && me.usage.limit !== null ? Math.max(0, me.usage.limit - me.usage.used) : null);
   const [modal, setModal] = useState<{
@@ -351,9 +354,11 @@ export function Conversation({
               <Text style={[s.sub, { fontFamily: font.mono, letterSpacing: 1.5, fontSize: 12 }]}>
                 {tr("KOSMIK / SHANTI")}
               </Text>
-              <Text style={s.hello}>{tr("Tell me what’s on your heart.")}</Text>
+              <Text style={s.hello}>
+                {first ? tr("{name}, tell me what’s on your heart.", { name: first }) : tr("Tell me what’s on your heart.")}
+              </Text>
               <Text style={s.sub}>
-                {tr("Say it the way it is. Shanti listens, and answers with what the Gita and the old texts teach about pain like yours. Nothing you say here is shown to anyone else.")}
+                {tr("Say it the way it is, or ask anything about the Gita, Ramayana, Mahabharata or Upanishads. Shanti answers with what the old texts teach. Nothing you say here is shown to anyone else.")}
               </Text>
               <Text style={[s.sub, { fontSize: 12 }]}>
                 {tr("Not therapy. If you might hurt yourself, call Tele-MANAS 14416 (free, 24×7). In danger right now: 112.")}
@@ -376,7 +381,9 @@ export function Conversation({
         {turns.length === 0 && !ayurveda && !shanti ? (
           <View style={{ gap: 18, paddingTop: 12 }}>
             <View style={{ gap: 6 }}>
-              <Text style={s.hello}>{tr("Namaste. What’s on your mind?")}</Text>
+              <Text style={s.hello}>
+                {first ? tr("Namaste, {name}. What’s on your mind?", { name: first }) : tr("Namaste. What’s on your mind?")}
+              </Text>
               <Text style={s.sub}>
                 {tr("Just ask, in English, Hindi or Hinglish. Or hover a card for ideas.")}
               </Text>

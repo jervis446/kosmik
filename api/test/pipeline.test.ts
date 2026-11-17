@@ -866,3 +866,39 @@ test('shanti: a cached answer is retired when a passage it cites is edited', asy
   const fresh = await ask(f.deps(), { question: q, lang: 'en', identity: user, mode: 'shanti' });
   assert.equal(fresh.layer, 'ai');
 });
+
+test('shanti: the answer greets the person by first name, and a guest gets it without a name', async () => {
+  const f = new Fakes();
+  f.profile = { ...birth, name: 'Adarsh Kumar' };
+  f.shantiAnswers = ['{name}, that sounds heavy. The Gita says the self is not shaken.'];
+  const r = await ask(f.deps(), { question: 'I feel like I will always be lonely', lang: 'en', identity: user, mode: 'shanti' });
+  assert.equal(r.blocks[0].type === 'text' && r.blocks[0].text, 'Adarsh, that sounds heavy. The Gita says the self is not shaken.');
+
+  const g = new Fakes();
+  g.shantiAnswers = ['{name}, that sounds heavy. Hold on, {name}.'];
+  const guest: Identity = { kind: 'guest', subject: 'guest:abc' };
+  const r2 = await ask(g.deps(), { question: 'I feel like I will always be lonely', lang: 'en', identity: guest, mode: 'shanti' });
+  assert.equal(r2.blocks[0].type === 'text' && r2.blocks[0].text, 'That sounds heavy. Hold on.');
+});
+
+test('shanti: a cached answer greets each person by their own name', async () => {
+  const f = new Fakes();
+  f.profile = { ...birth, name: 'Adarsh' };
+  f.shantiAnswers = ['{name}, letting go is a practice. Krishna asks us to act and release the result.'];
+  const q = 'How to let go of attachment and worry?';
+  await ask(f.deps(), { question: q, lang: 'en', identity: user, mode: 'shanti' });
+  assert.ok(f.cacheRows.every((row) => JSON.stringify(row.blocks).includes('{name}') && !JSON.stringify(row.blocks).includes('Adarsh')));
+  f.profile = { ...birth, name: 'Meera' };
+  const again = await ask(f.deps(), { question: q, lang: 'en', identity: { kind: 'user', id: 'u2', premium: false }, mode: 'shanti' });
+  assert.equal(again.layer, 'exact');
+  assert.match(again.blocks[0].type === 'text' ? again.blocks[0].text : '', /^Meera, letting go/);
+});
+
+test('shanti: questions about the scriptures themselves are answered in a Shanti chat', async () => {
+  for (const question of ['What does the Gita say about karma?', 'What can Rama’s life teach me about patience?', 'Who wrote the Mahabharata?', 'What is moksha in the Upanishads?']) {
+    const f = new Fakes();
+    const r = await ask(f.deps(), { question, lang: 'en', identity: user, mode: 'shanti' });
+    assert.equal(f.shantiCalls, 1, question);
+    assert.equal(r.kind, 'shanti', question);
+  }
+});
