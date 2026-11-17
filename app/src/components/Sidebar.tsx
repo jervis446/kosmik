@@ -371,10 +371,10 @@ const styles = (c: Colors) =>
     },
     askGlyph: { fontSize: 16, width: 18, textAlign: "center" },
     askText: { color: c.text, fontFamily: font.semibold, fontSize: 15 },
-    filters: { flexDirection: "row", gap: 6, paddingHorizontal: 4, paddingTop: 6, paddingBottom: 8 },
-    filter: { paddingVertical: 5, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: "transparent" },
+    filters: { flexDirection: "row", flexWrap: "wrap", gap: 2, paddingHorizontal: 4, paddingTop: 6, paddingBottom: 8 },
+    filter: { paddingVertical: 5, paddingHorizontal: 6, borderRadius: 999, borderWidth: 1, borderColor: "transparent" },
     filterOn: { borderColor: c.line, backgroundColor: c.surface2 },
-    filterText: { color: c.muted, fontFamily: font.mono, fontSize: 11, letterSpacing: 1.2 },
+    filterText: { color: c.muted, fontFamily: font.mono, fontSize: 10, letterSpacing: 0.4 },
     newChat: {
       borderWidth: 1,
       borderColor: c.line,
