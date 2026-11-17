@@ -150,3 +150,19 @@ test('shanti prompt: speaks by the {name} token, suggests something uplifting, a
   assert.match(SHANTI_PROMPT, /happy thing to do today/);
   assert.match(SHANTI_PROMPT, /When they ask about the texts/);
 });
+
+test('answers lose em dashes, semicolons and markdown, but keep number ranges', async () => {
+  const { cleanAnswer } = await import('../src/ai.ts');
+  assert.equal(cleanAnswer('Saturn is slow — give it time; it lifts in **June 2027**.'), 'Saturn is slow, give it time. It lifts in June 2027.');
+  assert.equal(cleanAnswer('## Today\n* Eat warm food\n* Sleep by 10'), 'Today\nEat warm food\nSleep by 10');
+  assert.equal(cleanAnswer('From 2026–2027 the dasha runs.'), 'From 2026–2027 the dasha runs.');
+});
+
+test('every chat prompt carries the same human writing style', async () => {
+  const ai = await import('../src/ai.ts');
+  for (const p of [ai.systemPrompt('open'), ai.systemPrompt('safe'), ai.AYURVEDA_PROMPT, ai.SHANTI_PROMPT, ai.TAROT_PROMPT, ai.PALM_PROMPT]) {
+    assert.ok(p.includes(ai.STYLE), p.slice(0, 40));
+  }
+  assert.match(ai.STYLE, /mild uncertainty/);
+  assert.match(ai.STYLE, /em dashes/);
+});

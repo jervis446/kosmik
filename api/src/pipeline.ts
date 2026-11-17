@@ -22,11 +22,11 @@ import { rituAt, RITUS_HI } from './lib/ritu.ts';
 import { describeTropical, MOON_VIBE_HI, MOON_VIBE_HINGLISH, SIGNS, SIGNS_HI, SUN_VIBE_HI, SUN_VIBE_HINGLISH, zodiac, zodiacHi } from './lib/tropical.ts';
 import type { AskResult, Block, CacheEntry, ChatKind, Layer, Meaning, Passage, Verse } from './types.ts';
 
-/** Up to 350 letters a question, counting every character as people see it (spaces too). */
-export const MAX_LETTERS = 350;
+/** Up to 250 letters a question, counting characters as people see them; spaces don't count. */
+export const MAX_LETTERS = 250;
 const letters = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-/** Characters as people see them: "ffffff" is 6, "नमस्ते" is 3. */
-export const letterCount = (t: string) => [...letters.segment(t)].length;
+/** Characters as people see them, without spaces: "fff fff" is 6, "नमस्ते" is 3. */
+export const letterCount = (t: string) => [...letters.segment(t.replace(/\s+/g, ''))].length;
 /**
  * Cosine similarity (gemini-embedding-2, 768 dims) above which two questions count as the same.
  * Measured: paraphrases 0.92–0.98; different questions up to 0.91 ("karma" vs "dharma" in the

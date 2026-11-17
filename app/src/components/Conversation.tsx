@@ -104,11 +104,11 @@ const LAYER_LABEL: Record<Layer, string> = {
   limit: "",
 };
 
-/** Up to 350 letters a question, counting every character as people see it (spaces too), as the API does. */
-const MAX_LETTERS = 350;
+/** Up to 250 letters a question, counting characters as people see them, spaces not counted, as the API does. */
+const MAX_LETTERS = 250;
 const graphemes = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
 const letterCount = (t: string) => {
-  const q = t.replace(/\s+/g, " ").trim();
+  const q = t.replace(/\s+/g, "");
   return graphemes ? [...graphemes.segment(q)].length : [...q].length;
 };
 const PALM_WORDS =
