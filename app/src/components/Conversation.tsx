@@ -53,6 +53,15 @@ const LANGS: { key: Lang | undefined; label: string }[] = [
 ];
 
 /** The layer label in the answer's own language: Hindi when the answer is in Devanagari. */
+/** Common first things to say in a Shanti chat. */
+const SHANTI_STARTERS = [
+  "I just went through a breakup",
+  "I feel lost after failing",
+  "How do I live with losing someone?",
+  "Fights at home are wearing me down",
+  "I feel alone even with people around",
+];
+
 /** Common first questions in an Ayurveda chat. */
 const AYUR_STARTERS = [
   "Gas and bloating after meals",
@@ -133,6 +142,7 @@ export function Conversation({
   );
   const [kind, setKind] = useState<ChatKind | null>(initialKind);
   const ayurveda = kind === "ayurveda";
+  const shanti = kind === "shanti";
   const [input, setInput] = useState("");
   const [inputHeight, setInputHeight] = useState(24);
   const [lang, setLang] = useAnswerLang();
@@ -335,7 +345,35 @@ export function Conversation({
             </View>
           </View>
         ) : null}
-        {turns.length === 0 && !ayurveda ? (
+        {turns.length === 0 && shanti ? (
+          <View style={{ gap: 18, paddingTop: 12 }} testID="shanti-home">
+            <View style={{ gap: 6 }}>
+              <Text style={[s.sub, { fontFamily: font.mono, letterSpacing: 1.5, fontSize: 12 }]}>
+                {tr("KOSMIK / SHANTI")}
+              </Text>
+              <Text style={s.hello}>{tr("Tell me what’s on your heart.")}</Text>
+              <Text style={s.sub}>
+                {tr("Say it the way it is. Shanti listens, and answers with what the Gita and the old texts teach about pain like yours. Nothing you say here is shown to anyone else.")}
+              </Text>
+              <Text style={[s.sub, { fontSize: 12 }]}>
+                {tr("Not therapy. If you might hurt yourself, call Tele-MANAS 14416 (free, 24×7). In danger right now: 112.")}
+              </Text>
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {SHANTI_STARTERS.map((q) => (
+                <Pressable
+                  key={q}
+                  onPress={() => send(tr(q))}
+                  style={({ pressed }) => [s.starter, pressed && { borderColor: "#8E7CF0" }]}
+                  accessibilityRole="button"
+                >
+                  <Text style={s.starterText}>{tr(q)}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+        {turns.length === 0 && !ayurveda && !shanti ? (
           <View style={{ gap: 18, paddingTop: 12 }}>
             <View style={{ gap: 6 }}>
               <Text style={s.hello}>{tr("Namaste. What’s on your mind?")}</Text>
@@ -382,6 +420,7 @@ export function Conversation({
                   }
                   onAsk={(q) => send(q)}
                   onAyurveda={(q) => shell.askNew(q, "ayurveda")}
+                  onSwitch={(q, k) => shell.askNew(q, k)}
                   onTarotPick={
                     t.id === turns[turns.length - 1]?.id && !busy
                       ? pickTarot
@@ -457,7 +496,7 @@ export function Conversation({
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder={ayurveda ? tr("Describe what you feel, since when…") : tr("Ask Kosmik anything…")}
+            placeholder={ayurveda ? tr("Describe what you feel, since when…") : shanti ? tr("Say what’s on your mind…") : tr("Ask Kosmik anything…")}
             placeholderTextColor={colors.muted}
             style={[
               s.input,

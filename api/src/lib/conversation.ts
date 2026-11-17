@@ -37,6 +37,8 @@ export function summariseBlocks(blocks: Block[]): string {
         return [b.text];
       case 'verse':
         return [`[Verse ${b.ref}: ${b.translation}]`];
+      case 'passage':
+        return [`[${b.work}, ${b.location}: ${b.text}]`];
       case 'meaning':
         return [`[${b.title}]`];
       case 'tarot':

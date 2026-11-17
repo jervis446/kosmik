@@ -52,3 +52,14 @@ export function meaningProblems(body: string, entry: { kind: string; title: stri
   if (words > 120) problems.push('too long');
   return problems;
 }
+
+/** What a Shanti answer must never say to someone hurting: false hope, blame, or staying with abuse. */
+const SHANTI_BANNED: [RegExp, string][] = [
+  [/\b(he|she|they|your ex|your partner)\s+will\s+(definitely\s+|surely\s+)?(come back|return|realise|realize|miss you)\b|\bwapas\s+(aayega|aayegi|aaenge|aa jayega|aa jayegi)\b|लौट\s+(आएगा|आएगी)/i, 'promises a reunion'],
+  [/\b(this|it|that)\s+(is|was)\s+(your|their)\s+(karma|punishment|fault)\b|\bpunishment for\b|\bkarmon ka phal\b|कर्मों का फल/i, 'blames them'],
+  [/\b(stay|adjust|tolerate|bear it|put up)\s+(with|in)\s+(him|her|them|it|the marriage|your husband|your wife)\b|\b(sehna|sahna|bardasht karo)\b/i, 'tells them to tolerate'],
+];
+
+export function shantiProblems(text: string): string[] {
+  return SHANTI_BANNED.filter(([re]) => re.test(text)).map(([, why]) => why);
+}

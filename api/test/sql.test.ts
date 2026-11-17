@@ -138,3 +138,43 @@ test('backfill: old chats whose first answer was Ayurvedic become Ayurveda chats
   raw.exec(readFileSync(new URL('../migrations/0012_chat_kind_backfill.sql', import.meta.url), 'utf8'));
   assert.deepEqual(raw.prepare('SELECT id, kind FROM conversations ORDER BY id').all().map((r) => `${r.id}:${r.kind}`), ['a:ayurveda', 'b:kosmik', 'c:ayurveda']);
 });
+
+test('migration 0015: existing chats keep their kind and their messages; Shanti chats can be saved', async () => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const raw = new DatabaseSync(':memory:');
+  raw.exec('PRAGMA foreign_keys = ON');
+  const dir = new URL('../migrations/', import.meta.url);
+  const files = readdirSync(dir).sort();
+  for (const f of files.filter((x) => x < '0015')) raw.exec(readFileSync(new URL(f, dir), 'utf8'));
+  raw.exec(`INSERT INTO conversations (id, user_id, title, created_at, updated_at, kind) VALUES ('c1', 'u1', 'Gut', 1, 1, 'ayurveda'), ('c2', 'u1', 'Stars', 1, 1, 'kosmik');
+    INSERT INTO messages (id, conversation_id, role, content, created_at) VALUES ('m1', 'c1', 'user', 'hi', 1), ('m2', 'c2', 'user', 'hi', 1);`);
+  for (const f of files.filter((x) => x >= '0015')) raw.exec(readFileSync(new URL(f, dir), 'utf8'));
+  assert.deepEqual(raw.prepare('SELECT id, kind FROM conversations ORDER BY id').all().map((r) => `${r.id}:${r.kind}`), ['c1:ayurveda', 'c2:kosmik']);
+  assert.equal(raw.prepare('SELECT COUNT(*) AS n FROM messages').get()?.n, 2, 'no message lost');
+  raw.exec(`INSERT INTO conversations (id, user_id, title, created_at, updated_at, kind) VALUES ('c3', 'u1', 'Heart', 1, 1, 'shanti')`);
+  assert.throws(() => raw.exec(`INSERT INTO conversations (id, user_id, title, created_at, updated_at, kind) VALUES ('c4', 'u1', 'x', 1, 1, 'other')`));
+});
+
+test('answer cache: Shanti answers are stored and searched apart from Kosmik ones', async () => {
+  const { db } = d1();
+  const { MemoryVectorSearch } = await import('../src/store.ts');
+  const cache = new D1AnswerCache(db);
+  const k = await cache.put(entry({ hash: 'k1', embedding: [1, 0] }));
+  const s = await cache.put(entry({ hash: 'shanti-1', embedding: [1, 0], kind: 'shanti' }));
+  const vectors = new MemoryVectorSearch(db);
+  assert.deepEqual((await vectors.search('cache:shanti:en', [1, 0], 5, 0.5)).map((h) => h.id), [String(s)]);
+  assert.deepEqual((await vectors.search('cache:en', [1, 0], 5, 0.5)).map((h) => h.id), [String(k)]);
+});
+
+test('passages: read back by ref and searched by their own vectors', async () => {
+  const { db, raw } = d1();
+  const { MemoryVectorSearch } = await import('../src/store.ts');
+  const vec = new Uint8Array(new Float32Array([1, 0]).buffer);
+  raw.prepare(`INSERT INTO passages (ref, work, location, text, translator, source, embedding, reviewed) VALUES (?, 'Mahabharata', 'Stri Parva, section 2', 'Why grieve?', 'Kisari Mohan Ganguli', 'PD', ?, 1)`).run('MBh 11.2.1a', vec);
+  const lib = new D1Library(db);
+  assert.deepEqual(await lib.passages(['MBh 11.2.1a', 'MBh 1.1.1']), [
+    { ref: 'MBh 11.2.1a', work: 'Mahabharata', location: 'Stri Parva, section 2', text: 'Why grieve?', sanskrit: null, translator: 'Kisari Mohan Ganguli', reviewed: true },
+  ]);
+  assert.deepEqual((await new MemoryVectorSearch(db).search('passages', [1, 0], 3, 0.5)).map((h) => h.id), ['MBh 11.2.1a']);
+});

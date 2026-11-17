@@ -18,6 +18,16 @@ export type Block =
       translator: string;
     }
   | {
+      /** A passage from another Hindu scripture (Shanti), in the translator's own words. */
+      type: "passage";
+      ref: string;
+      work: string;
+      location: string;
+      text: string;
+      translator: string;
+      reviewed: boolean;
+    }
+  | {
       type: "meaning";
       kind: string;
       key: string;
@@ -181,7 +191,9 @@ export type Block =
         | "sign-in"
         | "busy"
         | "retake"
-        | "use-ayurveda";
+        | "use-ayurveda"
+        | "use-shanti"
+        | "use-kosmik";
       text: string;
       /** For "use-ayurveda": the question to ask again in an Ayurveda chat. */
       question?: string;
@@ -198,7 +210,7 @@ export type AskResult = {
 };
 
 /** Kosmik chats (astrology, tarot, palm, Gita) and Ayurveda chats are kept apart. */
-export type ChatKind = "kosmik" | "ayurveda";
+export type ChatKind = "kosmik" | "ayurveda" | "shanti";
 export type ConversationSummary = {
   id: string;
   title: string;

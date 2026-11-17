@@ -136,7 +136,7 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
         conversationId: typeof body.conversationId === 'string' ? body.conversationId : null,
         // The person picked tarot card(s) from the face-down fan.
         tarot: body.tarot && typeof body.tarot === 'object' ? { count: (body.tarot as { count?: unknown }).count === 3 ? 3 : 1 } : undefined,
-        mode: body.mode === 'ayurveda' || body.mode === 'kosmik' ? body.mode : undefined,
+        mode: body.mode === 'ayurveda' || body.mode === 'kosmik' || body.mode === 'shanti' ? body.mode : undefined,
       },
     );
     if (body.stream !== true) return json(req, env, await run());

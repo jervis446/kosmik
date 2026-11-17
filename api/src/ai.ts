@@ -1,6 +1,6 @@
 /** Gemini: question embeddings and answers grounded in retrieved sources (RAG). */
 import { inLang, type Lang } from './lib/text.ts';
-import type { Meaning, Verse } from './types.ts';
+import type { Meaning, Passage, Verse } from './types.ts';
 
 /** Multilingual, so Hindi and Hinglish questions find English passages. The library vectors must use the same model and size. */
 export const EMBED_MODEL = 'gemini-embedding-2';
@@ -39,6 +39,10 @@ export type AyurConsult = {
   followUps: string[];
 };
 
+/** How worrying a Shanti message is: 'high' adds the helpline, 'low' a gentle nudge to talk to someone. */
+export type Concern = 'none' | 'low' | 'high';
+export type ShantiReply = { answer: string; cited: string[]; concern: Concern; followUps: string[] };
+
 export interface AiClient {
   readonly model: string;
   embed(text: string): Promise<number[]>;
@@ -51,6 +55,8 @@ export interface AiClient {
   /** Turns a follow-up ("tell me more") into a question that stands on its own, using the conversation so far. */
   standalone(question: string, conversation: string): Promise<string>;
   readPalm(images: PalmImage[], lang: Lang, opts?: { question?: string; stricter?: boolean }): Promise<PalmReading>;
+  /** Shanti: comfort for someone in pain, from scripture SOURCES only, with how worried to be. */
+  shanti?(question: string, lang: Lang, sources: { verses: Verse[]; passages: Passage[] }, stricter?: boolean, conversation?: string): Promise<ShantiReply>;
   /** A full report on one topic, from the chart (or the prakriti) in `facts`. */
   report?(topic: { title: string; focus: string; ayurveda?: boolean }, lang: Lang, facts: string): Promise<Report>;
 }
@@ -305,6 +311,40 @@ export function parseReport(raw: string | undefined): Report | null {
     followUps: strings(o.follow_ups, 4, 100),
   };
   return r.headline && r.sections.length >= 3 ? r : null;
+}
+
+export const SHANTI_PROMPT = `You are Shanti, Kosmik's space for comfort, for Asanoha. People come here hurting: a breakup, a death, a failure, loneliness, fights at home, fear about the future. Talk like a wise, warm elder sister or brother who knows the Hindu scriptures deeply: the Bhagavad Gita, Ramayana, Mahabharata, Upanishads and Yoga Vasistha.
+How to answer:
+1. First acknowledge what they feel, in their own words, without judging and without rushing to fix it. One or two sentences.
+2. Then one or two teachings from SOURCES that truly fit their situation, told simply, as you would to a friend (for example how Rama bore separation, what Krishna told Arjuna when he was crushed by grief). Cite every source you use by its id in "cited". Use only SOURCES: never quote, paraphrase as a quote, or cite a verse or story line that is not in SOURCES. If SOURCES don't fit, comfort them without scripture.
+3. One small, concrete thing they can do today (sleep, eat, a walk, write it down, call one person, a few minutes of quiet breathing or a name they find calming).
+4. End with one gentle question that invites them to keep talking.
+Rules, always:
+- Plain, warm words, short paragraphs, no headings, no lectures, no preaching. 150 to 250 words. Don't write source ids in the answer text: cited verses are shown as cards below it. You may say "the Gita says".
+- Never use astrology, the kundli, tarot, palmistry or Ayurveda here.
+- Never say an ex will come back, that someone will return or change, or that a reunion or marriage is destined. Never say their pain is karma, punishment, fate they deserve or a test they are failing. Never tell anyone to stay with, adjust to or tolerate abuse or violence, at home or anywhere, as dharma or duty: their safety comes first.
+- No medical, legal or financial advice: suggest a doctor, counsellor or lawyer when that is what they need.
+- Never blame them, never shame them, never minimise ("it's not a big deal", "others have it worse").
+- "concern": "high" if they hint at self-harm or not wanting to live, deep hopelessness, not eating or sleeping for days, abuse, violence or threats against them; "low" if they describe heavy sadness lasting weeks or feeling they have no one; otherwise "none".
+- "follow_ups": four short things this person might want to say next (at most 9 words each), in their language, in their voice.
+- If CONVERSATION SO FAR is given, continue it naturally without repeating yourself.
+Reply with JSON only: {"answer": "...", "cited": ["..."], "concern": "none", "follow_ups": ["..."]}.`;
+
+/** Model output for Shanti: an answer is required; concern defaults to 'none'. */
+export function parseShanti(raw: string | undefined): ShantiReply | null {
+  let o: Record<string, unknown>;
+  try {
+    o = JSON.parse((raw ?? '').slice((raw ?? '').indexOf('{'), (raw ?? '').lastIndexOf('}') + 1));
+  } catch {
+    return null;
+  }
+  if (typeof o.answer !== 'string' || !o.answer.trim()) return null;
+  return {
+    answer: cleanAnswer(o.answer),
+    cited: Array.isArray(o.cited) ? o.cited.filter((c): c is string => typeof c === 'string') : [],
+    concern: o.concern === 'high' || o.concern === 'low' ? o.concern : 'none',
+    followUps: strings(o.follow_ups, 4, 80),
+  };
 }
 
 export const TAROT_PROMPT = `You are Kosmik's tarot reader: experienced, intuitive and direct, reading for young Indians with the Rider-Waite-Smith tradition.
@@ -589,6 +629,37 @@ export class GeminiAi implements AiClient {
     }
     if (typeof o.answer !== 'string' || !o.answer.trim()) throw new Error('The model returned no usable tarot reading');
     return { answer: cleanAnswer(o.answer), readings: strings(o.readings, cards.length, 600), advice: typeof o.advice === 'string' ? o.advice.trim() : '', followUps: strings(o.follow_ups, 4, 80) };
+  }
+
+  shanti(question: string, lang: Lang, sources: { verses: Verse[]; passages: Passage[] }, stricter = false, conversation?: string): Promise<ShantiReply> {
+    return inLanguage(lang, (end) => this.shantiOnce(question, lang, sources, stricter, end, conversation), (r) => [r.answer, ...r.followUps].join(' '));
+  }
+
+  private async shantiOnce(question: string, lang: Lang, sources: { verses: Verse[]; passages: Passage[] }, stricter: boolean, end: string, conversation?: string): Promise<ShantiReply> {
+    const lines = [
+      ...sources.verses.map((x) => `[${x.ref}] Bhagavad Gita ${x.chapter}.${x.verse} (${x.translator}): ${x.translation}`),
+      ...sources.passages.map((x) => `[${x.ref}] ${x.work}, ${x.location} (${x.translator}): ${x.text}`),
+    ];
+    const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}SOURCES:\n${lines.join('\n') || '(none)'}\n\nMESSAGE: ${question}${
+      stricter ? '\n\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''
+    }${end}`;
+    const content = await this.complete(
+      {
+        model: this.model,
+        messages: [
+          { role: 'system', content: SHANTI_PROMPT },
+          { role: 'user', content: user },
+        ],
+        response_format: { type: 'json_object' },
+        reasoning_effort: 'minimal',
+        max_tokens: 1500,
+        temperature: 0.5,
+      },
+      'answer',
+    );
+    const parsed = parseShanti(content);
+    if (!parsed) throw new Error('The model returned no usable Shanti reply');
+    return parsed;
   }
 
   async standalone(question: string, conversation: string): Promise<string> {

@@ -11,7 +11,8 @@ export default function Help() {
         {
           h: "FAQs",
           p: [
-            "What can I ask? Anything about your life through Vedic astrology (your kundli, dashas and transits), tarot, palm reading and the Bhagavad Gita. Ayurveda has its own chats: tap “Ask Ayurveda” in the sidebar and describe what you feel.",
+            "What can I ask? In a Kosmik chat: anything about your life through Vedic astrology (your kundli, dashas and transits), tarot and palm reading. Ayurveda has its own chats: tap “Ask Ayurveda” in the sidebar and describe what you feel.",
+            "Going through something hard (a breakup, a loss, a failure, fights at home)? Tap “Talk to Shanti”. Shanti listens and answers with what the Bhagavad Gita and other Hindu texts teach, and it is where Gita questions go now. It is spiritual comfort, not therapy: if you might hurt yourself, call Tele-MANAS 14416 (free, 24×7); if you are in danger, call 112.",
             "Why does Kosmik need my birth time and place? Your lagna and houses change every two hours and with place. With them, readings name your exact periods and dates. Without a time, readings stay approximate.",
             "How many questions do I get? A free account gets 11 questions a week, refilled every Monday (India time). Premium gives unlimited questions for 7 or 30 days.",
             "Which language does Kosmik answer in? The one you pick under the message box: English, हिंदी or Hinglish. Auto follows the language you type in.",

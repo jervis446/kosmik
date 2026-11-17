@@ -34,6 +34,7 @@ export default function Terms() {
           p: [
             "Sanskrit verses are in the public domain. English translations are by Swami Sivananda and Shri Purohit Swami, both in the public domain in India. Library meanings and AI answers may contain mistakes.",
             "Herb data is from the Amidha Ayurveda Herb Database v2.0 by Sparsh Varshney (github.com/sciencewithsaucee-sudo/herb-database), licensed CC BY 4.0. Kosmik changed it: descriptions are rewritten to describe traditional use only, two controlled plants are left out, and therapeutic indications are not shown.",
+            "Shanti offers comfort from Hindu scriptures. It is not therapy, counselling or medical care, and it can't help in an emergency: for thoughts of self-harm call Tele-MANAS 14416, and if you are in danger call 112.",
             "Ayurveda in Kosmik is traditional knowledge, not medical advice. Kosmik never prescribes herbs or doses. The dosha quiz is a self-assessment, not a diagnosis. Talk to a doctor or a qualified vaidya before taking any herb, and never stop a prescribed medicine.",
           ],
         },

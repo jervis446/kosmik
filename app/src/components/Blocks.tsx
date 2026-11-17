@@ -461,11 +461,14 @@ export function Blocks({
   onVikriti,
   onAsk,
   onAyurveda,
+  onSwitch,
   onTarotPick,
 }: {
   blocks: Block[];
   /** Opens an Ayurveda chat with this question. */
   onAyurveda?: (question: string) => void;
+  /** Opens a Shanti or a Kosmik chat with this question. */
+  onSwitch?: (question: string, kind: "shanti" | "kosmik") => void;
   onSignIn?: () => void;
   onPremium?: () => void;
   onDetails?: () => void;
@@ -491,6 +494,21 @@ export function Blocks({
             );
           case "verse":
             return <VerseCard key={i} block={b} />;
+          case "passage":
+            return (
+              <View key={i} style={s.card} testID="passage">
+                <Text style={s.title}>
+                  {tr(b.work)} · {tr(b.location)}
+                </Text>
+                <Text style={s.body} selectable>
+                  “{b.text}”
+                </Text>
+                <Text style={s.small}>
+                  {tr("Translated by")} {b.translator}
+                  {b.reviewed ? "" : ` · ${tr("Draft")}`}
+                </Text>
+              </View>
+            );
           case "meaning":
             return (
               <View key={i} style={s.card}>
@@ -847,6 +865,17 @@ export function Blocks({
                     style={[s.noticeBtn, { backgroundColor: "#3FB68B" }]}
                   >
                     <Text style={s.noticeBtnText}>❀ {tr("Ask in an Ayurveda chat")}</Text>
+                  </Pressable>
+                ) : null}
+                {(b.kind === "use-shanti" || b.kind === "use-kosmik") && b.question && onSwitch ? (
+                  <Pressable
+                    onPress={() => onSwitch(b.question!, b.kind === "use-shanti" ? "shanti" : "kosmik")}
+                    accessibilityRole="button"
+                    style={[s.noticeBtn, b.kind === "use-shanti" && { backgroundColor: "#8E7CF0" }]}
+                  >
+                    <Text style={s.noticeBtnText}>
+                      {b.kind === "use-shanti" ? `☾ ${tr("Talk it through in Shanti")}` : `✦ ${tr("Ask in a Kosmik chat")}`}
+                    </Text>
                   </Pressable>
                 ) : null}
                 {b.kind === "limit" && onPremium ? (

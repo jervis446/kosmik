@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 
-import { EMBED_DIMS, EMBED_MODEL, GeminiAi, parsePalm } from '../src/ai.ts';
+import { EMBED_DIMS, EMBED_MODEL, GeminiAi, parsePalm, parseShanti } from '../src/ai.ts';
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -134,4 +134,12 @@ test('with onText set, the answer streams and arrives in pieces', async () => {
   const g = await ai.answer('can I start?', 'en', sources);
   assert.equal(g.answer, 'Riya, yes, you can start it.');
   assert.ok(seen.length >= 1 && seen.at(-1) === 'Riya, yes, you can start it.');
+});
+
+test('shanti: the reply is parsed; concern is one of three values, and an empty answer is rejected', () => {
+  const r = parseShanti('{"answer": "That hurts. ", "cited": ["BG 2.14", 3], "concern": "high", "follow_ups": ["How do I sleep tonight?"]}');
+  assert.deepEqual(r, { answer: 'That hurts.', cited: ['BG 2.14'], concern: 'high', followUps: ['How do I sleep tonight?'] });
+  assert.equal(parseShanti('{"answer": "Hi", "concern": "panic"}')?.concern, 'none');
+  assert.equal(parseShanti('{"answer": ""}'), null);
+  assert.equal(parseShanti('not json'), null);
 });

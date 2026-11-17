@@ -11,16 +11,16 @@ import { dashaLine, deepChart, devanagari, fmtDateHi } from './lib/jyotish.ts';
 import { matchIntent, type Intent } from './lib/intents.ts';
 import { CONTEXT_MESSAGES, describeConversation, isFollowUp } from './lib/conversation.ts';
 import { planFor, type Plan } from './lib/limits.ts';
-import { contentProblems, HELPLINE, isCrisis } from './lib/safety.ts';
+import { contentProblems, HELPLINE, isCrisis, shantiProblems } from './lib/safety.ts';
 import { detectLang, type Lang, LANGS, normalizeQuestion, requestedLang, sha256 } from './lib/text.ts';
 import { GRAHAS, ordinal, RASHIS, NAKSHATRAS, TAROT } from './lib/catalog.ts';
 import { calculateChart, type Chart } from './lib/chart.ts';
 import { type Profile, type Profiles, toBirth } from './profiles.ts';
-import type { AnswerCache, History, Library, Usage, VectorSearch } from './store.ts';
+import type { AnswerCache, History, Library, Namespace, Usage, VectorSearch } from './store.ts';
 import { aggravated, AGNI_LABEL, type Ayurveda, dominant, type Dosha, herbBlock, type HerbFilter, type Prakriti, prakritiBlock, prakritiLabel, type Vikriti, vikritiBlock } from './ayurveda.ts';
 import { rituAt, RITUS_HI } from './lib/ritu.ts';
 import { describeTropical, MOON_VIBE_HI, MOON_VIBE_HINGLISH, SIGNS, SIGNS_HI, SUN_VIBE_HI, SUN_VIBE_HINGLISH, zodiac, zodiacHi } from './lib/tropical.ts';
-import type { AskResult, Block, CacheEntry, ChatKind, Layer, Meaning, Verse } from './types.ts';
+import type { AskResult, Block, CacheEntry, ChatKind, Layer, Meaning, Passage, Verse } from './types.ts';
 
 /** Up to 300 words; the character cap only stops abuse. */
 export const MAX_WORDS = 300;
@@ -155,6 +155,22 @@ const T = {
     hi: 'सेहत और आयुर्वेद के सवालों की अलग चैट होती है, ताकि यह चैट आपके सितारों के बारे में रहे। यह सवाल आयुर्वेद चैट में पूछिए। यह सवाल गिना नहीं गया।',
     hinglish: 'Health aur Ayurveda ke sawaalon ki alag chat hoti hai, taaki yeh chat aapke sitaaron ke baare mein rahe. Yeh sawaal Ayurveda chat mein poochhiye. Yeh sawaal count nahi hua.',
   },
+  useKosmik: {
+    en: 'Shanti is for talking things through, so it stays away from charts and cards. Ask this in a Kosmik chat for your palm, tarot or kundli. This question wasn’t counted.',
+    hi: 'शांति मन की बात के लिए है, इसलिए यहाँ कुंडली और कार्ड नहीं होते। हस्तरेखा, टैरो या कुंडली के लिए यह सवाल Kosmik चैट में पूछिए। यह सवाल गिना नहीं गया।',
+    hinglish: 'Shanti mann ki baat ke liye hai, isliye yahan kundli aur cards nahi hote. Palm, tarot ya kundli ke liye yeh sawaal Kosmik chat mein poochhiye. Yeh sawaal count nahi hua.',
+  },
+  shantiLow: {
+    en: 'If this has felt heavy for a while, please talk to someone you trust, or a counsellor. You don’t have to carry it alone.',
+    hi: 'अगर यह बोझ कुछ समय से है, तो किसी भरोसेमंद व्यक्ति या काउंसलर से बात कीजिए। आपको यह अकेले नहीं उठाना है।',
+    hinglish: 'Agar yeh bojh kuch samay se hai, toh kisi bharosemand insaan ya counsellor se baat kijiye. Aapko yeh akele nahi uthana hai.',
+  },
+  emergency: { en: 'In danger right now', hi: 'अभी ख़तरे में हों तो', hinglish: 'Abhi khatre mein hon toh' },
+  useShanti: {
+    en: 'Gita and life questions have their own space now: Shanti. Open a Shanti chat to talk it through; this chat stays about your palm, tarot and kundli. This question wasn’t counted.',
+    hi: 'गीता और ज़िंदगी के सवालों की अब अपनी जगह है: शांति। खुलकर बात करने के लिए शांति चैट खोलिए; यह चैट आपकी हस्तरेखा, टैरो और कुंडली के लिए है। यह सवाल गिना नहीं गया।',
+    hinglish: 'Gita aur zindagi ke sawaalon ki ab apni jagah hai: Shanti. Khulkar baat karne ke liye Shanti chat kholiye; yeh chat aapke palm, tarot aur kundli ke liye hai. Yeh sawaal count nahi hua.',
+  },
   needsVikriti: {
     en: 'To see your current state (vikriti), answer 10 quick questions about the last few weeks. It also tells you your agni (digestive fire). This question wasn’t counted.',
     hi: 'अपनी वर्तमान अवस्था (विकृति) जानने के लिए पिछले कुछ हफ़्तों के बारे में 10 छोटे सवालों के जवाब दें। इससे आपकी अग्नि भी पता चलेगी। यह सवाल गिना नहीं गया।',
@@ -194,6 +210,25 @@ const T = {
 } satisfies Record<string, Record<Lang, string>>;
 
 /** About the asker's own chart or life: answered, but never stored in the shared cache. */
+/** Astrology, tarot and palm words: questions with these stay in a Kosmik chat. */
+const ASTRO =
+  /\b(kundli|kundali|chart|horoscope|rashi|raashi|nakshatra|dasha|mahadasha|antardasha|transit|gochar|graha|planets?|saturn|shani|jupiter|guru|mars|mangal|manglik|venus|shukra|mercury|budh|moon|chandra|sun|surya|rahu|ketu|lagna|ascendant|houses?|bhav|bhava|zodiac|signs?|retrograde|sade ?sati|astrolog\w*|jyotish\w*|tarot|cards?|palm\w*|hast ?rekha|milan|muhurat|yoga in my chart)\b|कुंडली|कुण्डली|राशि|ग्रह|शनि|नक्षत्र|दशा|ज्योतिष|हस्तरेखा|टैरो/i;
+
+/** Words that make a question an Ayurveda one (the Ayurveda library, never the Gita). */
+const AYURVEDIC = /ayurved|dosha|herb|prakriti|vikriti|vaidya|agni|vata|pitta|kapha|ritu|dinacharya|jadi|buti|nuskh/i;
+
+/** Shanti messages about the person's own pain or the people in it: answered, never cached. */
+const SHANTI_PERSONAL =
+  /\b(break ?up|broke up|my ex|ex[- ](boyfriend|girlfriend|husband|wife)|divorce\w*|cheated|died|passed away|lost my|alone|lonely|my (boyfriend|girlfriend|bf|gf|husband|wife|partner|fianc\w*|mother|mom|mummy|father|dad|papa|brother|sister|son|daughter|friend|boss)|dhokha|chhod (diya|di|gaya|gayi)|akela|akeli)\b|अकेला|अकेली|धोखा|तलाक/i;
+
+/** Pain that needs comfort more than a chart: a breakup, a loss, loneliness. */
+export const EMOTIONAL =
+  /\b(break ?up|broke up|broken up|heart ?broken|heartbreak|left me|dumped|cheated|betray\w*|divorce\w*|lonely|alone|depress\w*|grief|griev\w*|died|passed away|lost my|miss (him|her|them)|can'?t move on|move on|hopeless|empty inside|dhokha|chhod (diya|di|gaya|gayi)|akela|akeli|udaas|dukh)\b|अकेला|अकेली|धोखा|तलाक|दुख|उदास|छोड़ (दिया|गया|गई)/i;
+
+/** A question for a Shanti chat: a Gita verse, or anything with no astrology, tarot or palm in it. */
+export const isShantiQuestion = (intent: Intent | null | undefined, q: string): boolean =>
+  intent?.type === 'verse' || intent?.type === 'verse-of-the-day' || (!intent && !ASTRO.test(q));
+
 const PERSONAL_CONTEXT =
   /\b(my|mera|meri|mere|mujhe|mujhko|hamara|hamari)\b.{0,40}\b(kundli|kundali|chart|horoscope|lagna|ascendant|dasha|mahadasha|nakshatra|rashi|marriage|shaadi|shadi|husband|wife|partner|boyfriend|girlfriend|ex|career|job|naukri|exam|result|health|baby|child|family|future)\b|(मेरा|मेरी|मेरे|मुझे).{0,40}(कुंडली|राशि|शादी|विवाह|नौकरी|करियर|भविष्य|परिवार)/i;
 /** Anything that looks like birth details or contact information. */
@@ -261,7 +296,9 @@ export async function ask(
   const userIdEarly = input.identity.kind === 'user' ? input.identity.id : null;
   const mode: ChatKind | null =
     input.mode ?? (userIdEarly && input.conversationId ? ((await deps.history.kindOf?.(userIdEarly, input.conversationId)) ?? null) : null);
-  const turn = await startTurn(deps, input.identity, input.conversationId, question, () => lang, now, () => mode);
+  // The kind this turn is answered as: the chat's own, or (in a new chat) the one its first answer picks.
+  let routed: ChatKind | null = mode;
+  const turn = await startTurn(deps, input.identity, input.conversationId, question, () => lang, now, () => routed);
   const { finish } = turn;
   // The AI layer failing never costs a question: say so politely instead.
   const busy = (err: unknown) => {
@@ -349,6 +386,43 @@ export async function ask(
   if (mode === 'kosmik' && input.conversationId && AYURVEDA_INTENTS.has(intent?.type ?? '')) {
     return finish('direct', [{ type: 'notice', kind: 'use-ayurveda', text: T.useAyurveda[lang], question }], { count: false });
   }
+  // Gita and life questions have their own chats (Shanti): a Kosmik chat keeps to palm, tarot and the
+  // kundli. A question about the person's own life still goes to their chart when it is saved, unless
+  // it is plainly about pain (a breakup, a loss), which is Shanti's.
+  if (mode === 'kosmik' && input.conversationId && isShantiQuestion(intent, q)) {
+    const toChart = !EMOTIONAL.test(q) && !!userId && (PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q)) && !!(await deps.profiles.get(userId));
+    if (!toChart) return finish('direct', [{ type: 'notice', kind: 'use-shanti', text: T.useShanti[lang], question }], { count: false });
+  }
+
+  // Shanti: comfort from the scriptures, for someone hurting. It never reads the chart, tarot or palm:
+  // those are offered a Kosmik chat, health an Ayurveda chat. A Gita reference is still answered directly.
+  let shanti = false;
+  const verseIntent = intent?.type === 'verse' || intent?.type === 'verse-of-the-day';
+  if (mode === 'shanti') {
+    // Pain that shows up in the body ("he left me and I can't sleep") is still Shanti's; a herb or dosha question isn't.
+    const health = AYURVEDA_INTENTS.has(intent?.type ?? '') && (!EMOTIONAL.test(q) || /^herb/.test(intent?.type ?? ''));
+    if (health || (intent?.type === 'meaning' && (intent.kind === 'ayurveda' || intent.kind === 'dosha'))) {
+      return finish('direct', [{ type: 'notice', kind: 'use-ayurveda', text: T.useAyurveda[lang], question }], { count: false });
+    }
+    if ((intent && !verseIntent && !AYURVEDA_INTENTS.has(intent.type)) || (ASTRO.test(q) && !EMOTIONAL.test(q))) {
+      return finish('direct', [{ type: 'notice', kind: 'use-kosmik', text: T.useKosmik[lang], question }], { count: false });
+    }
+    shanti = !verseIntent;
+    if (shanti) intent = undefined;
+  } else if (mode === null && isShantiQuestion(intent, q) && !AYURVEDIC.test(q)) {
+    // A new chat whose first question is a Gita or life question becomes a Shanti chat, unless it is
+    // about the person's own life and their chart is saved (then it stays a kundli reading).
+    const toChart = !EMOTIONAL.test(q) && !!userId && (PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q)) && !!(await deps.profiles.get(userId));
+    if (!toChart) {
+      routed = 'shanti';
+      shanti = !verseIntent;
+    }
+  }
+  // A Shanti chat is one conversation: every turn sees the earlier ones.
+  if (shanti && userId && input.conversationId && !conversation) {
+    const past = await deps.history.recent(userId, input.conversationId, CONTEXT_MESSAGES);
+    if (past.length) conversation = describeConversation(past);
+  }
 
   // Health and wellness: an Ayurveda consultation, never the birth chart.
   if (intent?.type === 'ayur-consult') {
@@ -429,14 +503,16 @@ export async function ask(
 
   // A question plainly about the person's own life, with their birth details saved: read their chart
   // straight away (one model call), instead of a general answer that turns out to be personal first.
-  if (userId && (PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q))) {
+  if (!shanti && userId && (PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q))) {
     const profile = await deps.profiles.get(userId);
     if (profile) return chartOutcome(profile);
   }
 
   // 2. The same question, word for word (after normalising).
   const normalized = normalizeQuestion(q);
-  const hash = await sha256(normalized);
+  // Shanti answers live in their own part of the cache, so the two kinds of chat never swap answers.
+  const hash = await sha256(shanti ? `shanti|${normalized}` : normalized);
+  const cacheNs: Namespace = shanti ? `cache:shanti:${lang}` : `cache:${lang}`;
   // A follow-up wants something beyond what this chat has already shown, so saved answers are skipped.
   const exact = conversation ? null : await deps.cache.exact(lang, hash);
   if (exact && (await stillCurrent(deps, exact))) {
@@ -456,14 +532,14 @@ export async function ask(
     outcome = { layer: 'ai', blocks: [{ type: 'notice', kind: 'busy', text: T.busy[lang] }], count: false, cacheId: null };
   }
   // The model found the question is about the person: answer from their chart if we have it.
-  if (outcome.personal && userId) {
+  if (!shanti && outcome.personal && userId) {
     const profile = await deps.profiles.get(userId);
     if (profile) return chartOutcome(profile);
   }
   if (outcome.cache) {
     const { blocks, embedding, sources, sourcesHash } = outcome.cache;
-    outcome.cacheId = await deps.cache.put({ lang, question: normalized, hash, blocks, sources, sourcesHash, model: deps.ai.model, embedding });
-    await deps.vectors.add(`cache:${lang}`, String(outcome.cacheId), embedding);
+    outcome.cacheId = await deps.cache.put({ lang, question: normalized, hash, blocks, sources, sourcesHash, model: deps.ai.model, embedding, kind: shanti ? 'shanti' : 'kosmik' });
+    await deps.vectors.add(cacheNs, String(outcome.cacheId), embedding);
   }
   if (outcome.layer === 'semantic' && outcome.cacheId !== null) await deps.cache.hit(outcome.cacheId);
   return finish(outcome.layer, outcome.blocks, { count: outcome.count, cacheId: outcome.cacheId });
@@ -471,15 +547,16 @@ export async function ask(
   async function semanticOrGenerated(): Promise<Outcome> {
     // 3. A question with the same meaning.
     const embedding = await deps.ai.embed(q);
-    const [similar] = conversation ? [] : await deps.vectors.search(`cache:${lang}`, embedding, 1, SAME_MEANING);
+    const [similar] = conversation ? [] : await deps.vectors.search(cacheNs, embedding, 1, SAME_MEANING);
     if (similar) {
       const entry = await deps.cache.byId(Number(similar.id));
       if (entry && (await stillCurrent(deps, entry))) return { layer: 'semantic', blocks: entry.blocks, count: true, cacheId: entry.id };
     }
 
     // 4. Retrieve sources and ask the model.
+    if (shanti) return shantiGenerate(embedding);
     // Ayurveda questions draw on the Ayurveda library only, never Gita verses.
-    const ayurvedic = /ayurved|dosha|herb|prakriti|vikriti|vaidya|agni|vata|pitta|kapha|ritu|dinacharya|jadi|buti|nuskh/i.test(q);
+    const ayurvedic = AYURVEDIC.test(q);
     const [verseHits, meaningHits] = await Promise.all([
       ayurvedic ? Promise.resolve([]) : deps.vectors.search('verses', embedding, 5, VERSE_MIN),
       deps.vectors.search('meanings', embedding, 4, MEANING_MIN),
@@ -515,6 +592,36 @@ export async function ask(
     );
     return { layer: 'ai', blocks, count: true, cacheId: null, cache: { blocks, sources, sourcesHash, embedding } };
   }
+
+  /** Layer 4 for Shanti: the closest Gita verses, a comforting answer, and an alert when it is needed. */
+  async function shantiGenerate(embedding: number[]): Promise<Outcome> {
+    if (!deps.ai.shanti) throw new Error('Shanti is not available');
+    const [hits, passageHits] = await Promise.all([deps.vectors.search('verses', embedding, 5, VERSE_MIN), deps.vectors.search('passages', embedding, 4, VERSE_MIN)]);
+    const [verses, passages] = await Promise.all([deps.library.verses(hits.map((h) => h.id)), deps.library.passages?.(passageHits.map((h) => h.id)) ?? []]);
+    const sources = { verses, passages };
+    const bad = (t: string) => contentProblems(t).length > 0 || shantiProblems(t).length > 0;
+    let reply = await deps.ai.shanti(q, lang, sources, false, conversation);
+    if (bad(reply.answer)) reply = await deps.ai.shanti(q, lang, sources, true, conversation);
+    if (bad(reply.answer)) return { layer: 'ai', blocks: [{ type: 'text', text: T.unsure[lang] }], count: false, cacheId: null };
+
+    const cited = verses.filter((v) => reply.cited.includes(v.ref)).slice(0, 3);
+    const citedPassages = passages.filter((p) => reply.cited.includes(p.ref)).slice(0, 2);
+    const blocks: Block[] = [
+      { type: 'text', text: reply.answer },
+      ...cited.map(verseBlock),
+      ...citedPassages.map((p): Block => ({ type: 'passage', ref: p.ref, work: p.work, location: p.location, text: p.text, translator: p.translator, reviewed: p.reviewed })),
+    ];
+    if (reply.concern === 'high') blocks.push({ type: 'notice', kind: 'helpline', text: `${HELPLINE.name}: ${HELPLINE.number} · ${T.emergency[lang]}: 112` });
+    if (reply.concern === 'low') blocks.push({ type: 'text', text: T.shantiLow[lang] });
+    const followUps = reply.followUps.filter((t) => !bad(t));
+    if (followUps.length) blocks.push({ type: 'followups', questions: followUps });
+
+    // Only general questions, with nothing worrying in them, go in the shared cache.
+    if (conversation || reply.concern !== 'none' || !cacheable(q, false) || SHANTI_PERSONAL.test(q)) return { layer: 'ai', blocks, count: true, cacheId: null };
+    const sourceIds = [...cited.map((v) => v.ref), ...citedPassages.map((p) => p.ref)];
+    const sourcesHash = await sourcesFingerprint(cited, [], citedPassages);
+    return { layer: 'ai', blocks, count: true, cacheId: null, cache: { blocks, sources: sourceIds, sourcesHash, embedding } };
+  }
 }
 
 type Outcome = {
@@ -532,9 +639,10 @@ type Outcome = {
  * Fingerprint of the library text an answer was built from. Changes when a cited verse or
  * meaning is edited, or a meaning is reviewed (the "Draft" badge is part of the cached answer).
  */
-export async function sourcesFingerprint(verses: Verse[], meanings: Meaning[]): Promise<string> {
+export async function sourcesFingerprint(verses: Verse[], meanings: Meaning[], passages: Passage[] = []): Promise<string> {
   const parts = [
     ...verses.map((v) => [v.ref, v.translation, v.translator].join('\u0000')),
+    ...passages.map((p) => [p.ref, p.text, p.translator, p.reviewed ? 1 : 0].join('\u0000')),
     ...meanings.map((m) => [`${m.kind}/${m.key}`, m.title, m.body, m.reviewed ? 1 : 0].join('\u0000')),
   ];
   return sha256(parts.sort().join('\u0001'));
@@ -544,11 +652,13 @@ export async function sourcesFingerprint(verses: Verse[], meanings: Meaning[]): 
 async function stillCurrent(deps: Deps, entry: CacheEntry): Promise<boolean> {
   let current = false;
   if (entry.sourcesHash) {
-    // Verse refs look like "BG 2.47"; meaning ids are "kind/key".
-    const refs = entry.sources.filter((s) => !s.includes('/'));
+    // Verse refs look like "BG 2.47"; meaning ids are "kind/key"; passage refs anything else ("MBh 11.2.1a").
+    const refs = entry.sources.filter((s) => s.startsWith('BG '));
     const ids = entry.sources.filter((s) => s.includes('/'));
-    const [verses, meanings] = await Promise.all([deps.library.verses(refs), deps.library.meanings(ids)]);
-    current = verses.length + meanings.length === entry.sources.length && (await sourcesFingerprint(verses, meanings)) === entry.sourcesHash;
+    const other = entry.sources.filter((s) => !s.startsWith('BG ') && !s.includes('/'));
+    const [verses, meanings, passages] = await Promise.all([deps.library.verses(refs), deps.library.meanings(ids), other.length ? (deps.library.passages?.(other) ?? []) : []]);
+    current =
+      verses.length + meanings.length + passages.length === entry.sources.length && (await sourcesFingerprint(verses, meanings, passages)) === entry.sourcesHash;
   }
   if (!current) await deps.cache.retire(entry.id);
   return current;
@@ -733,13 +843,19 @@ export function chartBlock(chart: Chart, now?: Date, lang: Lang = 'en'): Block {
   };
 }
 
+/** Asking for the kundli or birth chart itself ("read my kundli", "meri kundli dikhao"), not a topic in it. */
+export const KUNDLI_ITSELF =
+  /^\W*((please|pls|can you|could you|kindly)\s+)?((read|show|analy[sz]e|explain|see|check|open|make|give|tell me about)( me)?\s+)?(my|meri|mera)\s+(janam\s+)?(kundli|kundali|birth\s*chart|natal\s*chart|chart|horoscope)(\s+(dikhao|batao|padho|banao|please|pls|reading))?\W*$|^\W*(मेरी|मेरा)\s+(जन्म\s+)?(कुंडली|कुण्डली)(\s+(दिखाओ|बताओ|दिखाइए|बताइए|पढ़ो))?\W*$|\b(sun sign|star sign|zodiac|western|tropical|big three|rising sign)\b/i;
+
 /** Answers a question about the person's own chart, calculated from their saved birth details. */
 async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile, conversation: string | undefined, now: number): Promise<Block[]> {
   const chart = calculateChart(toBirth(profile));
   const meanings = await deps.library.meanings(chartSources(chart, question));
   const western = westernIntro(chart, now, lang);
-  const showWestern = !/Western astrology:|पश्चिमी ज्योतिष:/.test(conversation ?? '');
-  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nWESTERN (tropical). ${showWestern ? 'The app already shows the person this two-line Western summary just above your answer, so do NOT repeat it; write only the Vedic reading from the kundli' : 'Use only if they ask about Western astrology or sun signs'}:\n${describeTropical(chart, new Date(now))}`;
+  // The two Western lines only when the person asks for their kundli itself, once per chat; any
+  // other chart question goes straight to the reading.
+  const showWestern = KUNDLI_ITSELF.test(question) && !/Western astrology:|पश्चिमी ज्योतिष:/.test(conversation ?? '');
+  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nWESTERN (tropical). ${showWestern ? 'The app already shows the person this two-line Western summary just above your answer, so do NOT repeat it; write only the Vedic reading from the kundli' : 'Use only if they ask about Western astrology or sun signs. Start with their first name and the verdict; no heading or label before it'}:\n${describeTropical(chart, new Date(now))}`;
   const open = deps.astroMode === 'open';
   let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts, conversation);
   if (contentProblems(grounded.answer, [], { open }).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts, conversation);

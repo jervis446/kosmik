@@ -20,6 +20,7 @@ import { tr } from "../lib/i18n";
 
 /** Ayurveda's colour: leafy green, on both themes. */
 const AYUR = "#3FB68B";
+const SHANTI = "#8E7CF0";
 
 function group(chats: ConversationSummary[], now: number) {
   const day = 24 * 60 * 60 * 1000;
@@ -46,7 +47,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
   const [menu, setMenu] = useState(false);
   // Which part of Kosmik is open, so it can be highlighted.
   const path = usePathname();
-  const newKind = shell.newKind === "ayurveda" ? "ayurveda" : "kosmik";
+  const newKind = shell.newKind === "ayurveda" || shell.newKind === "shanti" ? shell.newKind : "kosmik";
   const activeKind = shell.activeId ? (shell.chats?.find((c) => c.id === shell.activeId)?.kind ?? newKind) : newKind;
   const section = path.startsWith("/reports") ? "reports" : path.startsWith("/chat") ? activeKind : null;
   // Your name from your birth details (saved, so it shows at once); otherwise your email's name.
@@ -125,6 +126,21 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
         <Text style={[s.askText, { color: section === "ayurveda" ? AYUR : colors.muted }]}>{tr("Ask Ayurveda")}</Text>
       </Pressable>
       <Pressable
+        onPress={() => shell.newChat("shanti")}
+        style={({ pressed }) => [
+          s.askBtn,
+          section === "shanti"
+            ? { borderColor: SHANTI, backgroundColor: `${SHANTI}${pressed ? "40" : "2e"}` }
+            : { borderColor: colors.line, backgroundColor: pressed ? `${SHANTI}1a` : "transparent" },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="New Shanti chat"
+        accessibilityState={{ selected: section === "shanti" }}
+      >
+        <Text style={[s.askGlyph, { color: SHANTI }]}>☾</Text>
+        <Text style={[s.askText, { color: section === "shanti" ? SHANTI : colors.muted }]}>{tr("Talk to Shanti")}</Text>
+      </Pressable>
+      <Pressable
         onPress={() => {
           shell.closeDrawer();
           router.push("/reports");
@@ -146,7 +162,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
 
       {session && shell.chats?.length ? (
         <View style={s.filters} accessibilityRole="tablist">
-          {(["all", "kosmik", "ayurveda"] as const).map((f) => (
+          {(["all", "kosmik", "ayurveda", "shanti"] as const).map((f) => (
             <Pressable
               key={f}
               onPress={() => setFilter(f)}
@@ -155,7 +171,7 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
               accessibilityState={{ selected: filter === f }}
             >
               <Text style={[s.filterText, filter === f && { color: colors.text }]}>
-                {tr(f === "all" ? "ALL" : f === "kosmik" ? "KOSMIK" : "AYURVEDA")}
+                {tr(f === "all" ? "ALL" : f === "kosmik" ? "KOSMIK" : f === "ayurveda" ? "AYURVEDA" : "SHANTI")}
               </Text>
             </Pressable>
           ))}
@@ -232,10 +248,10 @@ export function Sidebar({ onCollapse }: { onCollapse?: () => void } = {}) {
                       >
                         <Text style={s.rowText} numberOfLines={1}>
                           <Text
-                            style={{ color: c.kind === "ayurveda" ? AYUR : colors.highlight }}
-                            accessibilityLabel={c.kind === "ayurveda" ? "Ayurveda chat" : "Kosmik chat"}
+                            style={{ color: c.kind === "ayurveda" ? AYUR : c.kind === "shanti" ? SHANTI : colors.highlight }}
+                            accessibilityLabel={c.kind === "ayurveda" ? "Ayurveda chat" : c.kind === "shanti" ? "Shanti chat" : "Kosmik chat"}
                           >
-                            {c.kind === "ayurveda" ? "❀ " : "✦ "}
+                            {c.kind === "ayurveda" ? "❀ " : c.kind === "shanti" ? "☾ " : "✦ "}
                           </Text>
                           {c.title}
                         </Text>
