@@ -7,7 +7,7 @@ import type { PalmPhoto, Profile } from '../src/profiles.ts';
 import { calculateChart } from '../src/lib/chart.ts';
 import type { AnswerCache, History, Library, Namespace, PastMessage, Usage, VectorSearch } from '../src/store.ts';
 import { topK } from '../src/lib/vectors.ts';
-import type { Block, Meaning, Verse } from '../src/types.ts';
+import type { Block, Meaning, Passage, Verse } from '../src/types.ts';
 import type { Herb, Prakriti, Vikriti } from '../src/ayurveda.ts';
 
 const herbs: Herb[] = [
@@ -18,6 +18,9 @@ const herbs: Herb[] = [
 const verses: Verse[] = [
   { ref: 'BG 2.47', chapter: 2, verse: 47, sanskrit: 'कर्मण्येवाधिकारस्ते…', iast: 'karmaṇy…', translation: 'Your right is only to work, but not to its results.', translator: 'Swami Sivananda' },
   { ref: 'BG 6.25', chapter: 6, verse: 25, sanskrit: 'शनैः शनैरुपरमेद्…', iast: 'śanaiḥ…', translation: 'Little by little, let him attain quietude.', translator: 'Swami Sivananda' },
+];
+const passages: Passage[] = [
+  { ref: 'MBh 11.2.1a', work: 'Mahabharata', location: 'Stri Parva, section 2', text: 'All that is gathered endeth in loss; why then grieve, O king?', sanskrit: null, translator: 'Kisari Mohan Ganguli', reviewed: false },
 ];
 const meanings: Meaning[] = [
   { kind: 'graha-house', key: 'saturn:7', title: 'Shani (Saturn) in the 7th house', body: 'Traditionally linked with commitment and patience in partnerships.', reviewed: false },
@@ -42,6 +45,7 @@ class Fakes {
   vectorsByNs = new Map<string, { id: string; vector: number[] }[]>([
     ['verses', [{ id: 'BG 2.47', vector: embedText('work result karma worry') }, { id: 'BG 6.25', vector: embedText('calm mind anxiety') }]],
     ['meanings', [{ id: 'graha-house/saturn:7', vector: embedText('marriage') }]],
+    ['passages', [{ id: 'MBh 11.2.1a', vector: embedText('calm mind worry anxiety') }]],
   ]);
   usageCounts = new Map<string, number>();
   history: { userId: string; question: string; layer: string }[] = [];
@@ -60,6 +64,12 @@ class Fakes {
   rewriteFails = false;
   standaloneCalls: { question: string; conversation: string }[] = [];
   conversationsSeen: (string | undefined)[] = [];
+  shantiCalls = 0;
+  passages: Passage[] = passages.map((p) => ({ ...p }));
+  shantiSources: string[][] = [];
+  shantiConcern: 'none' | 'low' | 'high' = 'none';
+  shantiAnswers: string[] = [];
+  shantiConversations: (string | undefined)[] = [];
 
   deps(now = Date.parse('2026-11-12T10:00:00Z')): Deps {
     const library: Library = {
@@ -69,6 +79,7 @@ class Fakes {
       verseAt: async (i) => verses[i] ?? null,
       meaning: async (kind, key) => meanings.find((m) => m.kind === kind && m.key === key) ?? null,
       meanings: async (ids) => meanings.filter((m) => ids.includes(`${m.kind}/${m.key}`)),
+      passages: async (refs) => this.passages.filter((p) => refs.includes(p.ref)),
     };
     const cache: AnswerCache = {
       exact: async (lang, hash) => this.cacheRows.find((r) => r.lang === lang && r.hash === hash && !r.disabled) ?? null,
@@ -126,6 +137,18 @@ class Fakes {
           offTopic: false,
           followUps: this.reply.followUps,
           behind: this.reply.behind,
+        };
+      },
+      shanti: async (_q, _lang, sources, _stricter, conversation) => {
+        this.aiCalls++;
+        this.shantiCalls++;
+        this.shantiConversations.push(conversation);
+        this.shantiSources.push([...sources.verses.map((v) => v.ref), ...sources.passages.map((p) => p.ref)]);
+        return {
+          answer: this.shantiAnswers.shift() ?? 'That pain is real. The Gita says to act without clinging to results.',
+          cited: [...sources.verses.map((v) => v.ref), ...sources.passages.map((p) => p.ref)],
+          concern: this.shantiConcern,
+          followUps: ['What helps on the hardest nights?'],
         };
       },
       readPalm: async (images, _lang, opts) => {
@@ -425,7 +448,7 @@ test('own-chart question with birth details: calculated chart goes to the model 
   const f = new Fakes();
   f.profile = birth;
   f.reply = { answer: 'Your chart shows a steady, practical approach to work.', cited: [] };
-  const r = await ask(f.deps(), { question: 'What does my kundli say about career?', lang: 'en', identity: user });
+  const r = await ask(f.deps(), { question: 'Read my kundli', lang: 'en', identity: user });
   assert.equal(r.layer, 'ai');
   // Western astrology first, in two lines; then the Vedic reading from the kundli.
   const west = r.blocks[0].type === 'text' ? r.blocks[0].text : '';
@@ -439,6 +462,52 @@ test('own-chart question with birth details: calculated chart goes to the model 
   for (const part of ['Lagna (ascendant): Meen', 'HOUSE LORDS', 'ASPECTS', 'YOGAS:', 'Mahadasha now: Rahu', 'Antardasha now: ', 'TRANSITS (gochar) now:']) assert.ok(f.chartsSeen[0].includes(part), part);
   assert.match(chart && chart.type === 'chart' ? chart.dasha ?? '' : '', /^Rahu–\w+ until \d+ \w+ \d{4}$/);
   assert.equal(r.remaining, 10);
+});
+
+test('a topic question about the own chart starts with the reading: no Western lines, no Vedic label', async () => {
+  const f = new Fakes();
+  f.profile = birth;
+  f.reply = { answer: 'Asha, your finances steady from January 2027.', cited: [] };
+  for (const question of ['When will my finances improve?', 'What does my kundli say about career?']) {
+    const r = await ask(f.deps(), { question, lang: 'en', identity: user });
+    const texts = r.blocks.filter((b) => b.type === 'text').map((b) => (b.type === 'text' ? b.text : ''));
+    assert.deepEqual(texts, ['Asha, your finances steady from January 2027.'], question);
+  }
+  assert.ok(f.chartsSeen.every((c) => !/do NOT repeat it/.test(c)));
+  assert.ok(f.chartsSeen.every((c) => /Start with their first name and the verdict/.test(c)));
+});
+
+test('asking for the kundli itself shows the Western lines and the Vedic label', async () => {
+  for (const question of ['Read my kundli', 'show my birth chart', 'meri kundli dikhao', 'मेरी कुंडली बताओ']) {
+    const f = new Fakes();
+    f.profile = birth;
+    f.reply = { answer: 'Your chart shows a steady, practical approach to work.', cited: [] };
+    const r = await ask(f.deps(), { question, lang: 'en', identity: user });
+    assert.match(r.blocks[0].type === 'text' ? r.blocks[0].text : '', /^Western astrology:/, question);
+    assert.match(r.blocks[1].type === 'text' ? r.blocks[1].text : '', /^Vedic astrology \(your kundli\): /, question);
+  }
+});
+
+test('a Kosmik chat stays on palm, tarot and kundli: Gita and life questions are offered a Shanti chat, free', async () => {
+  for (const question of ['Gita 2.47', 'verse of the day', 'How do I stop worrying about results?', 'My girlfriend left me, how do I move on?']) {
+    const f = new Fakes();
+    const r = await ask(f.deps(), { question, lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
+    assert.deepEqual(r.blocks.map((b) => b.type === 'notice' && b.kind), ['use-shanti'], question);
+    assert.equal(r.blocks[0].type === 'notice' && r.blocks[0].question, question);
+    assert.equal(r.remaining, 11, `${question}: not counted`);
+    assert.equal(f.aiCalls, 0);
+  }
+});
+
+test('a Kosmik chat still answers astrology, tarot and own-chart questions', async () => {
+  const f = new Fakes();
+  const meaning = await ask(f.deps(), { question: 'Saturn in 7th house', lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
+  assert.ok(meaning.blocks.some((b) => b.type === 'meaning'));
+  const general = await ask(f.deps(), { question: 'What does a Saturn return mean for marriage?', lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
+  assert.ok(!general.blocks.some((b) => b.type === 'notice' && b.kind === 'use-shanti'));
+  f.profile = birth;
+  const own = await ask(f.deps(), { question: 'Will my love life improve this year?', lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
+  assert.ok(own.blocks.some((b) => b.type === 'chart'));
 });
 
 test('chart sources follow the question: marriage looks at the 7th house, a named graha at its placement', () => {
@@ -541,7 +610,8 @@ test('memory: a follow-up is rewritten with the chat so far, answered with it in
   assert.equal(r.layer, 'ai');
   assert.equal(f.standaloneCalls.length, 1);
   assert.match(f.standaloneCalls[0].conversation, /^Person: What does the Gita say about anger\?\nKosmik: The Gita sees anger as born of desire\.$/);
-  assert.match(f.conversationsSeen[0] ?? '', /born of desire/);
+  // A Gita question in a new chat is Shanti's now; the model still sees the chat so far.
+  assert.match(f.shantiConversations[0] ?? '', /born of desire/);
   assert.equal(f.cacheRows.length, 0, 'an answer that leans on this chat is not shared');
   assert.equal(f.history.at(-1)?.question, 'tell me more', 'history keeps what the person typed');
 });
@@ -593,7 +663,7 @@ test('kundli answers in Hindi: the Western lines and the Vedic label are in Hind
   const f = new Fakes();
   f.profile = birth;
   f.reply = { answer: 'आपकी कुंडली में दसवें भाव का स्वामी मज़बूत है।', cited: [] };
-  const r = await ask(f.deps(), { question: 'What does my kundli say about career?', lang: 'hi', identity: user });
+  const r = await ask(f.deps(), { question: 'मेरी कुंडली बताओ', lang: 'hi', identity: user });
   const west = r.blocks[0].type === 'text' ? r.blocks[0].text : '';
   assert.match(west, /^पश्चिमी ज्योतिष: सूर्य . \d+°\d+′ [ऀ-ॿ]+ \(\w+\) · चंद्र/);
   assert.match(west.split('\n')[1], /^[ऀ-ॿ]/);
@@ -608,7 +678,7 @@ test('answers end with the astrology behind them and questions to ask next', asy
   f.profile = birth;
   f.reply = { answer: 'Asha, a switch suits you from April 2027.', cited: [], followUps: ['Which month is best?', 'Should I study first?'], behind: ['10th lord Jupiter in the 12th house', 'Rahu–Venus antardasha from 19 April 2027'] };
   const r = await ask(f.deps(), { question: 'What does my kundli say about career?', lang: 'en', identity: user });
-  assert.deepEqual(r.blocks.map((b) => b.type), ['text', 'text', 'behind', 'chart', 'followups']);
+  assert.deepEqual(r.blocks.map((b) => b.type), ['text', 'behind', 'chart', 'followups']);
   const next = r.blocks.find((b) => b.type === 'followups');
   assert.deepEqual(next?.type === 'followups' && next.questions, ['Which month is best?', 'Should I study first?']);
 });
@@ -678,4 +748,121 @@ test('chat kinds: an Ayurveda chat sends even a kundli question to the consultat
   const offered = await ask(deps, { question: 'What is Tulsi?', lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
   assert.deepEqual(offered.blocks.map((b) => b.type === 'notice' && b.kind), ['use-ayurveda']);
   assert.equal(offered.blocks[0].type === 'notice' && offered.blocks[0].question, 'What is Tulsi?');
+});
+
+// ---- Shanti chats: comfort from the scriptures, never the chart.
+
+test('shanti: a breakup is met with comfort from the Gita, never the chart, and the chat is a Shanti chat', async () => {
+  const f = new Fakes();
+  f.profile = birth;
+  const r = await ask(f.deps(), { question: 'My boyfriend left me and I cannot sleep', lang: 'en', identity: user, mode: 'shanti' });
+  assert.equal(f.shantiCalls, 1);
+  assert.ok(!r.blocks.some((b) => b.type === 'chart'));
+  assert.equal(r.blocks[0].type === 'text' && r.blocks[0].text, 'That pain is real. The Gita says to act without clinging to results.');
+  assert.equal(r.kind, 'shanti');
+  assert.equal(r.remaining, 10);
+});
+
+test('shanti: a new chat with a life question becomes a Shanti chat by itself', async () => {
+  const f = new Fakes();
+  const r = await ask(f.deps(), { question: 'How do I stop worrying about results?', lang: 'en', identity: user });
+  assert.equal(f.shantiCalls, 1);
+  assert.equal(r.kind, 'shanti');
+  assert.ok(r.blocks.some((b) => b.type === 'verse'), 'cited Gita verses are shown');
+});
+
+test('shanti: someone in crisis gets the helpline first, free, with no model call', async () => {
+  const f = new Fakes();
+  const r = await ask(f.deps(), { question: 'I want to die, nothing matters after the breakup', lang: 'en', identity: user, mode: 'shanti' });
+  assert.ok(r.blocks.some((b) => b.type === 'notice' && b.kind === 'helpline'));
+  assert.equal(f.aiCalls, 0);
+  assert.equal(r.remaining, 11);
+});
+
+test('shanti: high concern adds the helpline and 112 under the answer', async () => {
+  const f = new Fakes();
+  f.shantiConcern = 'high';
+  const r = await ask(f.deps(), { question: 'He hits me when he is angry, what does dharma say', lang: 'en', identity: user, mode: 'shanti' });
+  const last = r.blocks.filter((b) => b.type === 'notice').at(-1);
+  assert.ok(last?.type === 'notice' && last.kind === 'helpline' && /14416/.test(last.text) && /112/.test(last.text));
+});
+
+test('shanti: low concern adds a gentle line about talking to someone', async () => {
+  const f = new Fakes();
+  f.shantiConcern = 'low';
+  const r = await ask(f.deps(), { question: 'I have felt heavy for weeks', lang: 'en', identity: user, mode: 'shanti' });
+  assert.ok(r.blocks.some((b) => b.type === 'text' && /someone you trust/.test(b.text)));
+});
+
+test('shanti: general answers are cached in their own space, never served in a Kosmik chat', async () => {
+  const f = new Fakes();
+  const q = 'How to let go of attachment and worry?';
+  const first = await ask(f.deps(), { question: q, lang: 'en', identity: user, mode: 'shanti' });
+  assert.equal(first.layer, 'ai');
+  const again = await ask(f.deps(), { question: q, lang: 'en', identity: user, mode: 'shanti' });
+  assert.equal(again.layer, 'exact');
+  assert.ok(f.vectorsByNs.has('cache:shanti:en') && !f.vectorsByNs.has('cache:en'));
+  // A Kosmik chat asking the same words never gets the Shanti answer back: Shanti hashes carry a prefix.
+  const { sha256, normalizeQuestion } = await import('../src/lib/text.ts');
+  const plain = await sha256(normalizeQuestion(q));
+  assert.ok(!f.cacheRows.some((r) => r.hash === plain));
+});
+
+test('shanti: personal pain is never cached', async () => {
+  const f = new Fakes();
+  for (let i = 0; i < 2; i++) {
+    const r = await ask(f.deps(), { question: 'My ex cheated on me, how do I trust again?', lang: 'en', identity: user, mode: 'shanti' });
+    assert.equal(r.layer, 'ai');
+  }
+  assert.equal(f.cacheRows.length, 0);
+});
+
+test('shanti: an answer promising a reunion or blaming karma is written again', async () => {
+  const f = new Fakes();
+  f.shantiAnswers = ['Do not worry, he will come back to you.', 'Your pain is real, and it will ease. The Gita says the self is not shaken.'];
+  const r = await ask(f.deps(), { question: 'Will the hurt ever stop?', lang: 'en', identity: user, mode: 'shanti' });
+  assert.equal(f.shantiCalls, 2);
+  assert.equal(r.blocks[0].type === 'text' && r.blocks[0].text, 'Your pain is real, and it will ease. The Gita says the self is not shaken.');
+});
+
+test('shanti: a Shanti chat remembers the conversation on every turn and never caches it', async () => {
+  const f = new Fakes();
+  f.past = [{ role: 'user', content: 'My father passed away last month', blocks: null }, { role: 'assistant', content: 'I am so sorry.', blocks: [{ type: 'text', text: 'I am so sorry.' }] }];
+  const r = await ask(f.deps(), { question: 'How do I live with it?', lang: 'en', identity: user, mode: 'shanti', conversationId: 'conv-1' });
+  assert.match(f.shantiConversations[0] ?? '', /father passed away/);
+  assert.equal(r.layer, 'ai');
+  assert.equal(f.cacheRows.length, 0);
+});
+
+test('shanti: palm, tarot and kundli questions are offered a Kosmik chat; health an Ayurveda chat; a Gita verse is answered', async () => {
+  const f = new Fakes();
+  for (const question of ['Read my palm', 'pull a tarot card', 'What does my kundli say about marriage?']) {
+    const r = await ask(f.deps(), { question, lang: 'en', identity: user, mode: 'shanti', conversationId: 'conv-1' });
+    assert.deepEqual(r.blocks.map((b) => b.type === 'notice' && b.kind), ['use-kosmik'], question);
+    assert.equal(r.remaining, 11);
+  }
+  const herb = await ask(f.deps(), { question: 'What is Tulsi?', lang: 'en', identity: user, mode: 'shanti', conversationId: 'conv-1' });
+  assert.deepEqual(herb.blocks.map((b) => b.type === 'notice' && b.kind), ['use-ayurveda']);
+  const verse = await ask(f.deps(), { question: 'Gita 2.47', lang: 'en', identity: user, mode: 'shanti', conversationId: 'conv-1' });
+  assert.ok(verse.blocks.some((b) => b.type === 'verse'));
+  assert.equal(f.aiCalls, 0);
+});
+
+test('shanti: Mahabharata passages are searched with the Gita, and cited ones are shown as cards', async () => {
+  const f = new Fakes();
+  const r = await ask(f.deps(), { question: 'How do I calm my mind when worry and anxiety come?', lang: 'en', identity: user, mode: 'shanti' });
+  assert.ok(f.shantiSources[0].includes('MBh 11.2.1a'), 'the passage reached the model');
+  const card = r.blocks.find((b) => b.type === 'passage');
+  assert.ok(card?.type === 'passage' && card.ref === 'MBh 11.2.1a' && card.location === 'Stri Parva, section 2' && card.translator === 'Kisari Mohan Ganguli');
+});
+
+test('shanti: a cached answer is retired when a passage it cites is edited', async () => {
+  const f = new Fakes();
+  const q = 'How do I calm my mind when worry and anxiety come?';
+  await ask(f.deps(), { question: q, lang: 'en', identity: user, mode: 'shanti' });
+  const again = await ask(f.deps(), { question: q, lang: 'en', identity: user, mode: 'shanti' });
+  assert.equal(again.layer, 'exact', 'unchanged library: served from the cache');
+  f.passages[0].text = 'All that is gathered endeth in loss. Grieve not.';
+  const fresh = await ask(f.deps(), { question: q, lang: 'en', identity: user, mode: 'shanti' });
+  assert.equal(fresh.layer, 'ai');
 });

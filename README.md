@@ -10,6 +10,16 @@ app/    Expo Router app (web now; iOS and Android later from the same code).
 data/   Library build scripts and the generated library (verses, meanings, embeddings).
 ```
 
+## Three kinds of chat
+
+| Chat | For | Never |
+|---|---|---|
+| Kosmik (✦) | Palm, tarot, the kundli and astrology meanings. Kundli answers show the two Western lines only when someone asks for their kundli itself; any other chart question starts straight with the reading. | Gita and life questions: offered a Shanti chat (`use-shanti`), not counted |
+| Ayurveda (❀) | Health, herbs, doshas, the consultation | Astrology |
+| Shanti (☾) | Comfort for someone hurting (a breakup, a loss, failure, fights at home), from the Gita (and, next, other Hindu texts), cited | Astrology, tarot, palm (offered a Kosmik chat, `use-kosmik`); promising reunions, blaming karma, telling anyone to tolerate abuse (`shantiProblems`, retried once) |
+
+A new chat takes its kind from its first answer: a Gita or life question with no astrology in it starts a Shanti chat. Shanti never reads the chart, keeps the whole chat in view on every turn, and adds Tele-MANAS 14416 and 112 under the answer when the model rates the message `concern: "high"` (a gentle "talk to someone you trust" line for `"low"`). Its answers are cached apart from Kosmik's (`answer_cache.kind`, hashes prefixed `shanti|`, vectors in `cache:shanti:<lang>`), and only general questions with no worry in them are cached; anything about the person's own pain never is.
+
 ## How a question is answered
 
 Each question goes through four layers, in order. The first that can answer wins.
@@ -184,8 +194,8 @@ The database exists and its id is in `api/wrangler.jsonc`. To update:
 
 ## Not built yet
 
-- Personal kundli readings (birth details → chart). Kosmik says "coming soon" for these and doesn't count them.
-- Premium payments and Noha Money referral credit.
+- Noha Money referral credit.
+- Shanti's passages (Mahabharata tr. Ganguli, Ramayana tr. Griffith, Upanishads tr. Paramananda, Yoga Vasishtha tr. Mitra): the pipeline is built (`data/scripts/build-passages.ts`, table `passages`, migration 0016) but not yet run; it needs `GEMINI_API_KEY` and the texts fetched as in `data/sources/README.txt`, then `make-seed.ts` and a library upload. Until then Shanti uses the Gita alone. The chosen passages are drafts until a person reviews them.
 - Human review of the 432 meaning drafts.
 - Hindi and Hinglish versions of the meanings (answers are already given in the asker's language by the AI layer).
 - iOS and Android builds.

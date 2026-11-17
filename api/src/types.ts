@@ -4,6 +4,8 @@ import type { Lang } from './lib/text.ts';
 export type Block =
   | { type: 'text'; text: string }
   | { type: 'verse'; ref: string; sanskrit: string; iast: string; translation: string; translator: string }
+  /** A passage from another Hindu scripture (Shanti): the translator's own words, unedited. */
+  | { type: 'passage'; ref: string; work: string; location: string; text: string; translator: string; reviewed: boolean }
   | { type: 'meaning'; kind: string; key: string; title: string; body: string; reviewed: boolean }
   | { type: 'tarot'; cards: { key: string; name: string; reversed: boolean; position: string; meaning: string; reading?: string; arcana?: 'major' | 'minor'; number?: number; suit?: string }[]; advice?: string }
   /** Face-down cards to pick from; picking one draws and reads it for the question. */
@@ -81,7 +83,7 @@ export type Block =
   | { type: 'prakriti'; vata: number; pitta: number; kapha: number; label: string; takenAt: number }
   | {
       type: 'notice';
-      kind: 'helpline' | 'needs-chart' | 'needs-details' | 'needs-palm' | 'needs-prakriti' | 'needs-vikriti' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake' | 'use-ayurveda';
+      kind: 'helpline' | 'needs-chart' | 'needs-details' | 'needs-palm' | 'needs-prakriti' | 'needs-vikriti' | 'coming-soon' | 'limit' | 'sign-in' | 'busy' | 'retake' | 'use-ayurveda' | 'use-shanti' | 'use-kosmik';
       /** For 'use-ayurveda': the question to ask again in an Ayurveda chat. */
       question?: string;
       text: string;
@@ -91,7 +93,10 @@ export type Block =
 export type Layer = 'direct' | 'exact' | 'semantic' | 'ai' | 'safety' | 'limit';
 
 /** Kosmik chats (astrology, tarot, palm, Gita) and Ayurveda chats are kept apart. */
-export type ChatKind = 'kosmik' | 'ayurveda';
+export type ChatKind = 'kosmik' | 'ayurveda' | 'shanti';
+
+/** A passage from a Hindu scripture other than the Gita (Ramayana, Mahabharata, Upanishads…), for Shanti. */
+export type Passage = { ref: string; work: string; location: string; text: string; sanskrit: string | null; translator: string; reviewed: boolean };
 
 export type AskResult = {
   conversationId: string | null;

@@ -26,3 +26,6 @@ api/.web-embed/
 api/wrangler.embedded.json
 app/pages/
 app/public/version.json
+
+# Downloaded source texts (large; fetch with the commands in data/sources/README.txt)
+data/sources/raw/

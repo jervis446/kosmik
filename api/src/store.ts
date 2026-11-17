@@ -1,8 +1,8 @@
 /** Data access on Cloudflare D1, plus vector search (Vectorize, or an in-memory scan of D1). */
 import { fromBlob, type Hit, toBlob, topK } from './lib/vectors.ts';
-import type { Block, CacheEntry, ChatKind, Meaning, Verse } from './types.ts';
+import type { Block, CacheEntry, ChatKind, Meaning, Passage, Verse } from './types.ts';
 
-export type Namespace = 'verses' | 'meanings' | `cache:${string}`;
+export type Namespace = 'verses' | 'meanings' | 'passages' | `cache:${string}`;
 
 export interface Library {
   verse(chapter: number, verse: number): Promise<Verse | null>;
@@ -11,6 +11,8 @@ export interface Library {
   verseAt(index: number): Promise<Verse | null>;
   meaning(kind: string, key: string): Promise<Meaning | null>;
   meanings(ids: string[]): Promise<Meaning[]>;
+  /** Passages from other scriptures, for Shanti (English only). */
+  passages?(refs: string[]): Promise<Passage[]>;
   /** The same library, giving Hindi text where it has it (English otherwise). */
   inLang?(lang: string): Library;
 }
@@ -18,7 +20,7 @@ export interface Library {
 export interface AnswerCache {
   exact(lang: string, hash: string): Promise<CacheEntry | null>;
   byId(id: number): Promise<CacheEntry | null>;
-  put(e: { lang: string; question: string; hash: string; blocks: Block[]; sources: string[]; sourcesHash: string; model: string; embedding: number[] }): Promise<number>;
+  put(e: { lang: string; question: string; hash: string; blocks: Block[]; sources: string[]; sourcesHash: string; model: string; embedding: number[]; kind?: ChatKind }): Promise<number>;
   hit(id: number): Promise<void>;
   /** Takes an answer out of service, e.g. because the library text it cites has changed. */
   retire(id: number): Promise<void>;
@@ -59,6 +61,14 @@ export class D1Library implements Library {
   }
   inLang(lang: string) {
     return new D1Library(this.db, lang);
+  }
+  async passages(refs: string[]) {
+    if (!refs.length) return [];
+    const { results } = await this.db
+      .prepare(`SELECT ref, work, location, text, sanskrit, translator, reviewed FROM passages WHERE ref IN (${refs.map(() => '?').join(',')})`)
+      .bind(...refs)
+      .all<Omit<Passage, 'reviewed'> & { reviewed: number }>();
+    return results.map((r) => ({ ...r, reviewed: !!r.reviewed }));
   }
   /** In Hindi, the Hindi rendering replaces the English translation when there is one. */
   private verseOut(r: VerseRow | null): Verse | null {
@@ -121,8 +131,8 @@ export class D1AnswerCache implements AnswerCache {
     // A live one is kept: two people asked the same new question at once.
     const row = await this.db
       .prepare(
-        `INSERT INTO answer_cache (lang, question, question_hash, answer, sources, sources_hash, model, embedding, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO answer_cache (lang, question, question_hash, answer, sources, sources_hash, model, embedding, created_at, kind)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (lang, question_hash) DO UPDATE SET
            question = excluded.question, answer = excluded.answer, sources = excluded.sources, sources_hash = excluded.sources_hash,
            model = excluded.model, embedding = excluded.embedding, created_at = excluded.created_at,
@@ -130,7 +140,7 @@ export class D1AnswerCache implements AnswerCache {
          WHERE answer_cache.disabled = 1
          RETURNING id`,
       )
-      .bind(e.lang, e.question, e.hash, JSON.stringify(e.blocks), JSON.stringify(e.sources), e.sourcesHash, e.model, toBlob(e.embedding), Date.now())
+      .bind(e.lang, e.question, e.hash, JSON.stringify(e.blocks), JSON.stringify(e.sources), e.sourcesHash, e.model, toBlob(e.embedding), Date.now(), e.kind === 'shanti' ? 'shanti' : 'kosmik')
       .first<{ id: number }>();
     if (row) return row.id;
     const live = await this.db.prepare('SELECT id FROM answer_cache WHERE lang = ? AND question_hash = ?').bind(e.lang, e.hash).first<{ id: number }>();
@@ -179,15 +189,19 @@ export class MemoryVectorSearch implements VectorSearch {
     if (cached && (!isCache || Date.now() - cached.at < CACHE_TTL_MS)) return cached.items;
     let rows: { id: string | number; embedding: ArrayBuffer }[];
     if (ns === 'verses') rows = (await this.db.prepare('SELECT ref AS id, embedding FROM verses').all<{ id: string; embedding: ArrayBuffer }>()).results;
+    else if (ns === 'passages') rows = (await this.db.prepare('SELECT ref AS id, embedding FROM passages').all<{ id: string; embedding: ArrayBuffer }>()).results;
     else if (ns === 'meanings')
       rows = (await this.db.prepare("SELECT kind || '/' || key AS id, embedding FROM meanings WHERE lang = 'en' AND embedding IS NOT NULL").all<{ id: string; embedding: ArrayBuffer }>()).results;
-    else
+    else {
+      // 'cache:<lang>' is the Kosmik (and Ayurveda) cache; 'cache:shanti:<lang>' is Shanti's.
+      const [kind, lang] = ns.startsWith('cache:shanti:') ? ['shanti', ns.slice('cache:shanti:'.length)] : ['kosmik', ns.slice('cache:'.length)];
       rows = (
         await this.db
-          .prepare('SELECT id, embedding FROM answer_cache WHERE lang = ? AND disabled = 0 ORDER BY id DESC LIMIT ?')
-          .bind(ns.slice('cache:'.length), CACHE_SCAN_LIMIT)
+          .prepare('SELECT id, embedding FROM answer_cache WHERE lang = ? AND kind = ? AND disabled = 0 ORDER BY id DESC LIMIT ?')
+          .bind(lang, kind, CACHE_SCAN_LIMIT)
           .all<{ id: number; embedding: ArrayBuffer }>()
       ).results;
+    }
     const items = rows.map((r) => ({ id: String(r.id), vector: fromBlob(r.embedding) }));
     memory.set(ns, { at: Date.now(), items });
     return items;

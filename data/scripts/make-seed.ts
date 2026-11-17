@@ -58,6 +58,21 @@ function main() {
       ].join(', ')});`,
     );
   }
+  // Shanti's passages from other scriptures (build-passages.ts), word for word, with their vectors.
+  if (existsSync(new URL('passages.json', root))) {
+    type Passage = { ref: string; work: string; location: string; text: string; translator: string; source: string; themes: string[]; reviewed: boolean };
+    const passageVectors = read<{ vectors: Record<string, string> }>('vectors/passages.json').vectors;
+    lines.push('DELETE FROM passages;');
+    for (const p of read<Passage[]>('passages.json')) {
+      const vec = passageVectors[p.ref];
+      if (!vec) throw new Error(`No embedding for ${p.ref}`);
+      lines.push(
+        `INSERT INTO passages (ref, work, location, text, translator, source, themes, reviewed, embedding) VALUES (${[
+          sql(p.ref), sql(p.work), sql(p.location), sql(p.text), sql(p.translator), sql(p.source), sql(JSON.stringify(p.themes)), p.reviewed ? 1 : 0, blob(vec),
+        ].join(', ')});`,
+      );
+    }
+  }
   // The Hindi library (translate-hi.ts) on top of the English one.
   lines.push(...hindiLines());
   mkdirSync(new URL('../api/seed/', root), { recursive: true });
