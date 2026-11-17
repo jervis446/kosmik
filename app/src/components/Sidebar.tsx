@@ -182,7 +182,7 @@ export function Sidebar({
               accessibilityState={{ selected: filter === f }}
             >
               <Text style={[s.filterText, filter === f && { color: colors.text }]}>
-                {tr(f === "all" ? "ALL" : f === "kosmik" ? "KOSMIK" : f === "ayurveda" ? "AYURVEDA" : "SHANTI")}
+                {tr(f === "all" ? "All" : f === "kosmik" ? "Kosmik" : f === "ayurveda" ? "Ayurveda" : "Shanti")}
               </Text>
             </Pressable>
           ))}
@@ -371,10 +371,11 @@ const styles = (c: Colors) =>
     },
     askGlyph: { fontSize: 16, width: 18, textAlign: "center" },
     askText: { color: c.text, fontFamily: font.semibold, fontSize: 15 },
-    filters: { flexDirection: "row", flexWrap: "wrap", gap: 2, paddingHorizontal: 4, paddingTop: 6, paddingBottom: 8 },
-    filter: { paddingVertical: 5, paddingHorizontal: 6, borderRadius: 999, borderWidth: 1, borderColor: "transparent" },
+    // Sized to fit on one line at the narrowest sidebar (220px); wraps rather than overflowing.
+    filters: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", paddingTop: 6, paddingBottom: 8 },
+    filter: { paddingVertical: 5, paddingHorizontal: 4, borderRadius: 999, borderWidth: 1, borderColor: "transparent" },
     filterOn: { borderColor: c.line, backgroundColor: c.surface2 },
-    filterText: { color: c.muted, fontFamily: font.mono, fontSize: 10, letterSpacing: 0.4 },
+    filterText: { color: c.muted, fontFamily: font.medium, fontSize: 12 },
     newChat: {
       borderWidth: 1,
       borderColor: c.line,

@@ -495,20 +495,7 @@ export function Blocks({
           case "verse":
             return <VerseCard key={i} block={b} />;
           case "passage":
-            return (
-              <View key={i} style={s.card} testID="passage">
-                <Text style={s.title}>
-                  {tr(b.work)} · {tr(b.location)}
-                </Text>
-                <Text style={s.body} selectable>
-                  “{b.text}”
-                </Text>
-                <Text style={s.small}>
-                  {tr("Translated by")} {b.translator}
-                  {b.reviewed ? "" : ` · ${tr("Draft")}`}
-                </Text>
-              </View>
-            );
+            return <PassageCard key={i} block={b} />;
           case "meaning":
             return (
               <View key={i} style={s.card}>
@@ -903,6 +890,40 @@ export function Blocks({
             );
         }
       })}
+    </View>
+  );
+}
+
+/** A scripture passage: just its source until tapped, so long quotes don't bury the answer. */
+function PassageCard({ block }: { block: Extract<Block, { type: "passage" }> }) {
+  const { colors } = useTheme();
+  const s = styles(colors);
+  const [open, setOpen] = useState(false);
+  // The location often already names the work ("Yoga Vasishtha, vol. 3b, …").
+  const source = block.location.startsWith(block.work)
+    ? tr(block.location)
+    : `${tr(block.work)} · ${tr(block.location)}`;
+  return (
+    <View style={s.card} testID="passage">
+      <Pressable
+        onPress={() => setOpen(!open)}
+        style={[s.row, { gap: 10 }]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityHint={tr(open ? "Hide the passage" : "Show the passage")}
+      >
+        <Text style={[s.title, { flex: 1 }]}>{source}</Text>
+        <Text style={{ color: colors.muted }}>{open ? "⌃" : "⌄"}</Text>
+      </Pressable>
+      {open ? (
+        <Text style={s.body} selectable>
+          “{block.text}”
+        </Text>
+      ) : null}
+      <Text style={s.small}>
+        {tr("Translated by")} {block.translator}
+        {block.reviewed ? "" : ` · ${tr("Draft")}`}
+      </Text>
     </View>
   );
 }
