@@ -543,7 +543,7 @@ export const HI: Record<string, string> = {
   Waiting: "इंतज़ार में",
   "Prices include GST. Questions about a payment? Help → WhatsApp or email us with the UTR.": "कीमतों में GST शामिल है। भुगतान के बारे में सवाल? मदद → UTR के साथ व्हाट्सऐप या ईमेल करें।",
 
-  "Please keep your question under {v0} words.": "कृपया अपना सवाल {v0} शब्दों से छोटा रखें।",
+  "Please keep your question to {v0} letters.": "कृपया अपना सवाल {v0} अक्षरों तक रखें।",
   "{v0} QUESTIONS LEFT": "{v0} सवाल बाकी",
   "Buy more": "और खरीदें",
   // Reports

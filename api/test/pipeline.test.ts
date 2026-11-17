@@ -315,7 +315,7 @@ test('input validation', async () => {
   const f = new Fakes();
   await assert.rejects(ask(f.deps(), { question: ' ', identity: user }), BadQuestion);
   await assert.rejects(ask(f.deps(), { question: 'x'.repeat(2401), identity: user }), BadQuestion);
-  await assert.rejects(ask(f.deps(), { question: 'word '.repeat(301), identity: user }), /300 words/);
+  await assert.rejects(ask(f.deps(), { question: 'word '.repeat(71), identity: user }), /350 letters/);
 });
 
 test('answers follow the question language, and caches are kept per language', async () => {
@@ -901,4 +901,14 @@ test('shanti: questions about the scriptures themselves are answered in a Shanti
     assert.equal(f.shantiCalls, 1, question);
     assert.equal(r.kind, 'shanti', question);
   }
+});
+
+test('a question can be up to 350 letters, counted one per letter (Hindi by visible letter)', async () => {
+  const { letterCount, MAX_LETTERS } = await import('../src/pipeline.ts');
+  assert.equal(MAX_LETTERS, 350);
+  assert.equal(letterCount('ffffff'), 6);
+  assert.equal(letterCount('नमस्ते'), 3);
+  const f = new Fakes();
+  await ask(f.deps(), { question: 'f'.repeat(350), lang: 'en', identity: user });
+  await assert.rejects(ask(f.deps(), { question: 'f'.repeat(351), lang: 'en', identity: user }), /up to 350 letters/);
 });
