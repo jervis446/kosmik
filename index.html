@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Kosmik by Asanoha: ask about the Bhagavad Gita, tarot, your kundli and your palm, with answers that cite their sources.">
+<meta name="description" content="Kosmik by Asanoha: your kundli, tarot and palm read for you, Ayurveda for your body, and Shanti for comfort and wisdom from the Hindu scriptures, with answers that cite their sources.">
 <style>html,body{margin:0;padding:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<script>try { var t = localStorage.getItem('kosmik/theme') || localStorage.getItem('kosmik-theme'); if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; localStorage.setItem('kosmik/theme', t); } localStorage.removeItem('kosmik-theme'); } catch (e) {}</script>
 <script>window.goatcounter = { path: location.pathname };</script>
 <script data-goatcounter="https://kosmikasanoha.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -303,7 +304,7 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
     <div class="hero-copy">
       <span class="eyebrow" data-i18n="eyebrow">Vedic astrology + Ayurveda · live on the web</span>
       <h1><span data-i18n="h1a">Your chart, read to the day.</span> <span class="grad-text" data-i18n="h1b">Real dates. Real reasons.</span></h1>
-      <p data-i18n="lead">Your kundli read to the day: which period you are in, what it favours, and the exact months things turn. Plus tarot, palm reading, the Gita, and an Ayurveda engine built in, in English, हिंदी or Hinglish.</p>
+      <p data-i18n="lead">Your kundli read to the day: which period you are in, what it favours, and the exact months things turn. Plus tarot, palm reading, an Ayurveda engine, and Shanti for comfort and wisdom from the scriptures, in English, हिंदी or Hinglish.</p>
       <div class="platforms">
         <span class="pill">🌐 <b>Web</b> · live</span><span class="pill">📱 <b>iOS</b> · 🤖 <b>Android</b> · soon</span><span class="pill">🔑 <span data-i18n="sso">Sign in with your <b>Asanoha</b> account</span></span>
         <span class="pill">🎁 <span data-i18n="free"><b>11 free questions</b> every week</span></span>
@@ -335,7 +336,7 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
       <div class="stats">
         <div class="stat"><b>To the day</b><span>Mahadasha, antardasha and transits with exact dates</span></div>
         <div class="stat"><b>Real astronomy</b><span>Planet positions calculated, never guessed by AI</span></div>
-        <div class="stat"><b>701 verses</b><span>The whole Bhagavad Gita, every answer cited</span></div>
+        <div class="stat"><b>966 scripture texts</b><span>All 701 Gita verses and 265 passages from the epics and Upanishads, every quote cited</span></div>
         <div class="stat"><b>358 herbs</b><span>Classical Ayurveda properties, in one library</span></div>
         <div class="stat"><b>3 languages</b><span>English, हिंदी and Hinglish, answers and app</span></div>
       </div>
@@ -357,7 +358,7 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
         <article class="pillar"><div class="glyph">🖐️</div><h3>Palm reading</h3>
           <ul><li>Save photos of both palms once</li><li>Heart, head, life, fate and minor lines, read for you</li><li>Photos kept only until you delete them</li></ul></article>
         <article class="pillar"><div class="glyph">☾</div><h3>Shanti</h3>
-          <ul><li>Talk through a breakup, a loss or a bad day</li><li>Comfort from the Gita, quoting all 701 verses by chapter and verse</li><li>Points you to Tele-MANAS 14416 when it's serious</li></ul></article>
+          <ul><li>Talk through a breakup, a loss or a bad day. Shanti knows your name and remembers the chat</li><li>Ask anything about the Gita, Ramayana, Mahabharata, Upanishads or Yoga Vasishtha</li><li>Quotes the Gita by chapter and verse, and the epics by book and chapter</li><li>Points you to Tele-MANAS 14416 when it's serious</li></ul></article>
       </div>
     </div>
   </section>
@@ -570,7 +571,7 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
     <div class="foot">
       <div>
         <a class="logo" href="#home" style="font-size:19px"><img src="/logo.svg" alt="" width="28" height="28">Kosmik</a>
-        <p class="muted" style="max-width:360px;margin-top:10px">Your chart, read to the day. Kundli, tarot, palm reading, the Gita and an Ayurveda engine, in English, हिंदी and Hinglish.</p>
+        <p class="muted" style="max-width:360px;margin-top:10px">Your chart, read to the day. Kundli, tarot, palm reading, an Ayurveda engine and Shanti, in English, हिंदी and Hinglish.</p>
         <p class="by" style="margin-top:16px">an <b>asanoha</b> product</p>
       </div>
       <nav aria-label="Footer">
@@ -610,15 +611,17 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
   const isNight = () => root.dataset.theme ? root.dataset.theme === 'dark' : !matchMedia('(prefers-color-scheme: light)').matches;
   const themeBtn = $('#themeBtn');
   const paintThemeBtn = () => { const n = isNight(); themeBtn.textContent = n ? '☀︎' : '☾'; themeBtn.setAttribute('aria-label', n ? 'Switch to light mode' : 'Switch to dark mode'); };
-  const savedTheme = store.get('kosmik-theme'); if (savedTheme) root.dataset.theme = savedTheme;
-  paintThemeBtn();
-  themeBtn.addEventListener('click', () => { root.dataset.theme = isNight() ? 'light' : 'dark'; store.set('kosmik-theme', root.dataset.theme); paintThemeBtn(); });
+  // The same saved choice as the app ("kosmik/theme": light, dark or system), so the two always match.
+  const applyTheme = () => { const t = store.get('kosmik/theme'); if (t === 'light' || t === 'dark') root.dataset.theme = t; else delete root.dataset.theme; paintThemeBtn(); };
+  applyTheme();
+  themeBtn.addEventListener('click', () => { root.dataset.theme = isNight() ? 'light' : 'dark'; store.set('kosmik/theme', root.dataset.theme); paintThemeBtn(); });
   matchMedia('(prefers-color-scheme: light)').addEventListener('change', paintThemeBtn);
+  addEventListener('storage', (e) => { if (e.key === 'kosmik/theme') applyTheme(); });
 
   // ---------- language (hero only) ----------
   const strings = {
-    en: { eyebrow: 'Vedic astrology + Ayurveda · live on the web', h1a: 'Your chart, read to the day.', h1b: 'Real dates. Real reasons.', lead: 'Your kundli read to the day: which period you are in, what it favours, and the exact months things turn. Plus tarot, palm reading, the Gita, and an Ayurveda engine built in, in English, हिंदी or Hinglish.', sso: 'Sign in with your <b>Asanoha</b> account', free: '<b>11 free questions</b> every week', greet: 'Namaste ✨' },
-    hi: { eyebrow: 'वैदिक ज्योतिष + आयुर्वेद · अब वेब पर', h1a: 'आपकी कुंडली, दिन तक पढ़ी गई।', h1b: 'असली तारीखें। असली वजहें।', lead: 'आपकी कुंडली दिन तक पढ़ी गई: आप किस दशा में हैं, वह किस चीज़ के पक्ष में है, और किन महीनों में चीज़ें बदलेंगी। साथ में टैरो, हस्तरेखा, गीता और एक आयुर्वेद इंजन, हिंदी, अंग्रेज़ी या हिंग्लिश में।', sso: 'अपने <b>Asanoha</b> अकाउंट से साइन इन करें', free: 'हर हफ़्ते <b>11 सवाल मुफ़्त</b>', greet: 'नमस्ते ✨' },
+    en: { eyebrow: 'Vedic astrology + Ayurveda · live on the web', h1a: 'Your chart, read to the day.', h1b: 'Real dates. Real reasons.', lead: 'Your kundli read to the day: which period you are in, what it favours, and the exact months things turn. Plus tarot, palm reading, an Ayurveda engine, and Shanti for comfort and wisdom from the scriptures, in English, हिंदी or Hinglish.', sso: 'Sign in with your <b>Asanoha</b> account', free: '<b>11 free questions</b> every week', greet: 'Namaste ✨' },
+    hi: { eyebrow: 'वैदिक ज्योतिष + आयुर्वेद · अब वेब पर', h1a: 'आपकी कुंडली, दिन तक पढ़ी गई।', h1b: 'असली तारीखें। असली वजहें।', lead: 'आपकी कुंडली दिन तक पढ़ी गई: आप किस दशा में हैं, वह किस चीज़ के पक्ष में है, और किन महीनों में चीज़ें बदलेंगी। साथ में टैरो, हस्तरेखा, एक आयुर्वेद इंजन, और शास्त्रों से सुकून और ज्ञान के लिए शांति, हिंदी, अंग्रेज़ी या हिंग्लिश में।', sso: 'अपने <b>Asanoha</b> अकाउंट से साइन इन करें', free: 'हर हफ़्ते <b>11 सवाल मुफ़्त</b>', greet: 'नमस्ते ✨' },
   };
   let lang = store.get('kosmik-lang') === 'hi' ? 'hi' : 'en';
   const langBtn = $('#langBtn');
