@@ -17,12 +17,12 @@ type Engine = {
 /** What Kosmik can do. Details and examples show on hover (or tap, on a phone). */
 const ENGINES: Engine[] = [
   {
-    glyph: "ॐ",
-    title: "Bhagavad Gita",
-    tagline: "Verses and wisdom",
+    glyph: "♃",
+    title: "Planets and signs",
+    tagline: "What the stars mean",
     detail:
-      "Any verse by number, a verse for today, or what the Gita says about what’s on your mind.",
-    examples: ["Gita 2.47", "Gita on anger"],
+      "What any planet, sign, house or nakshatra means, and your own zodiac sign.",
+    examples: ["What does Saturn in the 7th house mean?", "What is my zodiac sign?"],
     tint: "#F59E0B",
   },
   {

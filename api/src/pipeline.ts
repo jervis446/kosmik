@@ -418,6 +418,10 @@ export async function ask(
       shanti = !verseIntent;
     }
   }
+  // Shanti speaks to the person by name. Answers carry a {name} token (so a cached answer greets each
+  // person by their own name); it is filled in just before the answer is shown.
+  const shantiName = shanti && userId ? firstName((await deps.profiles.get(userId))?.name) : null;
+  const named = (blocks: Block[]) => (shanti ? personalize(blocks, shantiName) : blocks);
   // A Shanti chat is one conversation: every turn sees the earlier ones.
   if (shanti && userId && input.conversationId && !conversation) {
     const past = await deps.history.recent(userId, input.conversationId, CONTEXT_MESSAGES);
@@ -517,7 +521,7 @@ export async function ask(
   const exact = conversation ? null : await deps.cache.exact(lang, hash);
   if (exact && (await stillCurrent(deps, exact))) {
     await deps.cache.hit(exact.id);
-    return finish('exact', exact.blocks, { count: true, cacheId: exact.id });
+    return finish('exact', named(exact.blocks), { count: true, cacheId: exact.id });
   }
 
   // 3 and 4 need the AI model. If it is down or out of quota, say so politely and don't count it;
@@ -542,7 +546,7 @@ export async function ask(
     await deps.vectors.add(cacheNs, String(outcome.cacheId), embedding);
   }
   if (outcome.layer === 'semantic' && outcome.cacheId !== null) await deps.cache.hit(outcome.cacheId);
-  return finish(outcome.layer, outcome.blocks, { count: outcome.count, cacheId: outcome.cacheId });
+  return finish(outcome.layer, named(outcome.blocks), { count: outcome.count, cacheId: outcome.cacheId });
 
   async function semanticOrGenerated(): Promise<Outcome> {
     // 3. A question with the same meaning.
@@ -622,6 +626,22 @@ export async function ask(
     const sourcesHash = await sourcesFingerprint(cited, [], citedPassages);
     return { layer: 'ai', blocks, count: true, cacheId: null, cache: { blocks, sources: sourceIds, sourcesHash, embedding } };
   }
+}
+
+/** The first word of a saved name ("Adarsh Kumar" → "Adarsh"), or null. */
+export function firstName(name: string | null | undefined): string | null {
+  return name?.trim().split(/\s+/)[0] || null;
+}
+
+/** Fills the {name} token in Shanti's text; without a name, the token and its comma go, and the sentence still reads. */
+export function personalize(blocks: Block[], name: string | null): Block[] {
+  const fill = (t: string) =>
+    name
+      ? t.split('{name}').join(name)
+      : t
+          .replace(/(^|[.!?।]\s+)\{name\},?\s*(\S)/gu, (_m, start: string, c: string) => start + c.toUpperCase())
+          .replace(/,?\s*\{name\}/g, '');
+  return blocks.map((b) => (b.type === 'text' && b.text.includes('{name}') ? { ...b, text: fill(b.text) } : b));
 }
 
 type Outcome = {

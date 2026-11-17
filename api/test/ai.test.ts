@@ -143,3 +143,10 @@ test('shanti: the reply is parsed; concern is one of three values, and an empty 
   assert.equal(parseShanti('{"answer": ""}'), null);
   assert.equal(parseShanti('not json'), null);
 });
+
+test('shanti prompt: speaks by the {name} token, suggests something uplifting, and answers questions about the texts', async () => {
+  const { SHANTI_PROMPT } = await import('../src/ai.ts');
+  assert.match(SHANTI_PROMPT, /\{name\}, \.\.\./);
+  assert.match(SHANTI_PROMPT, /happy thing to do today/);
+  assert.match(SHANTI_PROMPT, /When they ask about the texts/);
+});
