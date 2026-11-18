@@ -180,3 +180,19 @@ test('parseReport: keeps the dasha, transit and dosha readings', async () => {
   assert.deepEqual(r.doshas, [{ name: 'Manglik', reading: 'Mild, from the Moon only.' }]);
   assert.deepEqual(parseReport('{"headline":"H","summary":"S","sections":[{"heading":"A","body":"B"},{"heading":"C","body":"D"},{"heading":"E","body":"F"}]}')!.periods, [], 'older reports have none');
 });
+
+test('shanti: room for a long reply, and one cut-off reply is retried before giving up', async () => {
+  const replies = [
+    '{"answer": "{name}, feeling alone in a full room is real. The Gita says',
+    JSON.stringify({ answer: '{name}, feeling alone in a full room is real.', cited: [], concern: 'none', follow_ups: [] }),
+  ];
+  const calls = fakeFetch(() => ({ json: { choices: [{ message: { content: replies.shift() } }] } }));
+  const ai = new GeminiAi({ apiKey: 'k' });
+  const r = await ai.shanti('I feel alone even with people around', 'en', { verses: [], passages: [] });
+  assert.match(r.answer, /feeling alone/);
+  assert.equal(calls.length, 2, 'retried once');
+  assert.ok((calls[0].body.max_tokens as number) >= 3500);
+
+  fakeFetch(() => ({ json: { choices: [{ message: { content: '{"answer": "{name}, cut' } }] } }));
+  await assert.rejects(ai.shanti('I feel alone', 'en', { verses: [], passages: [] }), /no usable Shanti reply \(\d+ chars/);
+});

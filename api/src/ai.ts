@@ -689,22 +689,26 @@ export class GeminiAi implements AiClient {
     const user = `${LANGUAGE[lang]}\n\n${conversation ? `CONVERSATION SO FAR:\n${conversation}\n\n` : ''}SOURCES:\n${lines.join('\n') || '(none)'}\n\nMESSAGE: ${question}${
       stricter ? '\n\nYour previous reply broke the rules. Follow every rule strictly this time.' : ''
     }${end}`;
-    const content = await this.complete(
-      {
-        model: this.model,
-        messages: [
-          { role: 'system', content: SHANTI_PROMPT },
-          { role: 'user', content: user },
-        ],
-        response_format: { type: 'json_object' },
-        reasoning_effort: 'minimal',
-        max_tokens: 1500,
-        temperature: 0.5,
-      },
-      'answer',
-    );
-    const parsed = parseShanti(content);
-    if (!parsed) throw new Error('The model returned no usable Shanti reply');
+    const body = {
+      model: this.model,
+      messages: [
+        { role: 'system', content: SHANTI_PROMPT },
+        { role: 'user', content: user },
+      ],
+      response_format: { type: 'json_object' },
+      reasoning_effort: 'minimal',
+      // Shanti replies are long and warm (and Hindi takes more tokens): too small a limit cuts the JSON off.
+      max_tokens: 3500,
+      temperature: 0.5,
+    };
+    let content = await this.complete(body, 'answer');
+    let parsed = parseShanti(content);
+    // A cut-off or malformed reply is tried once more before the person sees "busy".
+    if (!parsed) {
+      content = await this.complete(body, 'answer');
+      parsed = parseShanti(content);
+    }
+    if (!parsed) throw new Error(`The model returned no usable Shanti reply (${content?.length ?? 0} chars, ends ${JSON.stringify((content ?? '').slice(-40))})`);
     return parsed;
   }
 
