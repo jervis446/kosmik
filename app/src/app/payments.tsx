@@ -74,7 +74,7 @@ export default function Payments() {
                   <Text style={s.small}>{when(p.paidAt ?? p.createdAt)}</Text>
                   {p.utr ? <Text style={s.mono}>UTR {p.utr}</Text> : null}
                   <Text style={s.mono}>
-                    {tr("Receipt")} #{p.id.slice(0, 8).toUpperCase()} · GSTIN {OPERATOR.gstin}
+                    {tr("Receipt")} #{p.id.slice(0, 8).toUpperCase()} · {OPERATOR.name}
                   </Text>
                 </View>
                 <View style={{ alignItems: "flex-end", gap: 6 }}>

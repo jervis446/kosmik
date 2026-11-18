@@ -3,7 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { font, useTheme } from "../lib/theme";
 import { Header } from "./Header";
-import { OPERATOR } from "../lib/legal";
+import { COPYRIGHT, OPERATOR } from "../lib/legal";
 import { Sky } from "./Sky";
 
 export type Section = { h: string; p: string[] };
@@ -37,8 +37,7 @@ export function Legal({
         <Text
           style={{ color: colors.muted, fontFamily: font.medium, fontSize: 13 }}
         >
-          Last updated {updated}. Kosmik by Asanoha, operated by {OPERATOR.name}
-          (GSTIN {OPERATOR.gstin}).
+          {`Last updated ${updated}. Kosmik by Asanoha, operated by ${OPERATOR.name} (LLPIN ${OPERATOR.llpin}).`}
         </Text>
         {sections.map((s) => (
           <View key={s.h} style={{ gap: 8 }}>
@@ -67,6 +66,7 @@ export function Legal({
             ))}
           </View>
         ))}
+        <Text style={{ color: colors.muted, fontFamily: font.medium, fontSize: 13 }}>{COPYRIGHT}</Text>
       </ScrollView>
     </SafeAreaView>
   );
