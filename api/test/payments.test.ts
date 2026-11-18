@@ -37,7 +37,12 @@ function signed(body: object, opts: { secret?: string; at?: number; v1?: boolean
   return { raw, headers };
 }
 
+/** The Premium a pack buyer already has in these tests (packs are for Premium members). */
+const PACK_PREMIUM = NOW + 1000;
+
 async function order(db: D1Database, plan: 'week' | 'month' | 'r1' | 'r3' | 'r10' = 'week', user = 'user-1') {
+  // Report packs are for Premium members.
+  if (plan.startsWith('r')) await db.prepare('INSERT OR IGNORE INTO premium (user_id, until) VALUES (?, ?)').bind(user, PACK_PREMIUM).run();
   gateway({ json: { checkoutUrl: 'https://pay.example.test/c/1', paymentId: 'gw-1' } });
   const { orderId } = await startPayment(env, db, user, plan, 'https://kosmik.test', NOW);
   globalThis.fetch = realFetch;
@@ -208,7 +213,7 @@ test('report packs: a paid pack adds its credits once and leaves Premium alone',
   const again = signed(paid(id, 24900, { event: 'RECONCILED' }));
   await handleWebhook(env, db, again.headers, again.raw, NOW + 1000);
   assert.deepEqual({ ...raw.prepare('SELECT credits FROM report_credits WHERE user_id = ?').get('user-1') }, { credits: 3 });
-  assert.equal(raw.prepare('SELECT until FROM premium WHERE user_id = ?').get('user-1'), undefined);
+  assert.equal((raw.prepare('SELECT until FROM premium WHERE user_id = ?').get('user-1') as { until: number }).until, PACK_PREMIUM, 'Premium days are unchanged');
 });
 
 test('test order: ₹1 for one report credit, applied like any pack', async () => {
@@ -273,7 +278,7 @@ test('manual UPI: declining takes the access back (credits, then reports opened 
   await handleWebhook(env, db, ev.headers, ev.raw, NOW);
   assert.ok(((raw.prepare('SELECT until FROM premium WHERE user_id = ?').get('user-1') as { until: number }).until) > NOW + 6 * DAY);
   await declinePayment(db, w, NOW + 200);
-  assert.ok(((raw.prepare('SELECT until FROM premium WHERE user_id = ?').get('user-1') as { until: number }).until) <= NOW + 200);
+  assert.ok(((raw.prepare('SELECT until FROM premium WHERE user_id = ?').get('user-1') as { until: number }).until) <= PACK_PREMIUM, 'back to the Premium they had before');
 
   // Three more declines (five in all): blocked from buying.
   let last = { declined: false, blocked: false };
@@ -296,4 +301,13 @@ test('manual UPI: declining takes the access back (credits, then reports opened 
   globalThis.fetch = realFetch;
   assert.match(again.orderId, ORDER_ID);
   assert.equal(await approvePayment(db, again.orderId, NOW + 700), false, 'only orders with access given can be approved');
+});
+
+test('report packs need Premium: a free account cannot buy one', async () => {
+  const { db, raw } = d1();
+  await assert.rejects(startPayment(env, db, 'free-1', 'r3', 'https://kosmik.test', NOW), (e: unknown) => e instanceof PaymentError && e.status === 403 && /Premium/.test(e.message));
+  assert.equal(raw.prepare('SELECT count(*) AS n FROM payments').get().n, 0, 'no order is created');
+  // Once Premium has run out, packs are closed again.
+  await db.prepare('INSERT INTO premium (user_id, until) VALUES (?, ?)').bind('free-1', NOW - 1).run();
+  await assert.rejects(startPayment(env, db, 'free-1', 'r1', 'https://kosmik.test', NOW), (e: unknown) => e instanceof PaymentError && e.status === 403);
 });

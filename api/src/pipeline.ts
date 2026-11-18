@@ -22,8 +22,8 @@ import { rituAt, RITUS_HI } from './lib/ritu.ts';
 import { describeTropical, MOON_VIBE_HI, MOON_VIBE_HINGLISH, SIGNS, SIGNS_HI, SUN_VIBE_HI, SUN_VIBE_HINGLISH, zodiac, zodiacHi } from './lib/tropical.ts';
 import type { AskResult, Block, CacheEntry, ChatKind, Layer, Meaning, Passage, Verse } from './types.ts';
 
-/** Up to 250 letters a question, counting characters as people see them; spaces don't count. */
-export const MAX_LETTERS = 250;
+/** Up to 150 letters a question (short questions keep answers focused and cheap), counting characters as people see them; spaces don't count. */
+export const MAX_LETTERS = 150;
 const letters = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 /** Characters as people see them, without spaces: "fff fff" is 6, "नमस्ते" is 3. */
 export const letterCount = (t: string) => [...letters.segment(t.replace(/\s+/g, ''))].length;
@@ -96,9 +96,14 @@ const T = {
     hinglish: 'Mujhe bahut dukh hai ki aap aisa feel kar rahe hain. Abhi kisi insaan se baat karna zaroori hai. Please Tele-MANAS ko call kariye, India mein free aur 24×7, ya kisi bharose ke insaan se baat kariye.',
   },
   limitStarter: {
-    en: 'You’ve used your 11 free questions this week. They refill on Monday, or go Premium for unlimited questions.',
-    hi: 'आपने इस हफ़्ते के 11 मुफ़्त सवाल पूरे कर लिए हैं। सोमवार को फिर मिलेंगे, या असीमित सवालों के लिए Premium लें।',
-    hinglish: 'Aapne is hafte ke 11 free sawaal use kar liye hain. Monday ko refill honge, ya unlimited ke liye Premium lijiye.',
+    en: 'You’ve used your 11 free questions this week. They refill on Monday, or go Premium for 10 questions a day.',
+    hi: 'आपने इस हफ़्ते के 11 मुफ़्त सवाल पूरे कर लिए हैं। सोमवार को फिर मिलेंगे, या रोज़ 10 सवालों के लिए Premium लें।',
+    hinglish: 'Aapne is hafte ke 11 free sawaal use kar liye hain. Monday ko refill honge, ya din ke 10 sawaalon ke liye Premium lijiye.',
+  },
+  limitPremium: {
+    en: 'You’ve asked your 10 Premium questions today. They refill at midnight India time.',
+    hi: 'आपने आज के 10 Premium सवाल पूछ लिए हैं। भारतीय समय के अनुसार आधी रात को फिर मिलेंगे।',
+    hinglish: 'Aapne aaj ke 10 Premium sawaal pooch liye hain. India time ke hisaab se aadhi raat ko refill honge.',
   },
   limitGuest: {
     en: 'You’ve used today’s 3 guest questions. Sign in with your Asanoha account for 11 free questions every week.',
@@ -282,7 +287,7 @@ async function startTurn(deps: Deps, identity: Identity, conversationId: string 
 
 const limitReached = (turn: Turn) => turn.plan.limit !== null && turn.used >= turn.plan.limit;
 const limitBlock = (turn: Turn, lang: Lang): Block[] => [
-  { type: 'notice', kind: turn.plan.kind === 'guest' ? 'sign-in' : 'limit', text: turn.plan.kind === 'guest' ? T.limitGuest[lang] : T.limitStarter[lang] },
+  { type: 'notice', kind: turn.plan.kind === 'guest' ? 'sign-in' : 'limit', text: turn.plan.kind === 'guest' ? T.limitGuest[lang] : turn.plan.kind === 'premium' ? T.limitPremium[lang] : T.limitStarter[lang] },
 ];
 
 export async function ask(

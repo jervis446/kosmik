@@ -7,7 +7,7 @@ import type { Block } from '../types.ts';
 import { normalizeQuestion } from './text.ts';
 
 /** How many earlier messages (questions and answers) a follow-up sees: the last three exchanges. */
-export const CONTEXT_MESSAGES = 6;
+export const CONTEXT_MESSAGES = 4;
 const MAX_PER_MESSAGE = 500;
 
 /** Words that point back at something said earlier. */

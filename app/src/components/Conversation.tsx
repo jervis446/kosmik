@@ -106,7 +106,7 @@ const LAYER_LABEL: Record<Layer, string> = {
 };
 
 /** Up to 250 letters a question, counting characters as people see them, spaces not counted, as the API does. */
-const MAX_LETTERS = 250;
+const MAX_LETTERS = 150;
 const graphemes = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
 const letterCount = (t: string) => {
   const q = t.replace(/\s+/g, "");
@@ -159,7 +159,7 @@ export function Conversation({
   /** The answer as it is being written, shown until the finished one arrives. */
   const [live, setLive] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Questions left, shown in the composer from the start (Premium has no limit, so no pill):
+  // Questions left, shown in the composer from the start (Premium counts today, Starter the week):
   // the saved account info at once, then the count each answer returns.
   const me = useMe();
   // Your first name from your birth details, for the greeting.
@@ -315,6 +315,7 @@ export function Conversation({
   };
 
   const { width } = useWindowDimensions();
+  const premium = !!me?.premiumUntil; // the server sends it only while Premium is active
   const langLabel = LANGS.find((l) => l.key === lang)?.label ?? "Auto";
   const canSend = !busy && !!input.trim();
 
@@ -324,7 +325,8 @@ export function Conversation({
   const remainingPill =
     session && remaining !== null ? (
       <View style={s.left} testID="remaining">
-        <Text style={s.leftText}>{tr("{v0} QUESTIONS LEFT", { v0: remaining })}</Text>
+        <Text style={s.leftText}>{tr(premium ? "{v0} LEFT TODAY" : "{v0} QUESTIONS LEFT", { v0: remaining })}</Text>
+        {premium ? null : (
         <Pressable
           onPress={() => router.push("/premium")}
           style={s.leftBuy}
@@ -333,6 +335,7 @@ export function Conversation({
         >
           <Text style={s.leftText}>{tr("Buy more")}</Text>
         </Pressable>
+        )}
       </View>
     ) : null;
 

@@ -58,7 +58,7 @@ test('weekly allowance refills on Monday, India time', () => {
   assert.equal(weekStart(sundayLate), '2026-11-09');
   assert.equal(weekStart(mondayEarly), '2026-11-16');
   assert.deepEqual(planFor('starter', mondayEarly), { kind: 'starter', limit: 11, period: 'w:2026-11-16' });
-  assert.equal(planFor('premium', mondayEarly).limit, null);
+  assert.deepEqual(planFor('premium', mondayEarly), { kind: 'premium', limit: 10, period: `d:${istDate(mondayEarly)}` });
   assert.equal(planFor('guest', mondayEarly).limit, 3);
 });
 

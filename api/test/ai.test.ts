@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 
-import { EMBED_DIMS, EMBED_MODEL, GeminiAi, parsePalm, parseShanti } from '../src/ai.ts';
+import { EMBED_DIMS, EMBED_MODEL, GeminiAi, parsePalm, parseShanti, SHANTI_PROMPT, systemPrompt } from '../src/ai.ts';
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -195,4 +195,29 @@ test('shanti: room for a long reply, and one cut-off reply is retried before giv
 
   fakeFetch(() => ({ json: { choices: [{ message: { content: '{"answer": "{name}, cut' } }] } }));
   await assert.rejects(ai.shanti('I feel alone', 'en', { verses: [], passages: [] }), /no usable Shanti reply \(\d+ chars/);
+});
+
+test('cost: chat runs on Flash-Lite and reports on Flash by default; both can be set', async () => {
+  const reply = { choices: [{ message: { content: '{"answer":"Ok.","cited":[],"personal":false,"off_topic":false,"headline":"h","summary":"s","sections":[{"heading":"a","body":"b"}]}' } }] };
+  let calls = fakeFetch(() => ({ json: reply }));
+  const ai = new GeminiAi({ apiKey: 'k' });
+  await ai.answer('q', 'en', sources);
+  await ai.report({ title: 'Career', focus: 'career' }, 'en', 'CHART: x').catch(() => {});
+  assert.equal(calls[0].body.model, 'gemini-3.5-flash-lite');
+  assert.equal(calls[1].body.model, 'gemini-3.5-flash');
+  calls = fakeFetch(() => ({ json: reply }));
+  const set = new GeminiAi({ apiKey: 'k', model: 'chat-x', reportModel: 'report-y' });
+  await set.answer('q', 'en', sources);
+  await set.report({ title: 'Career', focus: 'career' }, 'en', 'CHART: x').catch(() => {});
+  assert.equal(calls[0].body.model, 'chat-x');
+  assert.equal(calls[1].body.model, 'report-y');
+});
+
+test('cost: answers are kept short (120 words, 180 with a chart) and capped in tokens', async () => {
+  assert.match(systemPrompt('open'), /under 120 words \(up to 180 words when a CHART is given\)/);
+  assert.match(systemPrompt('safe'), /under 120 words/);
+  assert.match(SHANTI_PROMPT, /100 to 160 words/);
+  const calls = fakeFetch(() => ({ json: { choices: [{ message: { content: '{"answer":"Ok.","cited":[],"personal":false,"off_topic":false}' } }] } }));
+  await new GeminiAi({ apiKey: 'k' }).answer('q', 'en', sources, false, 'CHART: x');
+  assert.ok((calls[0].body.max_tokens as number) <= 2000, 'a chart answer is capped at 2000 tokens');
 });

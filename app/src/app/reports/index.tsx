@@ -21,7 +21,10 @@ export default function Reports() {
   const [data, setData] = useState<ReportsList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState<PackId | "test" | null>(null);
-  const admin = !!useMe()?.admin;
+  const me = useMe();
+  const admin = !!me?.admin;
+  // Report packs are for Premium members (free accounts can still use credits they already have).
+  const premium = !!me?.premiumUntil; // the server sends it only while Premium is active
   const [orderState, setOrderState] = useState<"waiting" | "paid" | "failed" | null>(order ? "waiting" : null);
 
   const load = useCallback(() => {
@@ -113,11 +116,21 @@ export default function Reports() {
                     : tr("No report credits left")}
                 </Text>
                 <Text style={s.muted}>
-                  {data.credits > 0 ? tr("Open any report below to unlock it.") : tr("Buy a pack to unlock any report below.")}
+                  {data.credits > 0
+                    ? tr("Open any report below to unlock it.")
+                    : premium || admin
+                      ? tr("Buy a pack to unlock any report below.")
+                      : tr("Reports are part of Premium. Get Premium, then buy a report pack.")}
                 </Text>
               </View>
               <View style={s.packs}>
-                {data.packs.map((p) => (
+                {!premium && !admin ? (
+                  <Pressable onPress={() => router.push("/premium")} style={[s.pack, s.packBest]} accessibilityRole="button" testID="get-premium">
+                    <Text style={s.packName}>{tr("Get Premium")}</Text>
+                    <Text style={s.packPrice}>{tr("from ₹51")}</Text>
+                  </Pressable>
+                ) : null}
+                {(premium || admin ? data.packs : []).map((p) => (
                   <Pressable
                     key={p.id}
                     onPress={() => buy(p.id)}

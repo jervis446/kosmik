@@ -140,6 +140,8 @@ export interface Env {
   GEMINI_API_KEY?: string;
   /** Gemini chat model; defaults to DEFAULT_CHAT_MODEL in ai.ts. */
   CHAT_MODEL?: string;
+  /** Gemini model for paid reports; defaults to DEFAULT_REPORT_MODEL in ai.ts. */
+  REPORT_MODEL?: string;
   /** Gemini reasoning effort for answers; defaults to 'none' (fastest). */
   REASONING_EFFORT?: string;
   /** 'open' while testing: chart readings give specific, dated predictions. 'safe' (default) after launch. */

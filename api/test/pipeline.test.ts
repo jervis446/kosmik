@@ -289,7 +289,7 @@ test('crisis questions get the helpline and use no allowance', async () => {
   assert.equal(r.remaining, 11);
 });
 
-test('starter accounts get 11 questions a week; premium is unlimited; guests get 3 a day', async () => {
+test('starter accounts get 11 questions a week; premium gets 10 a day; guests get 3 a day', async () => {
   const f = new Fakes();
   for (let i = 0; i < 11; i++) await ask(f.deps(), { question: 'Gita 2.47', identity: user });
   const blocked = await ask(f.deps(), { question: 'Gita 2.47', identity: user });
@@ -299,8 +299,17 @@ test('starter accounts get 11 questions a week; premium is unlimited; guests get
   const nextWeek = await ask(f.deps(Date.parse('2026-11-16T10:00:00Z')), { question: 'Gita 2.47', identity: user });
   assert.equal(nextWeek.layer, 'direct');
 
-  const premium = await ask(f.deps(), { question: 'Gita 2.47', identity: { kind: 'user', id: 'p1', premium: true } });
-  assert.equal(premium.remaining, null);
+  const p1: Identity = { kind: 'user', id: 'p1', premium: true };
+  const premium = await ask(f.deps(), { question: 'Gita 2.47', identity: p1 });
+  assert.equal(premium.remaining, 9);
+  for (let i = 0; i < 9; i++) await ask(f.deps(), { question: 'Gita 2.47', identity: p1 });
+  const premiumBlocked = await ask(f.deps(), { question: 'Gita 2.47', identity: p1 });
+  assert.equal(premiumBlocked.layer, 'limit');
+  const premiumNotice = premiumBlocked.blocks.find((b) => b.type === 'notice');
+  assert.ok(premiumNotice && premiumNotice.type === 'notice' && /10 Premium questions today/.test(premiumNotice.text), 'premium hears about the daily limit, not an upsell');
+  // Premium refills the next day (India time), not next week.
+  const tomorrow = await ask(f.deps(Date.parse('2026-11-13T10:00:00Z')), { question: 'Gita 2.47', identity: p1 });
+  assert.equal(tomorrow.layer, 'direct');
 
   const guest: Identity = { kind: 'guest', subject: 'guest:abc' };
   for (let i = 0; i < 3; i++) await ask(f.deps(), { question: 'Gita 2.47', identity: guest });
@@ -320,7 +329,7 @@ test('input validation', async () => {
   const f = new Fakes();
   await assert.rejects(ask(f.deps(), { question: ' ', identity: user }), BadQuestion);
   await assert.rejects(ask(f.deps(), { question: 'x'.repeat(2401), identity: user }), BadQuestion);
-  await assert.rejects(ask(f.deps(), { question: 'word '.repeat(63), identity: user }), /250 letters/);
+  await assert.rejects(ask(f.deps(), { question: 'word '.repeat(38), identity: user }), /150 letters/);
 });
 
 test('answers follow the question language, and caches are kept per language', async () => {
@@ -939,15 +948,15 @@ test('shanti: questions about the scriptures themselves are answered in a Shanti
   }
 });
 
-test('a question can be up to 250 letters, spaces not counted (Hindi by visible letter)', async () => {
+test('a question can be up to 150 letters, spaces not counted (Hindi by visible letter)', async () => {
   const { letterCount, MAX_LETTERS } = await import('../src/pipeline.ts');
-  assert.equal(MAX_LETTERS, 250);
+  assert.equal(MAX_LETTERS, 150);
   assert.equal(letterCount('ffffff'), 6);
   assert.equal(letterCount('fff fff'), 6);
   assert.equal(letterCount('नमस्ते दोस्त'), 5);
   const f = new Fakes();
-  await ask(f.deps(), { question: 'ab '.repeat(125), lang: 'en', identity: user });
-  await assert.rejects(ask(f.deps(), { question: 'f'.repeat(251), lang: 'en', identity: user }), /up to 250 letters/);
+  await ask(f.deps(), { question: 'ab '.repeat(75), lang: 'en', identity: user });
+  await assert.rejects(ask(f.deps(), { question: 'f'.repeat(151), lang: 'en', identity: user }), /up to 150 letters/);
 });
 
 test('a chat started from a report reads that report, and is kept tagged with it', async () => {

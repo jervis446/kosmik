@@ -79,7 +79,7 @@ async function readJson(req: Request, max = MAX_BODY): Promise<Record<string, un
 
 const astroMode = (env: Env) => (env.ASTRO_MODE === 'open' ? 'open' : 'safe');
 const gemini = (env: Env) =>
-  new GeminiAi({ apiKey: env.GEMINI_API_KEY, model: env.CHAT_MODEL, baseUrl: env.GEMINI_BASE_URL, reasoningEffort: env.REASONING_EFFORT, astroMode: astroMode(env) });
+  new GeminiAi({ apiKey: env.GEMINI_API_KEY, model: env.CHAT_MODEL, reportModel: env.REPORT_MODEL, baseUrl: env.GEMINI_BASE_URL, reasoningEffort: env.REASONING_EFFORT, astroMode: astroMode(env) });
 
 async function requireUser(req: Request, env: Env): Promise<string> {
   const id = await userFromRequest(req, env);
