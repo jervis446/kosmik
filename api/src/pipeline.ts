@@ -227,6 +227,10 @@ const SHANTI_PERSONAL =
 export const EMOTIONAL =
   /\b(break ?up|broke up|broken up|heart ?broken|heartbreak|left me|dumped|cheated|betray\w*|divorce\w*|lonely|alone|depress\w*|grief|griev\w*|died|passed away|lost my|miss (him|her|them)|can'?t move on|move on|hopeless|empty inside|dhokha|chhod (diya|di|gaya|gayi)|akela|akeli|udaas|dukh)\b|अकेला|अकेली|धोखा|तलाक|दुख|उदास|छोड़ (दिया|गया|गई)/i;
 
+/** Questions about the scriptures themselves: Shanti's, even in a Kosmik chat with a chart. */
+const SCRIPTURE =
+  /\b(gita|geeta|bhagavad|krishna|krsna|arjun\w*|ramayan\w*|mahabharat\w*|upanishad\w*|vedas?|vedanta|purana\w*|shlok\w*|sloka\w*|verses?|scriptures?|dharma|rama|hanuman|shiva|vasishtha)\b|गीता|कृष्ण|रामायण|महाभारत|उपनिषद|श्लोक/i;
+
 /** A question for a Shanti chat: a Gita verse, or anything with no astrology, tarot or palm in it. */
 export const isShantiQuestion = (intent: Intent | null | undefined, q: string): boolean =>
   intent?.type === 'verse' || intent?.type === 'verse-of-the-day' || (!intent && !ASTRO.test(q));
@@ -238,7 +242,7 @@ const PRIVATE_DATA = /\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b|\b\d{1,2}:\d{2}\b|\b(1
 
 /** Decisions and timing in someone's own life ("can I open my startup this year?", "when will I…"). */
 const LIFE_DECISION =
-  /\b(my|mera|meri|mere|apna|apni)\b.{0,30}\b(startup|business|company|shop|venture|money|salary|income|promotion|loan|debt|property|house|flat|visa|abroad|love|relationship|crush|life|studies|degree|interview|transfer)\b|\b(can|should|will|shall|do|could) i\b.{0,60}\b(this|next|coming) (year|month|week)\b|\bwhen will i\b|\bwill i (get|be|find|marry|go|have|pass|crack)\b|\b(kab|kya) (main|mai|mera|meri)\b/i;
+  /\b(my|mera|meri|mere|apna|apni)\b.{0,30}\b(startup|business|company|shop|venture|money|salary|income|promotion|loan|debt|property|house|flat|visa|abroad|love|relationship|crush|life|studies|degree|interview|transfer)\b|\b(can|should|will|shall|do|could) i\b.{0,60}\b(this|next|coming) (year|month|week)\b|\b(should|shall) i\b|\bis (it|this|now) (a )?(good|right|wise|the right) time\b|\bwhen will i\b|\bwill i (get|be|find|marry|go|have|pass|crack)\b|\b(kab|kya) (main|mai|mera|meri)\b/i;
 
 export function cacheable(question: string, personal: boolean): boolean {
   return !personal && !PERSONAL_CONTEXT.test(question) && !LIFE_DECISION.test(question) && !PRIVATE_DATA.test(question);
@@ -372,9 +376,12 @@ export async function ask(
     }
   }
   let intent = q === question ? ownIntent : matchIntent(q);
+  // A follow-up to a reading of this person's chart stays on the chart.
+  let afterChart = false;
   // A reply to the consultation's intake questions continues the consultation.
   if (userId && input.conversationId && intent?.type !== 'ayur-consult') {
     const last = (await deps.history.recent(userId, input.conversationId, 1))[0];
+    afterChart = mode === 'kosmik' && last?.role === 'assistant' && !!last.blocks?.some((b) => b.type === 'chart');
     if (last?.role === 'assistant' && last.blocks?.some((b) => b.type === 'ayur-intake')) {
       intent = { type: 'ayur-consult' };
       if (!conversation) conversation = describeConversation(await deps.history.recent(userId, input.conversationId, CONTEXT_MESSAGES));
@@ -389,10 +396,11 @@ export async function ask(
     return finish('direct', [{ type: 'notice', kind: 'use-ayurveda', text: T.useAyurveda[lang], question }], { count: false });
   }
   // Gita and life questions have their own chats (Shanti): a Kosmik chat keeps to palm, tarot and the
-  // kundli. A question about the person's own life still goes to their chart when it is saved, unless
-  // it is plainly about pain (a breakup, a loss), which is Shanti's.
+  // kundli. A question about the person's own life, or a follow-up to their chart reading, still goes
+  // to their chart when it is saved, unless it is plainly about pain or the scriptures, which are Shanti's.
+  let toChart = false;
   if (mode === 'kosmik' && input.conversationId && isShantiQuestion(intent, q)) {
-    const toChart = !EMOTIONAL.test(q) && !!userId && (PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q)) && !!(await deps.profiles.get(userId));
+    toChart = !EMOTIONAL.test(q) && !SCRIPTURE.test(q) && !!userId && (afterChart || PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q)) && !!(await deps.profiles.get(userId));
     if (!toChart) return finish('direct', [{ type: 'notice', kind: 'use-shanti', text: T.useShanti[lang], question }], { count: false });
   }
 
@@ -509,7 +517,7 @@ export async function ask(
 
   // A question plainly about the person's own life, with their birth details saved: read their chart
   // straight away (one model call), instead of a general answer that turns out to be personal first.
-  if (!shanti && userId && (PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q))) {
+  if (!shanti && userId && (toChart || PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q))) {
     const profile = await deps.profiles.get(userId);
     if (profile) return chartOutcome(profile);
   }
