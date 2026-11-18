@@ -18,7 +18,7 @@ import { sha256 } from './lib/text.ts';
 import type { Env } from './types.ts';
 
 export type PlanId = 'week' | 'month' | 'r1' | 'r3' | 'r10';
-/** Premium passes (days of unlimited questions). */
+/** Premium passes: days of 10 questions a day, and access to reports. */
 export const PLANS: Record<'week' | 'month', { name: string; amountPaise: number; days: number }> = {
   week: { name: 'Premium · 7 days', amountPaise: 5100, days: 7 },
   month: { name: 'Premium · 30 days', amountPaise: 10100, days: 30 },
@@ -89,6 +89,8 @@ export async function startPayment(env: Env, db: D1Database, userId: string, pla
   if (!paymentsEnabled(env)) throw new PaymentError('Premium payments open soon.', 503);
   if (await isBlocked(db, userId)) throw new PaymentError('Payments are not available for this account. Please contact us from Help.', 403);
   if (plan !== 'week' && plan !== 'month' && !(typeof plan === 'string' && isPack(plan))) throw new PaymentError('Choose a plan.', 400);
+  // Reports are for Premium members (an admin's ₹1 test order is the exception).
+  if (isPack(plan) && !opts.test && !(await premiumUntil(db, userId, now))) throw new PaymentError('Reports are for Premium members. Get Premium first, then buy a report pack.', 403);
   const p = isPack(plan) ? { ...PACKS[plan], days: 0 } : { ...PLANS[plan], credits: 0 };
   if (opts.test && plan === 'r1') p.amountPaise = 100;
   const id = newOrderId();

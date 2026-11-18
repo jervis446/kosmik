@@ -5,7 +5,10 @@ import type { Meaning, Passage, Verse } from './types.ts';
 /** Multilingual, so Hindi and Hinglish questions find English passages. The library vectors must use the same model and size. */
 export const EMBED_MODEL = 'gemini-embedding-2';
 export const EMBED_DIMS = 768;
-export const DEFAULT_CHAT_MODEL = 'gemini-3.5-flash';
+/** Everyday answers: Flash-Lite keeps each question cheap (about a fifth of Flash's price). */
+export const DEFAULT_CHAT_MODEL = 'gemini-3.5-flash-lite';
+/** Paid reports are long and kept, so they use the fuller model. */
+export const DEFAULT_REPORT_MODEL = 'gemini-3.5-flash';
 
 export type Grounded = {
   answer: string;
@@ -83,12 +86,12 @@ export const PALM_PROMPT = styled(`You are Kosmik's palm reader, an expert in In
 Rules:
 - First decide if the photos clearly show the inside of an open human palm with the lines visible. If none does (another object, the back of the hand, a fist, too dark or blurry), set "is_palm" to false, leave "lines" empty and say in "overview" which photo to retake and how.
 - Read like a seasoned palmist, specifically and confidently, never in generic terms. Base every statement on something you can see: say what you see (where a line starts and ends, its depth, curve, breaks, forks, islands, chains, branches, crosses, stars, which mount is raised or flat, hand and finger shape, thumb) and then what it means for this person.
-- Cover, where visible: heart line, head line, life line, fate line, sun (Apollo) line, Mercury line, marriage/relationship lines, the mounts (Venus, Jupiter, Saturn, Sun, Mercury, Moon, Mars) and any special marks. Give each 2-4 sentences.
+- Cover, where visible: heart line, head line, life line, fate line, sun (Apollo) line, Mercury line, marriage/relationship lines, the mounts (Venus, Jupiter, Saturn, Sun, Mercury, Moon, Mars) and any special marks. Give each 1-3 sentences.
 - Give timing where palmistry allows it (estimating ages along the life and fate lines), e.g. "a change in career direction around 27-29".
 - With both hands, compare the non-dominant hand (what you were born with) and the dominant hand (what you are making of it).
 - If the person asked something specific (career, love, money, health tendencies), answer it directly in "overview" first, then explain from the lines.
 - Never predict anyone's death or a date of death. No fear-mongering; frame challenges with what helps.
-- "overview": 4-6 sentences: the direct answer to their question if any, the hand type, and the 2-3 strongest features of this palm.
+- "overview": 3-4 sentences: the direct answer to their question if any, the hand type, and the 2-3 strongest features of this palm.
 Reply with JSON only: {"is_palm": true, "overview": "...", "lines": [{"name": "Heart line", "reading": "..."}]}.`);
 
 const PALM_SCHEMA = {
@@ -190,7 +193,7 @@ Rules, always:
 - Keep "answer" under {{WORDS}} words, short paragraphs, no headings, emojis rarely. Don't write source ids like "BG 2.47" in the answer text: cited verses are shown as cards below it. You may say "the Gita says".
 - Voice: warm, direct and modern, like a wise friend who knows the subject: plain words, short paragraphs, no lectures. Use the person's name when you know it. Explain any Sanskrit or astrology term in a few words the first time.
 - "follow_ups": four short questions (at most 9 words each) this person would naturally ask next about their own situation, in the same language as the answer.
-- "behind": when a CHART or PRAKRITI is given, three to five short lines naming the exact factors you used (for example "10th lord Mercury in the 3rd house", "Saturn–Jupiter antardasha from 23 December 2026", "Saturn transiting your 7th house until June 2027"); otherwise an empty list.
+- "behind": when a CHART or PRAKRITI is given, two or three short lines naming the exact factors you used (for example "10th lord Mercury in the 3rd house", "Saturn–Jupiter antardasha from 23 December 2026", "Saturn transiting your 7th house until June 2027"); otherwise an empty list.
 Reply with JSON only: {"answer": "...", "cited": ["..."], "personal": false, "off_topic": false, "follow_ups": ["..."], "behind": ["..."]}.`;
 
 const CAUTION: Record<AstroMode, string> = {
@@ -211,7 +214,7 @@ const CHART_RULE: Record<AstroMode, string> = {
 };
 
 export function systemPrompt(mode: AstroMode = 'safe'): string {
-  return styled(BASE_PROMPT).replace('{{CAUTION}}', CAUTION[mode]).replace('{{CHART}}', CHART_RULE[mode]).replace('{{WORDS}}', mode === 'open' ? '140 words (up to 300 words when a CHART is given)' : '140');
+  return styled(BASE_PROMPT).replace('{{CAUTION}}', CAUTION[mode]).replace('{{CHART}}', CHART_RULE[mode]).replace('{{WORDS}}', mode === 'open' ? '120 words (up to 180 words when a CHART is given)' : '120');
 }
 
 /** The default (safe) prompt. */
@@ -221,7 +224,7 @@ export const AYURVEDA_PROMPT = styled(`You are Kosmik's Ayurveda vaidya assistan
 How to consult:
 - If the person's message doesn't give enough to assess them (how long it has been going on, the main symptoms and when they happen, appetite and digestion, bowel habit, sleep, typical diet and timing, stress, age, any existing condition or medicines), set "mode" to "ask" and ask 4 to 6 short, specific intake questions in "questions" (what a vaidya would ask for this complaint). Put a one-line warm acknowledgement in "reply". Ask only once: if CONVERSATION SO FAR already has their answers, assess.
 - Otherwise set "mode" to "answer" and give a specific consultation for this person:
-  "reply": 3-5 sentences in plain words: what is most likely going on in Ayurvedic terms and why (the specific causes in what they told you), addressed to them by name if known.
+  "reply": 2-4 sentences in plain words: what is most likely going on in Ayurvedic terms and why (the specific causes in what they told you), addressed to them by name if known.
   "assessment": doshas involved and how (e.g. "Pitta aggravated in annavaha srotas with some Vata"), the state of agni (sama, vishama, tikshna, manda) and ama, and the nidana (causes) you see in their routine, plus any notes.
   "favour" and "avoid": specific foods and habits (pathya and apathya), 4-7 each.
   "lifestyle": dinacharya changes, sleep and meal timing, 3-5 items.
@@ -361,7 +364,7 @@ When they ask about the texts:
 4. End with one curious question or an invitation to explore a related idea.
 Cite every source you use by its id in "cited". Use only SOURCES for quotes and verses: never quote, paraphrase as a quote, or cite a verse or story line that is not in SOURCES. If SOURCES don't fit, answer without scripture quotes.
 Rules, always:
-- Plain, warm, hopeful words, short paragraphs, no headings, no lectures, no preaching. 150 to 250 words. Don't write source ids in the answer text: cited verses are shown as cards below it. You may say "the Gita says".
+- Plain, warm, hopeful words, short paragraphs, no headings, no lectures, no preaching. 100 to 160 words. Don't write source ids in the answer text: cited verses are shown as cards below it. You may say "the Gita says".
 - Never use astrology, the kundli, tarot, palmistry or Ayurveda here.
 - Never say an ex will come back, that someone will return or change, or that a reunion or marriage is destined. Never say their pain is karma, punishment, fate they deserve or a test they are failing. Never tell anyone to stay with, adjust to or tolerate abuse or violence, at home or anywhere, as dharma or duty: their safety comes first.
 - No medical, legal or financial advice: suggest a doctor, counsellor or lawyer when that is what they need.
@@ -390,8 +393,8 @@ export function parseShanti(raw: string | undefined): ShantiReply | null {
 
 export const TAROT_PROMPT = styled(`You are Kosmik's tarot reader: experienced, intuitive and direct, reading for young Indians with the Rider-Waite-Smith tradition.
 The person picked their card(s) themselves from a face-down fan. Read for THEIR question, specifically, never in generic textbook terms:
-- "answer": start with a direct answer to what they asked (for yes/no questions say which way the cards lean and how strongly). Then explain why from the card imagery, its upright or reversed meaning, its suit or arcana and its position, tied to their situation. If they gave no question, read for what is most alive for them right now. Use their name if known. 4-7 sentences.
-- "readings": one entry per card, in order: 2-4 sentences on what this card says here, in this position, for this question, mentioning a detail of the card's imagery.
+- "answer": start with a direct answer to what they asked (for yes/no questions say which way the cards lean and how strongly). Then explain why from the card imagery, its upright or reversed meaning, its suit or arcana and its position, tied to their situation. If they gave no question, read for what is most alive for them right now. Use their name if known. 3-5 sentences.
+- "readings": one entry per card, in order: 1-3 sentences on what this card says here, in this position, for this question, mentioning a detail of the card's imagery.
 - Timing: where it helps, give a timing hint from tarot convention (Wands: days to weeks; Cups: weeks to months; Swords: fast or sudden; Pentacles: months; Major Arcana: a significant turning point).
 - "advice": one concrete thing to do this week.
 - "follow_ups": four short next questions this person might ask, in their language.
@@ -484,6 +487,8 @@ const TIMEOUT_MS = 20_000;
 export type GeminiOptions = {
   apiKey?: string;
   model?: string;
+  /** The model for paid reports (REPORT_MODEL). */
+  reportModel?: string;
   /** Local development only: see data/scripts/ai-relay.ts. */
   baseUrl?: string;
   /** Gemini "thinking". 'none' is fastest and enough for short grounded answers. */
@@ -495,6 +500,7 @@ export type GeminiOptions = {
 /** Google Gemini through its OpenAI-compatible endpoint. */
 export class GeminiAi implements AiClient {
   readonly model: string;
+  private readonly reportModel: string;
   private readonly apiKey?: string;
   private readonly baseUrl: string;
   private readonly reasoningEffort: string;
@@ -503,6 +509,7 @@ export class GeminiAi implements AiClient {
 
   constructor(opts: GeminiOptions) {
     this.model = opts.model || DEFAULT_CHAT_MODEL;
+    this.reportModel = opts.reportModel || DEFAULT_REPORT_MODEL;
     this.apiKey = opts.apiKey;
     this.baseUrl = (opts.baseUrl || GEMINI_URL).replace(/\/+$/, '');
     this.reasoningEffort = opts.reasoningEffort || 'none';
@@ -610,7 +617,7 @@ export class GeminiAi implements AiClient {
         ],
         response_format: { type: 'json_schema', json_schema: { name: 'grounded_answer', schema: SCHEMA } },
         reasoning_effort: chart ? this.chartEffort : this.reasoningEffort,
-        max_tokens: chart ? 3000 : 800,
+        max_tokens: chart ? 2000 : 800,
         temperature: 0.4,
       },
       'answer',
@@ -734,7 +741,7 @@ export class GeminiAi implements AiClient {
   private async reportOnce(topic: { title: string; focus: string; ayurveda?: boolean }, lang: Lang, facts: string, end: string): Promise<Report> {
     const user = `${LANGUAGE[lang]}\n\nREPORT: ${topic.title}${topic.ayurveda ? ' (Ayurveda)' : ''}\nTOPIC: ${topic.focus}\n\n${facts}${end}`;
     const out = (await this.post('/chat/completions', {
-      model: this.model,
+      model: this.reportModel,
       messages: [
         { role: 'system', content: REPORT_PROMPT },
         { role: 'user', content: user },

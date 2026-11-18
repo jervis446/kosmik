@@ -82,7 +82,7 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
           <View style={{ flex: 1 }}>
             <Text style={s.mono}>{tr("QUESTIONS")}</Text>
             <Text style={s.big} testID="menu-questions">
-              {me === null ? "…" : premium ? tr("Unlimited") : tr("{v0} questions left", { v0: left ?? 0 })}
+              {me === null ? "…" : premium ? tr("{v0} left today", { v0: left ?? 0 }) : tr("{v0} questions left", { v0: left ?? 0 })}
             </Text>
           </View>
           <Pressable onPress={() => go("/premium")} style={s.buy} accessibilityRole="button">

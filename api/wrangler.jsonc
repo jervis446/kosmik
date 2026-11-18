@@ -30,7 +30,9 @@
   // SUPABASE_URL, SUPABASE_ANON_KEY (Asanoha sign-in; public values), GUEST_SALT and GEMINI_API_KEY (secrets):
   // local development reads them from .dev.vars; production: npx wrangler secret put <NAME>.
   "vars": {
-    "CHAT_MODEL": "gemini-3.5-flash",
+    // Everyday answers on Flash-Lite (cheap); paid reports on Flash.
+    "CHAT_MODEL": "gemini-3.5-flash-lite",
+    "REPORT_MODEL": "gemini-3.5-flash",
     // "open" while testing: chart readings give specific, dated predictions. Set to "safe" at launch.
     "NOHA_GATEWAY_URL": "https://pay.peoplepitchers.com",
     "NOHA_METHOD": "MANUAL_UPI",

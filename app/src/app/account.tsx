@@ -135,14 +135,14 @@ export default function Account() {
                 },
               ]}
             >
-              {premium ? tr("Unlimited") : tr("Free")}
+              {premium ? tr("10 a day") : tr("Free")}
             </Text>
           </View>
           <Text style={s.muted} testID="plan">
             {me === undefined
               ? "…"
               : premium
-                ? tr("Premium, unlimited questions until {v0}.", { v0: date(me!.premiumUntil!) })
+                ? tr("Premium until {v0}: 10 questions a day, refilled at midnight, and access to reports.", { v0: date(me!.premiumUntil!) })
                 : tr("Starter: 11 questions a week, refilled every Monday.")}
           </Text>
           {!premium && limit !== null ? (

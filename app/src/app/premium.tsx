@@ -171,12 +171,12 @@ export default function Premium() {
             }}
             role="heading"
           >
-            {active ? tr("You have Premium") : tr("Unlimited questions")}
+            {active ? tr("You have Premium") : tr("10 questions a day, plus reports")}
           </Text>
           <Text style={muted}>
             {active
               ? tr("Premium is on until {v0}. Buying more adds days after that.", { v0: date(until!) })
-              : tr("Starter gives you 11 questions a week. Premium removes the limit for 7 or 30 days. It’s a one-time UPI payment and doesn’t renew on its own.")}
+              : tr("Starter gives you 11 questions a week. Premium gives you 10 a day, refilled at midnight, for 7 or 30 days, and opens the in-depth reports. It’s a one-time UPI payment and doesn’t renew on its own.")}
           </Text>
         </View>
 
@@ -212,7 +212,7 @@ export default function Premium() {
               </Text>
             </View>
             <Text style={muted}>
-              {tr("Unlimited questions for {v0} days. Launch price, GST included.", { v0: p.days })}
+              {tr("10 questions a day for {v0} days, plus reports. Launch price, GST included.", { v0: p.days })}
             </Text>
             {me.paymentsEnabled && Platform.OS === "web" ? (
               <Pressable
