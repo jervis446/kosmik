@@ -510,6 +510,37 @@ test('a Kosmik chat still answers astrology, tarot and own-chart questions', asy
   assert.ok(own.blocks.some((b) => b.type === 'chart'));
 });
 
+test('a Kosmik chat reads the chart for a decision like "should I start a startup?" when birth details are saved', async () => {
+  for (const question of ['should I start a startup?', 'Should I switch industries or stay?', 'Is it a good time to change jobs?']) {
+    const f = new Fakes();
+    f.profile = birth;
+    const r = await ask(f.deps(), { question, lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
+    assert.ok(!r.blocks.some((b) => b.type === 'notice' && b.kind === 'use-shanti'), question);
+    assert.ok(r.blocks.some((b) => b.type === 'chart'), question);
+  }
+});
+
+test('a follow-up to a chart reading in a Kosmik chat stays on the chart', async () => {
+  const f = new Fakes();
+  f.profile = birth;
+  f.past = [
+    { role: 'user', content: 'tell me when will I get new job', blocks: null },
+    { role: 'assistant', content: 'Venus in the 10th house…', blocks: [{ type: 'chart', ascendant: null, moon: null, planets: [], dasha: null }] as never },
+  ];
+  const r = await ask(f.deps(), { question: 'What should I focus on next?', lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
+  assert.ok(!r.blocks.some((b) => b.type === 'notice' && b.kind === 'use-shanti'));
+  assert.ok(r.blocks.some((b) => b.type === 'chart'));
+});
+
+test('a Kosmik chat with a saved chart still sends pain and scripture questions to Shanti', async () => {
+  for (const question of ['My girlfriend left me, how do I move on?', 'What does the Gita say about karma?']) {
+    const f = new Fakes();
+    f.profile = birth;
+    const r = await ask(f.deps(), { question, lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
+    assert.deepEqual(r.blocks.map((b) => b.type === 'notice' && b.kind), ['use-shanti'], question);
+  }
+});
+
 test('chart sources follow the question: marriage looks at the 7th house, a named graha at its placement', () => {
   const chart = calculateChart({ date: birth.birthDate, time: birth.birthTime, tzOffsetMin: 330, lat: birth.lat, lon: birth.lon });
   const seventh = chart.grahas.filter((p) => p.house === 7).map((p) => `graha-house/${p.graha}:7`);
