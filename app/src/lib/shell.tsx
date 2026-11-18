@@ -31,8 +31,10 @@ type Shell = {
   newKind: ChatKind | null;
   newChat: (kind?: ChatKind | null) => void;
   openChat: (id: string) => void;
-  /** Starts a new chat with this question (e.g. the first question from onboarding). */
-  askNew: (question: string, kind?: ChatKind | null) => void;
+  /** Starts a new chat with this question (e.g. the first question from onboarding), optionally from one of the person's reports. */
+  askNew: (question: string, kind?: ChatKind | null, reportKey?: string | null) => void;
+  /** The report a new chat was started from: its answers read that report. */
+  newReport: string | null;
   /** A question waiting for the chat screen to send it. */
   pending: string | null;
   clearPending: () => void;
@@ -51,6 +53,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [version, setVersion] = useState(0);
   const [pending, setPending] = useState<string | null>(null);
   const [newKind, setNewKind] = useState<ChatKind | null>(null);
+  const [newReport, setNewReport] = useState<string | null>(null);
 
   const userId = session?.user.id ?? null;
   useEffect(() => {
@@ -100,8 +103,10 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
       pending,
       clearPending: () => setPending(null),
       newKind,
-      askNew: (question, kind = null) => {
+      newReport,
+      askNew: (question, kind = null, reportKey = null) => {
         setNewKind(kind);
+        setNewReport(reportKey);
         setActiveIdState(null);
         setChatKey((k) => k + 1);
         setPending(question);
@@ -110,6 +115,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
       },
       newChat: (kind = null) => {
         setNewKind(kind);
+        setNewReport(null);
         setActiveIdState(null);
         setChatKey((k) => k + 1);
         closeDrawer();
@@ -128,7 +134,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
         router.navigate({ pathname: "/chat/[id]", params: { id } });
       },
     };
-  }, [wide, drawerOpen, chats, userId, activeId, chatKey, pending, newKind]);
+  }, [wide, drawerOpen, chats, userId, activeId, chatKey, pending, newKind, newReport]);
 
   return <ShellCtx.Provider value={value}>{children}</ShellCtx.Provider>;
 }

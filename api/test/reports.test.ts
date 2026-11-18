@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import type { AiClient, Report } from '../src/ai.ts';
 import { D1Ayurveda } from '../src/ayurveda.ts';
 import { D1Profiles } from '../src/profiles.ts';
-import { getReport, listReports, ReportError, unlockReport } from '../src/reports.ts';
+import { getReport, listReports, reportContext, ReportError, unlockReport } from '../src/reports.ts';
 import { d1 } from './d1.ts';
 
 const NOW = Date.parse('2026-11-16T10:00:00Z');
@@ -79,4 +79,40 @@ test('reports: the Ayurveda report needs the dosha quiz and uses the prakriti, n
   assert.match(facts[0], /PRAKRITI: [\s\S]*SEASON:/);
   assert.doesNotMatch(facts[0], /CHART/);
   assert.equal(credits(raw), 0);
+});
+
+test('reports: a chart report carries its kundali and is written from the full dasha table and Sade Sati periods', async () => {
+  const { raw, deps, facts, db } = setup();
+  raw.prepare('INSERT INTO report_credits (user_id, credits) VALUES (?, 2)').run('u1');
+  await deps.profiles.save('u1', { name: 'Riya', gender: 'female', birthDate: '2001-08-19', birthTime: '10:20', place: 'Delhi', lat: 28.61, lon: 77.2, tzOffsetMin: 330, consent: true }, NOW);
+  const r = await unlockReport(deps, 'u1', 'marriage', 'en', NOW);
+  assert.match(facts[0], /FULL VIMSHOTTARI TABLE/);
+  assert.match(facts[0], /SADE SATI AND DHAIYA PERIODS/);
+  assert.equal(r.kundali?.chartKind, 'lagna');
+  assert.equal(r.kundali?.dashas.length, 9);
+  assert.ok(r.kundali?.basics.some(([l, v]) => l === 'Place' && v === 'Delhi'));
+  // Kept with the report: changing the birth details later doesn't change this report's kundali.
+  await deps.profiles.save('u1', { name: 'Riya', gender: 'female', birthDate: '1990-01-01', birthTime: '10:20', place: 'Pune', lat: 18.5, lon: 73.8, tzOffsetMin: 330, consent: true }, NOW);
+  assert.ok((await getReport(db, 'u1', 'marriage')).kundali?.basics.some(([l, v]) => l === 'Place' && v === 'Delhi'));
+});
+
+test('reports: a report written before kundalis were kept gets one from the saved details', async () => {
+  const { raw, deps, db } = setup();
+  await deps.profiles.save('u1', { name: 'Riya', gender: 'female', birthDate: '2001-08-19', birthTime: null, place: 'Delhi', lat: 28.61, lon: 77.2, tzOffsetMin: 330, consent: true }, NOW);
+  raw.prepare('INSERT INTO reports (user_id, report_key, lang, content, created_at) VALUES (?, ?, ?, ?, ?)').run('u1', 'career', 'en', JSON.stringify(written), NOW);
+  const r = await getReport(db, 'u1', 'career');
+  assert.equal(r.kundali?.chartKind, 'moon');
+  assert.equal((await getReport(db, 'u1', 'prakriti')).kundali, null, 'no kundali for the Ayurveda report');
+});
+
+test('reports: a chat started from a report reads its text; someone else’s report gives nothing', async () => {
+  const { raw, db } = setup();
+  raw.prepare('INSERT INTO reports (user_id, report_key, lang, content, created_at) VALUES (?, ?, ?, ?, ?)').run('u1', 'marriage', 'en', JSON.stringify({ ...written, periods: [{ when: '2027 – 2028', dasha: 'Venus–Jupiter', reading: 'The strongest window.' }] }), NOW);
+  const text = await reportContext(db, 'u1', 'marriage');
+  assert.match(text!, /^REPORT: Marriage/);
+  assert.match(text!, /marriage is most likely between March 2027/);
+  assert.match(text!, /Part 2: Body 2/);
+  assert.match(text!, /Venus–Jupiter \(2027 – 2028\): The strongest window/);
+  assert.equal(await reportContext(db, 'u2', 'marriage'), null);
+  assert.equal(await reportContext(db, 'u1', 'nope'), null);
 });

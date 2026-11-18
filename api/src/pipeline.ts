@@ -47,6 +47,8 @@ export type Deps = {
   ai: AiClient;
   profiles: Profiles;
   ayurveda: Ayurveda;
+  /** The text of one of the person's own reports, for chats started from it (null if not theirs). */
+  reports?: { context(userId: string, key: string): Promise<string | null> };
   /** Records a failure in the error log (the AI model being down, for example). */
   report?: (kind: string, message: string) => void;
   /** 'open' (testing): chart readings may predict events and dates; see ai.ts. */
@@ -259,7 +261,7 @@ const AYURVEDA_BLOCKS = new Set(['ayur-plan', 'ayur-intake', 'herb', 'herb-list'
 export const chatKindOf = (blocks: Block[]): ChatKind =>
   blocks.some((b) => AYURVEDA_BLOCKS.has(b.type) || (b.type === 'notice' && (b.kind === 'needs-prakriti' || b.kind === 'needs-vikriti'))) ? 'ayurveda' : 'kosmik';
 
-async function startTurn(deps: Deps, identity: Identity, conversationId: string | null | undefined, question: string, langOf: () => Lang, now: number, modeOf: () => ChatKind | null = () => null): Promise<Turn> {
+async function startTurn(deps: Deps, identity: Identity, conversationId: string | null | undefined, question: string, langOf: () => Lang, now: number, modeOf: () => ChatKind | null = () => null, reportKey: string | null = null): Promise<Turn> {
   const plan = planFor(identity.kind === 'guest' ? 'guest' : identity.premium ? 'premium' : 'starter', now);
   const subject = identity.kind === 'guest' ? identity.subject : `user:${identity.id}`;
   const used = plan.limit === null ? 0 : await deps.usage.count(subject, plan.period);
@@ -269,7 +271,7 @@ async function startTurn(deps: Deps, identity: Identity, conversationId: string 
     let ids = { conversationId: null as string | null, messageId: null as string | null };
     let kind: ChatKind = modeOf() ?? chatKindOf(blocks);
     if (identity.kind === 'user' && layer !== 'limit') {
-      const rec = await deps.history.record({ userId: identity.id, conversationId, question, blocks, layer, cacheId: opts.cacheId ?? null, now, kind: modeOf() ?? chatKindOf(blocks) });
+      const rec = await deps.history.record({ userId: identity.id, conversationId, question, blocks, layer, cacheId: opts.cacheId ?? null, now, kind: modeOf() ?? chatKindOf(blocks), reportKey });
       ids = { conversationId: rec.conversationId, messageId: rec.messageId };
       kind = rec.kind ?? kind;
     }
@@ -285,7 +287,7 @@ const limitBlock = (turn: Turn, lang: Lang): Block[] => [
 
 export async function ask(
   deps: Deps,
-  input: { question: string; lang?: string; identity: Identity; conversationId?: string | null; tarot?: { count: 1 | 3 }; mode?: ChatKind },
+  input: { question: string; lang?: string; identity: Identity; conversationId?: string | null; tarot?: { count: 1 | 3 }; mode?: ChatKind; reportKey?: string | null },
 ): Promise<AskResult> {
   const now = deps.now?.() ?? Date.now();
   const question = input.question.replace(/\s+/g, ' ').trim();
@@ -304,7 +306,10 @@ export async function ask(
     input.mode ?? (userIdEarly && input.conversationId ? ((await deps.history.kindOf?.(userIdEarly, input.conversationId)) ?? null) : null);
   // The kind this turn is answered as: the chat's own, or (in a new chat) the one its first answer picks.
   let routed: ChatKind | null = mode;
-  const turn = await startTurn(deps, input.identity, input.conversationId, question, () => lang, now, () => routed);
+  // A Kosmik chat started from one of the person's reports reads that report on every turn.
+  const reportKey = userIdEarly && mode !== 'ayurveda' && mode !== 'shanti' ? ((input.conversationId ? await deps.history.reportOf?.(userIdEarly, input.conversationId) : input.reportKey) ?? null) : null;
+  const reportText = reportKey && userIdEarly ? ((await deps.reports?.context(userIdEarly, reportKey)) ?? null) : null;
+  const turn = await startTurn(deps, input.identity, input.conversationId, question, () => lang, now, () => routed, reportText ? reportKey : null);
   const { finish } = turn;
   // The AI layer failing never costs a question: say so politely instead.
   const busy = (err: unknown) => {
@@ -315,7 +320,7 @@ export async function ask(
   const chartOutcome = async (profile: Profile) => {
     let blocks: Block[];
     try {
-      blocks = await chartAnswer(deps, q, lang, profile, conversation, now);
+      blocks = await chartAnswer(deps, q, lang, profile, conversation, now, reportText);
     } catch (err) {
       return busy(err);
     }
@@ -400,7 +405,7 @@ export async function ask(
   // to their chart when it is saved, unless it is plainly about pain or the scriptures, which are Shanti's.
   let toChart = false;
   if (mode === 'kosmik' && input.conversationId && isShantiQuestion(intent, q)) {
-    toChart = !EMOTIONAL.test(q) && !SCRIPTURE.test(q) && !!userId && (afterChart || PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q)) && !!(await deps.profiles.get(userId));
+    toChart = !EMOTIONAL.test(q) && !SCRIPTURE.test(q) && !!userId && (afterChart || !!reportText || PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q)) && !!(await deps.profiles.get(userId));
     if (!toChart) return finish('direct', [{ type: 'notice', kind: 'use-shanti', text: T.useShanti[lang], question }], { count: false });
   }
 
@@ -422,7 +427,7 @@ export async function ask(
   } else if (mode === null && isShantiQuestion(intent, q) && !AYURVEDIC.test(q)) {
     // A new chat whose first question is a Gita or life question becomes a Shanti chat, unless it is
     // about the person's own life and their chart is saved (then it stays a kundli reading).
-    const toChart = !EMOTIONAL.test(q) && !!userId && (PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q)) && !!(await deps.profiles.get(userId));
+    const toChart = !EMOTIONAL.test(q) && !!userId && (!!reportText || PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q)) && !!(await deps.profiles.get(userId));
     if (!toChart) {
       routed = 'shanti';
       shanti = !verseIntent;
@@ -517,7 +522,7 @@ export async function ask(
 
   // A question plainly about the person's own life, with their birth details saved: read their chart
   // straight away (one model call), instead of a general answer that turns out to be personal first.
-  if (!shanti && userId && (toChart || PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q))) {
+  if (!shanti && userId && (toChart || !!reportText || PERSONAL_CONTEXT.test(q) || LIFE_DECISION.test(q))) {
     const profile = await deps.profiles.get(userId);
     if (profile) return chartOutcome(profile);
   }
@@ -878,14 +883,14 @@ export const KUNDLI_ITSELF =
   /^\W*((please|pls|can you|could you|kindly)\s+)?((read|show|analy[sz]e|explain|see|check|open|make|give|tell me about)( me)?\s+)?(my|meri|mera)\s+(janam\s+)?(kundli|kundali|birth\s*chart|natal\s*chart|chart|horoscope)(\s+(dikhao|batao|padho|banao|please|pls|reading))?\W*$|^\W*(मेरी|मेरा)\s+(जन्म\s+)?(कुंडली|कुण्डली)(\s+(दिखाओ|बताओ|दिखाइए|बताइए|पढ़ो))?\W*$|\b(sun sign|star sign|zodiac|western|tropical|big three|rising sign)\b/i;
 
 /** Answers a question about the person's own chart, calculated from their saved birth details. */
-async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile, conversation: string | undefined, now: number): Promise<Block[]> {
+async function chartAnswer(deps: Deps, question: string, lang: Lang, profile: Profile, conversation: string | undefined, now: number, report: string | null = null): Promise<Block[]> {
   const chart = calculateChart(toBirth(profile));
   const meanings = await deps.library.meanings(chartSources(chart, question));
   const western = westernIntro(chart, now, lang);
   // The two Western lines only when the person asks for their kundli itself, once per chat; any
   // other chart question goes straight to the reading.
   const showWestern = KUNDLI_ITSELF.test(question) && !/Western astrology:|पश्चिमी ज्योतिष:/.test(conversation ?? '');
-  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nWESTERN (tropical). ${showWestern ? 'The app already shows the person this two-line Western summary just above your answer, so do NOT repeat it; write only the Vedic reading from the kundli' : 'Use only if they ask about Western astrology or sun signs. Start with their first name and the verdict; no heading or label before it'}:\n${describeTropical(chart, new Date(now))}`;
+  const facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nWESTERN (tropical). ${showWestern ? 'The app already shows the person this two-line Western summary just above your answer, so do NOT repeat it; write only the Vedic reading from the kundli' : 'Use only if they ask about Western astrology or sun signs. Start with their first name and the verdict; no heading or label before it'}:\n${describeTropical(chart, new Date(now))}${report ? `\n\nTHEIR REPORT (written for them earlier from this same chart; this chat was started from it, so answer from it and the chart, and say so when you draw on it):\n${report}` : ''}`;
   const open = deps.astroMode === 'open';
   let grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, false, facts, conversation);
   if (contentProblems(grounded.answer, [], { open }).length) grounded = await deps.ai.answer(question, lang, { verses: [], meanings }, true, facts, conversation);

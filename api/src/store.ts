@@ -40,9 +40,12 @@ export type PastMessage = { role: 'user' | 'assistant'; content: string; blocks:
 
 export interface History {
   /** A new conversation takes `kind`; an existing one keeps its own, which is returned. */
-  record(e: { userId: string; conversationId?: string | null; question: string; blocks: Block[]; layer: string; cacheId: number | null; now: number; kind?: ChatKind }): Promise<{ conversationId: string; messageId: string; kind?: ChatKind }>;
+  /** A new conversation also keeps the report it was started from (`reportKey`), if any. */
+  record(e: { userId: string; conversationId?: string | null; question: string; blocks: Block[]; layer: string; cacheId: number | null; now: number; kind?: ChatKind; reportKey?: string | null }): Promise<{ conversationId: string; messageId: string; kind?: ChatKind }>;
   /** The kind of one of this person's conversations. */
   kindOf?(userId: string, conversationId: string): Promise<ChatKind | null>;
+  /** The report one of this person's conversations was started from. */
+  reportOf?(userId: string, conversationId: string): Promise<string | null>;
   /** The latest messages of one of this person's conversations, oldest first. */
   recent(userId: string, conversationId: string, limit: number): Promise<PastMessage[]>;
 }
@@ -258,7 +261,11 @@ export class D1History implements History {
     if (!conversationId) {
       conversationId = crypto.randomUUID();
       const title = e.question.length > 60 ? `${e.question.slice(0, 59).trimEnd()}…` : e.question;
-      stmts.push(this.db.prepare('INSERT INTO conversations (id, user_id, title, kind, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(conversationId, e.userId, title, kind, e.now, e.now));
+      stmts.push(
+        this.db
+          .prepare('INSERT INTO conversations (id, user_id, title, kind, report_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .bind(conversationId, e.userId, title, kind, e.reportKey ?? null, e.now, e.now),
+      );
     } else {
       stmts.push(this.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').bind(e.now, conversationId));
     }
@@ -271,6 +278,9 @@ export class D1History implements History {
     );
     await this.db.batch(stmts);
     return { conversationId, messageId, kind };
+  }
+  async reportOf(userId: string, conversationId: string) {
+    return (await this.db.prepare('SELECT report_key FROM conversations WHERE id = ? AND user_id = ?').bind(conversationId, userId).first<{ report_key: string | null }>())?.report_key ?? null;
   }
   async kindOf(userId: string, conversationId: string) {
     return (await this.db.prepare('SELECT kind FROM conversations WHERE id = ? AND user_id = ?').bind(conversationId, userId).first<{ kind: ChatKind }>())?.kind ?? null;

@@ -10,12 +10,12 @@ const nakOf = (moonLon: number) => Math.floor(moonLon / NAK);
 const rashiOf = (moonLon: number) => Math.floor(moonLon / 30);
 
 /** Varna by Moon rashi: 4 Brahmin, 3 Kshatriya, 2 Vaishya, 1 Shudra. */
-const VARNA = [3, 2, 1, 4, 3, 2, 1, 4, 3, 2, 1, 4];
-const VARNA_NAME: Record<number, string> = { 4: 'Brahmin', 3: 'Kshatriya', 2: 'Vaishya', 1: 'Shudra' };
+export const VARNA = [3, 2, 1, 4, 3, 2, 1, 4, 3, 2, 1, 4];
+export const VARNA_NAME: Record<number, string> = { 4: 'Brahmin', 3: 'Kshatriya', 2: 'Vaishya', 1: 'Shudra' };
 
 /** Vashya group by Moon rashi (Dhanu and Makar split at 15°). */
 type Vashya = 'Chatushpada' | 'Manava' | 'Jalachara' | 'Vanachara' | 'Keeta';
-function vashyaOf(lon: number): Vashya {
+export function vashyaOf(lon: number): Vashya {
   const r = rashiOf(lon);
   const half = lon % 30 < 15;
   if (r === 8) return half ? 'Manava' : 'Chatushpada';
@@ -32,17 +32,17 @@ const VASHYA_TABLE = [
   [1, 1, 1, 0, 2],
 ];
 
-const YONI = ['Horse', 'Elephant', 'Sheep', 'Serpent', 'Serpent', 'Dog', 'Cat', 'Sheep', 'Cat', 'Rat', 'Rat', 'Cow', 'Buffalo', 'Tiger', 'Buffalo', 'Tiger', 'Deer', 'Deer', 'Dog', 'Monkey', 'Mongoose', 'Monkey', 'Lion', 'Horse', 'Lion', 'Cow', 'Elephant'];
+export const YONI = ['Horse', 'Elephant', 'Sheep', 'Serpent', 'Serpent', 'Dog', 'Cat', 'Sheep', 'Cat', 'Rat', 'Rat', 'Cow', 'Buffalo', 'Tiger', 'Buffalo', 'Tiger', 'Deer', 'Deer', 'Dog', 'Monkey', 'Mongoose', 'Monkey', 'Lion', 'Horse', 'Lion', 'Cow', 'Elephant'];
 const YONI_ENEMIES = [['Horse', 'Buffalo'], ['Elephant', 'Lion'], ['Sheep', 'Monkey'], ['Serpent', 'Mongoose'], ['Dog', 'Deer'], ['Cat', 'Rat'], ['Cow', 'Tiger']];
 
 /** Gana by nakshatra: D(eva), M(anushya), R(akshasa). */
-const GANA = 'DMRMDMDDRRMMDRDRDRRMMDRRMMD';
-const GANA_NAME: Record<string, string> = { D: 'Deva', M: 'Manushya', R: 'Rakshasa' };
+export const GANA = 'DMRMDMDDRRMMDRDRDRRMMDRRMMD';
+export const GANA_NAME: Record<string, string> = { D: 'Deva', M: 'Manushya', R: 'Rakshasa' };
 /** Groom's gana (row) and bride's gana (column): D, M, R. */
 const GANA_TABLE: Record<string, Record<string, number>> = { D: { D: 6, M: 6, R: 1 }, M: { D: 5, M: 6, R: 0 }, R: { D: 1, M: 0, R: 6 } };
 
 /** Nadi by nakshatra: A(adi), M(adhya), N (antya). */
-const NADI = 'AMNNMAAMNNMAAMNNMAAMNNMAAMN';
+export const NADI = 'AMNNMAAMNNMAAMNNMAAMNNMAAMN';
 const NADI_NAME: Record<string, string> = { A: 'Adi (Vata)', M: 'Madhya (Pitta)', N: 'Antya (Kapha)' };
 
 const LORD = RASHIS.map((r) => r.ruler);

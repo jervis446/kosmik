@@ -48,7 +48,10 @@ class Fakes {
     ['passages', [{ id: 'MBh 11.2.1a', vector: embedText('calm mind worry anxiety') }]],
   ]);
   usageCounts = new Map<string, number>();
-  history: { userId: string; question: string; layer: string }[] = [];
+  history: { userId: string; question: string; layer: string; reportKey?: string | null }[] = [];
+  /** The report a conversation was started from, and each report's text as the chat sees it. */
+  conversationReport: string | null = null;
+  reportTexts = new Map<string, string>();
   reply: Partial<Grounded> & { answers?: string[] } = {};
   palmReplies: PalmReading[] = [];
   palmCalls = 0;
@@ -109,11 +112,13 @@ class Fakes {
     };
     const history: History = {
       record: async (e) => {
-        this.history.push({ userId: e.userId, question: e.question, layer: e.layer });
+        this.history.push({ userId: e.userId, question: e.question, layer: e.layer, reportKey: e.reportKey });
         return { conversationId: e.conversationId ?? 'conv-1', messageId: `msg-${this.history.length}` };
       },
       recent: async (userId, _conversationId, limit) => (userId === 'u1' ? this.past.slice(-limit) : []),
+      reportOf: async (userId) => (userId === 'u1' ? this.conversationReport : null),
     };
+    const reports = { context: async (userId: string, key: string) => (userId === 'u1' ? (this.reportTexts.get(key) ?? null) : null) };
     const ai: AiClient = {
       model: 'test-model',
       embed: async (t) => {
@@ -171,7 +176,7 @@ class Fakes {
       prakriti: async () => this.prakriti,
       vikriti: async () => this.vikriti,
     };
-    return { library, cache, vectors, usage, history, ai, profiles, ayurveda, now: () => now, random: () => 0 };
+    return { library, cache, vectors, usage, history, ai, profiles, ayurveda, reports, now: () => now, random: () => 0 };
   }
 }
 
@@ -943,4 +948,34 @@ test('a question can be up to 250 letters, spaces not counted (Hindi by visible 
   const f = new Fakes();
   await ask(f.deps(), { question: 'ab '.repeat(125), lang: 'en', identity: user });
   await assert.rejects(ask(f.deps(), { question: 'f'.repeat(251), lang: 'en', identity: user }), /up to 250 letters/);
+});
+
+test('a chat started from a report reads that report, and is kept tagged with it', async () => {
+  const f = new Fakes();
+  f.profile = birth;
+  f.reportTexts.set('career', 'REPORT: Career. Promotion window: March 2027 – June 2028.');
+  const r = await ask(f.deps(), { question: 'Tell me more about the promotion window', lang: 'en', identity: user, mode: 'kosmik', reportKey: 'career' });
+  assert.ok(r.blocks.some((b) => b.type === 'chart'), 'answered from the chart');
+  assert.match(f.chartsSeen.at(-1)!, /THEIR REPORT[\s\S]*Promotion window: March 2027/);
+  assert.equal(f.history.at(-1)?.reportKey, 'career');
+});
+
+test('in a report chat, a life question stays on the chart and report, but pain still goes to Shanti', async () => {
+  const f = new Fakes();
+  f.profile = birth;
+  f.conversationReport = 'career';
+  f.reportTexts.set('career', 'REPORT: Career. Saturn period asks for patience.');
+  const r = await ask(f.deps(), { question: 'How do I stop worrying about results?', lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
+  assert.ok(r.blocks.some((b) => b.type === 'chart'));
+  assert.match(f.chartsSeen.at(-1)!, /Saturn period asks for patience/);
+  const pain = await ask(f.deps(), { question: 'My girlfriend left me, how do I move on?', lang: 'en', identity: user, mode: 'kosmik', conversationId: 'conv-1' });
+  assert.deepEqual(pain.blocks.map((b) => b.type === 'notice' && b.kind), ['use-shanti']);
+});
+
+test('a report key for a report the person does not own is ignored', async () => {
+  const f = new Fakes();
+  f.profile = birth;
+  await ask(f.deps(), { question: 'Should I switch industries or stay?', lang: 'en', identity: user, mode: 'kosmik', reportKey: 'marriage' });
+  assert.doesNotMatch(f.chartsSeen.at(-1)!, /THEIR REPORT/);
+  assert.equal(f.history.at(-1)?.reportKey ?? null, null);
 });

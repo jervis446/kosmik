@@ -1,13 +1,13 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
-import { highlight } from "../../components/Blocks";
 import { DetailsModal } from "../../components/DetailsForms";
+import { ReportBody } from "../../components/ReportBody";
 import { Shell } from "../../components/Shell";
 import { Thinking } from "../../components/Thinking";
 import { track } from "../../lib/analytics";
-import { api, ApiError, type ReportSummary, type WrittenReport } from "../../lib/api";
+import { api, ApiError, type Kundali, type ReportSummary, type WrittenReport } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { tr, uiLang } from "../../lib/i18n";
 import { answerLang } from "../../lib/lang";
@@ -54,6 +54,8 @@ export default function ReportPage() {
   const shell = useShell();
   const [spec, setSpec] = useState<ReportSummary | null>(null);
   const [report, setReport] = useState<WrittenReport | null>(null);
+  const [kundali, setKundali] = useState<Kundali | null>(null);
+  const { width } = useWindowDimensions();
   const [credits, setCredits] = useState(0);
   const [loading, setLoading] = useState(true);
   const [writing, setWriting] = useState(false);
@@ -67,6 +69,7 @@ export default function ReportPage() {
       .then((r) => {
         setSpec(r.spec);
         setReport(r.report);
+        setKundali(r.kundali ?? null);
         setCredits(r.credits);
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : tr("Something went wrong. Please try again.")))
@@ -93,6 +96,7 @@ export default function ReportPage() {
       track(`reports/unlock-${key}`);
       const r = await api.unlockReport(key, answerLang() ?? uiLang());
       setReport(r.report);
+      setKundali(r.kundali ?? null);
       setCredits(r.credits);
     } catch (e) {
       const code = e instanceof ApiError ? (e as ApiError & { code?: string }).code : undefined;
@@ -110,6 +114,14 @@ export default function ReportPage() {
       spec?.ayurveda ? tr("What does my prakriti say about my diet and routine?") : tr("What does my chart say about {v0}?", { v0: tr(spec?.title ?? "").toLowerCase() }),
       spec?.ayurveda ? "ayurveda" : null,
     );
+
+  // Follow-ups from a chart report open a chat that reads the report.
+  const askAbout = (q: string) => shell.askNew(q, spec?.ayurveda ? "ayurveda" : null, spec?.ayurveda ? null : key);
+  const downloadPdf = () => {
+    track(`reports/pdf-${key}`);
+    if (Platform.OS === "web" && typeof window !== "undefined") window.open(`/print/${key}`, "_blank");
+    else router.push({ pathname: "/print/[key]", params: { key } });
+  };
 
   if (loading || !spec)
     return (
@@ -141,7 +153,21 @@ export default function ReportPage() {
             <View style={s.rule} />
             <Text style={s.about}>{tr(spec.about)}</Text>
             {report ? (
-              <Text style={[s.mono, { color: colors.success }]}>✓ {tr("YOURS · KEPT IN YOUR ACCOUNT")}</Text>
+              <>
+                <Text style={[s.mono, { color: colors.success }]}>✓ {tr("YOURS · KEPT IN YOUR ACCOUNT")}</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                  <Pressable onPress={downloadPdf} style={s.cta} accessibilityRole="button" testID="download-pdf">
+                    <Text style={s.ctaText}>{tr("Download PDF")} ↓</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => askAbout(tr("What should I focus on first from my {v0} report?", { v0: tr(spec.title) }))}
+                    style={s.ghost}
+                    accessibilityRole="button"
+                  >
+                    <Text style={s.ghostText}>{tr("Ask about this report")}</Text>
+                  </Pressable>
+                </View>
+              </>
             ) : (
               <>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
@@ -189,7 +215,7 @@ export default function ReportPage() {
         ) : null}
 
         {report ? (
-          <ReportBody report={report} s={s} colors={colors} onAsk={(q) => shell.askNew(q, spec.ayurveda ? "ayurveda" : null)} />
+          <ReportBody report={report} kundali={kundali} colors={colors} width={width} onAsk={askAbout} />
         ) : (
           <>
             <Text style={s.h2}>{tr("What’s inside your {v0} reading", { v0: tr(spec.title) })}</Text>
@@ -273,80 +299,6 @@ export default function ReportPage() {
         }}
       />
     </Shell>
-  );
-}
-
-function ReportBody({ report, s, colors, onAsk }: { report: WrittenReport; s: ReturnType<typeof styles>; colors: Colors; onAsk: (q: string) => void }) {
-  return (
-    <View style={{ gap: 18 }} testID="report-body">
-      <View style={s.verdict}>
-        <Text style={s.mono}>{tr("THE SHORT ANSWER")}</Text>
-        <Text style={s.verdictText}>{highlight(report.headline, colors.highlight)}</Text>
-        {report.summary ? <Text style={s.body}>{highlight(report.summary, colors.highlight)}</Text> : null}
-      </View>
-      {report.sections.map((sec, i) => (
-        <View key={i} style={s.section}>
-          <Text style={s.num}>{String(i + 1).padStart(2, "0")}</Text>
-          <Text style={s.secTitle}>{sec.heading}</Text>
-          {sec.body.split(/\n\s*\n/).map((p, j) => (
-            <Text key={j} style={s.body}>
-              {highlight(p.trim(), colors.highlight)}
-            </Text>
-          ))}
-        </View>
-      ))}
-      {report.timing.length ? (
-        <View style={s.section}>
-          <Text style={s.secTitle}>{tr("Your timeline")}</Text>
-          {report.timing.map((t, i) => (
-            <View key={i} style={s.when}>
-              <Text style={s.whenDate}>{t.when}</Text>
-              <Text style={[s.body, { flex: 1, minWidth: 220 }]}>{highlight(t.what, colors.highlight)}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-      {report.remedies.length ? (
-        <View style={s.section}>
-          <Text style={s.secTitle}>{tr("What to do")}</Text>
-          {report.remedies.map((r, i) => (
-            <View key={i} style={{ gap: 2 }}>
-              <Text style={[s.body, { fontFamily: font.semibold }]}>{r.title}</Text>
-              <Text style={s.muted}>{r.how}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-      <View style={s.row3}>
-        {[
-          ["YOUR STRENGTHS", report.strengths, colors.success],
-          ["WATCH FOR", report.watch, colors.accent],
-        ].map(([label, items, c]) =>
-          (items as string[]).length ? (
-            <View key={label as string} style={s.box}>
-              <Text style={[s.mono, { color: c as string }]}>{tr(label as string)}</Text>
-              {(items as string[]).map((x) => (
-                <Text key={x} style={s.body}>
-                  • {x}
-                </Text>
-              ))}
-            </View>
-          ) : null,
-        )}
-      </View>
-      {report.followUps.length ? (
-        <View style={{ gap: 10 }}>
-          <Text style={s.mono}>{tr("ASK KOSMIK NEXT")}</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {report.followUps.map((q) => (
-              <Pressable key={q} onPress={() => onAsk(q)} style={s.ghost} accessibilityRole="button">
-                <Text style={s.ghostText}>{q} →</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      ) : null}
-    </View>
   );
 }
 
