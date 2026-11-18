@@ -236,9 +236,11 @@ const styles = (c: Colors) =>
     },
     creditsTitle: { color: c.text, fontFamily: font.display, fontSize: 20 },
     muted: { color: c.muted, fontFamily: font.body, fontSize: 14, lineHeight: 21 },
-    packs: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    // Never wider than the card: on narrow phones the packs wrap instead of running off the edge.
+    packs: { flexDirection: "row", flexWrap: "wrap", gap: 10, flexShrink: 1, maxWidth: "100%" },
     pack: {
-      minWidth: 112,
+      minWidth: 100,
+      flexGrow: 1,
       alignItems: "center",
       gap: 2,
       paddingVertical: 10,

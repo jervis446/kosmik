@@ -217,7 +217,7 @@ const styles = (c: Colors) =>
   StyleSheet.create({
     charts: { flexDirection: "row", flexWrap: "wrap", gap: 20, justifyContent: "center", padding: 16, borderRadius: 18, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
-    card: { flexBasis: 240, flexGrow: 1, gap: 6, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
+    card: { flexBasis: 240, flexGrow: 1, flexShrink: 1, maxWidth: "100%", gap: 6, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
     dasha: { flexBasis: 190, gap: 3 },
     cardTitle: { color: c.text, fontFamily: font.display, fontSize: 17 },
     kv: { flexDirection: "row", justifyContent: "space-between", gap: 10, paddingVertical: 2 },
