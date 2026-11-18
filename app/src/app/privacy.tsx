@@ -1,11 +1,11 @@
 import { Legal } from "../components/Legal";
-import { GRIEVANCE, OPERATOR } from "../lib/legal";
+import { GRIEVANCE, OPERATED_BY, OPERATOR } from "../lib/legal";
 
 export default function Privacy() {
   return (
     <Legal
       title="Privacy"
-      updated="13 November 2026"
+      updated="18 November 2026"
       sections={[
         {
           h: "What we collect",
@@ -54,7 +54,7 @@ export default function Privacy() {
           p: [
             `Delete chats any time from History. To delete your account and everything linked to it, email ${OPERATOR.email} and we will do it within 30 days.`,
             GRIEVANCE,
-            `${OPERATOR.name}, ${OPERATOR.address}.`,
+            `Kosmik is a product of Asanoha, ${OPERATED_BY}.`,
           ],
         },
       ]}

@@ -1,5 +1,5 @@
 import { Legal } from "../components/Legal";
-import { GRIEVANCE, OPERATOR } from "../lib/legal";
+import { GRIEVANCE, OPERATED_BY, OPERATOR } from "../lib/legal";
 
 /** FAQs, the refund policy and the disclaimer, linked from Help in the account menu. */
 export default function Help() {
@@ -38,7 +38,7 @@ export default function Help() {
         },
         {
           h: "Contact",
-          p: [`Kosmik is a product of Asanoha, operated by ${OPERATOR.name} (GSTIN ${OPERATOR.gstin}), ${OPERATOR.address}.`, GRIEVANCE],
+          p: [`Kosmik is a product of Asanoha, ${OPERATED_BY}.`, GRIEVANCE],
         },
       ]}
     />
