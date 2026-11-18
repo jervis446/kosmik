@@ -271,6 +271,9 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
 
 .open-btn { min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 14px; display: inline-flex; align-items: center; text-decoration: none; white-space: nowrap; }
 .open-btn:hover { filter: brightness(1.08); }
+/* Small phones: the header row must fit without pushing the page sideways. */
+@media (max-width: 400px) { .bar { gap: 6px; } .bar .open-btn { padding: 0 12px; font-size: 13px; } }
+@media (max-width: 359px) { .bar .logo-text { display: none; } }
 .cta .open-btn { justify-self: start; background: #fff; color: #3B2A8F; min-height: 48px; padding: 0 22px; font-size: 16px; }
 
 /* legal views */

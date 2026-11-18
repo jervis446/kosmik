@@ -145,7 +145,7 @@ export default function ReportPage() {
 
         <View style={[s.hero, spec.ayurveda && { borderColor: "#3FB68B66" }]}>
           <View style={s.heroTop}>
-          <View style={{ flex: 1, minWidth: 260, gap: 12 }}>
+          <View style={{ flexGrow: 1, flexShrink: 1, flexBasis: 260, maxWidth: "100%", gap: 12 }}>
             <Text style={s.eyebrow}>
               {tr(spec.ayurveda ? "AYURVEDA READING" : "PREMIUM VEDIC READING")} · {tr(GROUP_LABEL[spec.group])}
             </Text>
@@ -186,11 +186,13 @@ export default function ReportPage() {
               </>
             )}
           </View>
-          <View style={s.art}>
-            <View style={s.artInner}>
-              <Text style={{ fontSize: 32 }}>{spec.icon}</Text>
+          {width >= 480 ? (
+            <View style={s.art}>
+              <View style={s.artInner}>
+                <Text style={{ fontSize: 32 }}>{spec.icon}</Text>
+              </View>
             </View>
-          </View>
+          ) : null}
           </View>
           <View style={s.stats}>
             {(spec.ayurveda

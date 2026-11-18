@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -313,8 +314,27 @@ export function Conversation({
     }
   };
 
+  const { width } = useWindowDimensions();
   const langLabel = LANGS.find((l) => l.key === lang)?.label ?? "Auto";
   const canSend = !busy && !!input.trim();
+
+  // Free users see how many questions are left. On narrow phones it gets its own line so the
+  // send button always fits.
+  const narrow = width < 480;
+  const remainingPill =
+    session && remaining !== null ? (
+      <View style={s.left} testID="remaining">
+        <Text style={s.leftText}>{tr("{v0} QUESTIONS LEFT", { v0: remaining })}</Text>
+        <Pressable
+          onPress={() => router.push("/premium")}
+          style={s.leftBuy}
+          accessibilityRole="button"
+          accessibilityLabel="Buy more questions"
+        >
+          <Text style={s.leftText}>{tr("Buy more")}</Text>
+        </Pressable>
+      </View>
+    ) : null;
 
   return (
     <KeyboardAvoidingView
@@ -525,7 +545,9 @@ export function Conversation({
             accessibilityLabel="Your question"
             editable={!busy}
           />
+          {narrow && remainingPill ? <View style={{ alignSelf: "flex-start" }}>{remainingPill}</View> : null}
           <View style={s.toolRow}>
+            <View style={s.toolGroup}>
             {langOpen ? (
               <View style={s.langMenu} accessibilityRole="radiogroup" accessibilityLabel="Answer language">
                 {LANGS.map((l) => (
@@ -563,20 +585,8 @@ export function Conversation({
             >
               {letterCount(input)} / {MAX_LETTERS}
             </Text>
-            <View style={{ flex: 1 }} />
-            {session && remaining !== null ? (
-              <View style={s.left} testID="remaining">
-                <Text style={s.leftText}>{tr("{v0} QUESTIONS LEFT", { v0: remaining })}</Text>
-                <Pressable
-                  onPress={() => router.push("/premium")}
-                  style={s.leftBuy}
-                  accessibilityRole="button"
-                  accessibilityLabel="Buy more questions"
-                >
-                  <Text style={s.leftText}>{tr("Buy more")}</Text>
-                </Pressable>
-              </View>
-            ) : null}
+            {narrow ? null : remainingPill}
+            </View>
             <Pressable
               onPress={() => send(input)}
               disabled={!canSend}
@@ -627,7 +637,7 @@ const styles = (c: Colors) =>
       borderRadius: 999,
       paddingVertical: 7,
       paddingHorizontal: 12,
-      marginLeft: 8,
+      flexShrink: 0,
     },
     left: {
       flexDirection: "row",
@@ -637,7 +647,7 @@ const styles = (c: Colors) =>
       backgroundColor: `${c.accent}1f`,
       borderRadius: 999,
       overflow: "hidden",
-      marginRight: 10,
+      flexShrink: 0,
     },
     leftText: { color: c.accent, fontFamily: font.mono, fontSize: 11, letterSpacing: 1.2, paddingVertical: 8, paddingHorizontal: 12 },
     leftBuy: { borderLeftWidth: 1, borderLeftColor: `${c.accent}aa` },
@@ -748,7 +758,9 @@ const styles = (c: Colors) =>
       padding: 0,
       outlineStyle: "none",
     } as object,
-    toolRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    // The send button stays on the right; the pills wrap onto a second line on narrow phones.
+    toolRow: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
+    toolGroup: { flex: 1, minWidth: 0, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 },
     langPill: {
       borderWidth: 1,
       borderColor: c.line,
