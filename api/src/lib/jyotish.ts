@@ -42,7 +42,7 @@ export type Dashas = {
   nextAntar: Period[];
 };
 
-function subPeriods(parent: Period): Period[] {
+export function subPeriods(parent: Period): Period[] {
   const start = DASHA_ORDER.findIndex(([l]) => l === parent.lord);
   const span = +parent.end - +parent.start;
   const out: Period[] = [];

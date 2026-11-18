@@ -290,19 +290,29 @@ export type Report = {
   strengths: string[];
   watch: string[];
   followUps: string[];
+  /** One reading per dasha period, for this report's topic. */
+  periods: { when: string; dasha: string; reading: string }[];
+  /** One reading per slow transit now (Saturn, Jupiter, Rahu, Ketu). */
+  transits: { planet: string; reading: string }[];
+  /** Manglik and Sade Sati, for this topic. */
+  doshas: { name: string; reading: string }[];
 };
 
 export const REPORT_PROMPT = `You are Kosmik, writing a premium report for one person from their own data. It is read once, slowly, and kept, so it must feel written for them: specific, warm, direct, never generic.
 - Use only the facts given (CHART, or PRAKRITI/VIKRITI/SEASON for Ayurveda). Never invent placements, dates or names. Use the person's name if given.
 - Astrology reports: read like an experienced Vedic astrologer. Verdict first in "headline" (one sentence, with the key date if there is one). Explain placements in plain words ("your house of partnership"), with the technical term in brackets once. Give dates from the dasha and transit facts: months and years, never "soon".
 - Ayurveda report: write as an experienced vaidya would, specifically, from their prakriti; no astrology at all.
-- Sections: five to seven, each with a short heading and two or three short paragraphs (blank line between paragraphs), covering everything the TOPIC asks for.
+- Sections: six to eight, each with a short heading and two or three short paragraphs (blank line between paragraphs), covering everything the TOPIC asks for.
 - "timing": four to eight dated windows from the facts, in order ("March 2027 – June 2028": what it brings and what to do). For the Ayurveda report, use the seasons of the coming year instead.
 - "remedies": three to six practical steps, each a short title and how to do it: habits, timing, mantra or seva, and for Ayurveda diet, routine, herbs with usual use. Never fear, never gemstones or paid pujas, never tell anyone to stop a prescribed medicine.
 - "strengths" and "watch": three to five short points each.
 - "follow_ups": four short questions they might ask Kosmik next about this report.
+- Astrology reports only (leave these three empty for Ayurveda):
+  - "periods": six to nine dasha periods from the FULL VIMSHOTTARI TABLE, in order: the running mahadasha's antardashas from the running one on, then the next mahadashas. For each: "when" (the dates as months and years), "dasha" ("Mercury–Venus" or "Ketu mahadasha") and "reading": two to four sentences on what it brings for this report's TOPIC, from where that lord sits and what it rules in this chart.
+  - "transits": Saturn, Jupiter, Rahu and Ketu now (from TRANSITS), each two or three sentences on what it means for this TOPIC and until when.
+  - "doshas": "Manglik" (from MANGLIK: what it means for this person, any cancellation, calmly; never tree, pot or idol marriages) and "Sade Sati" (from the periods: running or next, its phase and dates, and what it asks of them for this TOPIC). Two or three sentences each, never fear.
 - Never predict death or diagnose an illness.
-Reply with JSON only: {"headline": "", "summary": "", "sections": [{"heading": "", "body": ""}], "timing": [{"when": "", "what": ""}], "remedies": [{"title": "", "how": ""}], "strengths": [], "watch": [], "follow_ups": []}.`;
+Reply with JSON only: {"headline": "", "summary": "", "sections": [{"heading": "", "body": ""}], "timing": [{"when": "", "what": ""}], "remedies": [{"title": "", "how": ""}], "strengths": [], "watch": [], "follow_ups": [], "periods": [{"when": "", "dasha": "", "reading": ""}], "transits": [{"planet": "", "reading": ""}], "doshas": [{"name": "", "reading": ""}]}.`;
 
 export function parseReport(raw: string | undefined): Report | null {
   if (!raw) return null;
@@ -327,6 +337,12 @@ export function parseReport(raw: string | undefined): Report | null {
     strengths: strings(o.strengths, 6, 300),
     watch: strings(o.watch, 6, 300),
     followUps: strings(o.follow_ups, 4, 100),
+    periods: (Array.isArray(o.periods) ? o.periods : [])
+      .map((e) => (e && typeof e === 'object' ? { when: str((e as Record<string, unknown>).when), dasha: str((e as Record<string, unknown>).dasha), reading: str((e as Record<string, unknown>).reading) } : null))
+      .filter((e): e is Report['periods'][number] => !!e && !!e.when && !!e.dasha && !!e.reading)
+      .slice(0, 12),
+    transits: pairs(o.transits, 'planet', 'reading', 6),
+    doshas: pairs(o.doshas, 'name', 'reading', 4),
   };
   return r.headline && r.sections.length >= 3 ? r : null;
 }
@@ -721,7 +737,7 @@ export class GeminiAi implements AiClient {
       ],
       response_format: { type: 'json_object' },
       reasoning_effort: 'minimal',
-      max_tokens: 9000,
+      max_tokens: 16000,
       temperature: 0.5,
     })) as { choices?: { message?: { content?: string } }[] };
     const parsed = parseReport(out.choices?.[0]?.message?.content);

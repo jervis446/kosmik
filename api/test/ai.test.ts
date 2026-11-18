@@ -166,3 +166,17 @@ test('every chat prompt carries the same human writing style', async () => {
   assert.match(ai.STYLE, /mild uncertainty/);
   assert.match(ai.STYLE, /em dashes/);
 });
+
+test('parseReport: keeps the dasha, transit and dosha readings', async () => {
+  const { parseReport } = await import('../src/ai.ts');
+  const r = parseReport(JSON.stringify({
+    headline: 'H', summary: 'S', sections: [1, 2, 3].map((i) => ({ heading: `A${i}`, body: 'B' })), timing: [], remedies: [], strengths: [], watch: [], follow_ups: [],
+    periods: [{ when: '2024 – 2027', dasha: 'Mercury–Venus', reading: 'Good for love.' }, { when: '', dasha: 'x', reading: 'y' }],
+    transits: [{ planet: 'Saturn', reading: 'Slow, steady.' }],
+    doshas: [{ name: 'Manglik', reading: 'Mild, from the Moon only.' }],
+  }))!;
+  assert.deepEqual(r.periods, [{ when: '2024 – 2027', dasha: 'Mercury–Venus', reading: 'Good for love.' }]);
+  assert.deepEqual(r.transits, [{ planet: 'Saturn', reading: 'Slow, steady.' }]);
+  assert.deepEqual(r.doshas, [{ name: 'Manglik', reading: 'Mild, from the Moon only.' }]);
+  assert.deepEqual(parseReport('{"headline":"H","summary":"S","sections":[{"heading":"A","body":"B"},{"heading":"C","body":"D"},{"heading":"E","body":"F"}]}')!.periods, [], 'older reports have none');
+});

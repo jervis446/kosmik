@@ -130,11 +130,14 @@ export function Conversation({
   initialTurns = [],
   initialConversationId = null,
   initialKind = null,
+  reportKey = null,
 }: {
   initialTurns?: Turn[];
   initialConversationId?: string | null;
   /** Ayurveda or Kosmik; null for a new chat that its first answer will decide. */
   initialKind?: ChatKind | null;
+  /** This new chat was started from one of the person's reports: its first question carries it. */
+  reportKey?: string | null;
 }) {
   const { colors } = useTheme();
   const { session } = useAuth();
@@ -232,7 +235,7 @@ export function Conversation({
     setBusy(PALM_WORDS.test(q) ? "palm" : "ask");
     setTurns((t) => [...t, { id: nextId(), role: "user", text: q }]);
     try {
-      received(await api.askLive(q, lang, conversationId, setLive, undefined, kind), q);
+      received(await api.askLive(q, lang, conversationId, setLive, undefined, kind, conversationId ? null : reportKey), q);
     } catch (e) {
       setError(message(e));
       setInput(q);

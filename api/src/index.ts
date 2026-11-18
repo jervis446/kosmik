@@ -27,7 +27,7 @@ import { planFor } from './lib/limits.ts';
 import { approvePayment, declinePayment, handleWebhook, PaymentError, paymentsEnabled, paymentStatus, paymentsForReview, PLANS, premiumUntil, startPayment, unblockPayer } from './payments.ts';
 import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { D1Profiles, MAX_PHOTO_BASE64, ProfileError, searchPlaces } from './profiles.ts';
-import { getReport, listReports, reportCredits, ReportError, unlockReport } from './reports.ts';
+import { getReport, listReports, reportContext, reportCredits, ReportError, unlockReport } from './reports.ts';
 import { aggravated, AGNI_LABEL, D1Ayurveda, PrakritiError, prakritiLabel } from './ayurveda.ts';
 import { purgeExpired } from './retention.ts';
 import { errorSummary, logError } from './errors.ts';
@@ -126,6 +126,7 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
         ai,
         profiles: new D1Profiles(env.DB),
         ayurveda: new D1Ayurveda(env.DB),
+        reports: { context: (uid, key) => reportContext(env.DB, uid, key) },
         astroMode: astroMode(env),
         report: (kind, message) => logError(env.DB, { source: 'server', kind, message, path: '/api/ask', userId }, now, ctx),
       },
@@ -137,6 +138,8 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
         // The person picked tarot card(s) from the face-down fan.
         tarot: body.tarot && typeof body.tarot === 'object' ? { count: (body.tarot as { count?: unknown }).count === 3 ? 3 : 1 } : undefined,
         mode: body.mode === 'ayurveda' || body.mode === 'kosmik' || body.mode === 'shanti' ? body.mode : undefined,
+        // A new chat started from one of the person's reports ("Ask about this report").
+        reportKey: typeof body.reportKey === 'string' && /^[a-z-]{2,40}$/.test(body.reportKey) ? body.reportKey : null,
       },
     );
     if (body.stream !== true) return json(req, env, await run());

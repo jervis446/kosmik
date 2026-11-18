@@ -46,6 +46,8 @@ const light: typeof dark = {
 };
 
 export type Colors = typeof dark;
+/** The day palette, for pages that always print light (the report PDF). */
+export const lightColors: Colors = light;
 export type ThemePref = "system" | "light" | "dark";
 
 export const font = {

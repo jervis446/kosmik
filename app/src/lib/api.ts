@@ -253,9 +253,29 @@ export type WrittenReport = {
   strengths: string[];
   watch: string[];
   followUps: string[];
+  /** One reading per dasha period, for this report's topic (older reports have none). */
+  periods?: { when: string; dasha: string; reading: string }[];
+  transits?: { planet: string; reading: string }[];
+  doshas?: { name: string; reading: string }[];
   lang: Lang;
   createdAt: number;
 };
+/** The calculated kundali kept with a chart report. Dates are YYYY-MM-DD. */
+export type KundaliDiagram = { lagna: number; planets: { graha: string; abbr: string; sign: number; retro: boolean }[] };
+export type DashaRow = { lord: string; start: string; end: string };
+export type Kundali = {
+  chartKind: "lagna" | "moon";
+  d1: KundaliDiagram;
+  d9: KundaliDiagram;
+  basics: [string, string][];
+  panchang: [string, string][];
+  avkahada: [string, string][];
+  planets: { graha: string; name: string; sign: string; degree: string; nakshatra: string; pada: number; nakshatraLord: string; house: number | null; dignity: string; retro: boolean }[];
+  dashas: (DashaRow & { antars: DashaRow[] })[];
+  manglik: { fromLagna: boolean | null; fromMoon: boolean; text: string };
+  sadeSati: { kind: "Sade Sati" | "Dhaiya"; phase: "Rising" | "Peak" | "Setting" | null; sign: string; start: string; end: string }[];
+};
+export type ReportPage = { spec: ReportSummary; credits: number; report: WrittenReport | null; kundali?: Kundali | null };
 export type ReportsList = {
   credits: number;
   packs: { id: PackId; name: string; amountPaise: number; credits: number }[];
@@ -518,7 +538,9 @@ export const api = {
     onText: (text: string) => void,
     tarot?: { count: 1 | 3 },
     mode?: ChatKind | null,
-  ) => askStreamed({ question, lang, conversationId, tarot, mode: mode ?? undefined }, onText),
+    /** A new chat started from one of the person's reports. */
+    reportKey?: string | null,
+  ) => askStreamed({ question, lang, conversationId, tarot, mode: mode ?? undefined, reportKey: reportKey ?? undefined }, onText),
   ask: (
     question: string,
     lang: Lang | undefined,
@@ -589,10 +611,9 @@ export const api = {
     }),
   me: () => call<Me>("/api/me"),
   reports: () => call<ReportsList>("/api/reports"),
-  report: (key: string) =>
-    call<{ spec: ReportSummary; credits: number; report: WrittenReport | null }>(`/api/reports/${key}`),
+  report: (key: string) => call<ReportPage>(`/api/reports/${key}`),
   unlockReport: (key: string, lang: Lang) =>
-    call<{ spec: ReportSummary; credits: number; report: WrittenReport | null }>(`/api/reports/${key}`, {
+    call<ReportPage>(`/api/reports/${key}`, {
       method: "POST",
       body: JSON.stringify({ lang }),
     }),

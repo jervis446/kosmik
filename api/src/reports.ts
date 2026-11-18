@@ -10,12 +10,13 @@ import type { AiClient, Report } from './ai.ts';
 import { AGNI_LABEL, aggravated, type Ayurveda, prakritiLabel } from './ayurveda.ts';
 import { calculateChart } from './lib/chart.ts';
 import { deepChart, describeVarga } from './lib/jyotish.ts';
+import { type Kundali, kundali, kundaliFacts } from './lib/kundali.ts';
 import { GROUPS, REPORTS, reportSpec } from './lib/reports.ts';
 import { rituAt } from './lib/ritu.ts';
 import type { Lang } from './lib/text.ts';
 import { describeTropical } from './lib/tropical.ts';
 import { PACKS } from './payments.ts';
-import { type Profiles, toBirth } from './profiles.ts';
+import { D1Profiles, type Profile, type Profiles, toBirth } from './profiles.ts';
 
 export class ReportError extends Error {
   readonly status: number;
@@ -47,12 +48,23 @@ export async function getReport(db: D1Database, userId: string, key: string) {
   if (!spec) throw new ReportError('That report doesn’t exist.', 404, 'not-found');
   const row = await db.prepare('SELECT lang, content, created_at AS createdAt FROM reports WHERE user_id = ? AND report_key = ?').bind(userId, key).first<{ lang: string; content: string; createdAt: number }>();
   const { focus: _focus, ...shown } = spec;
+  const content = row ? (JSON.parse(row.content) as Report & { kundali?: Kundali }) : null;
+  let chart: Kundali | null = content?.kundali ?? null;
+  // Reports written before kundalis were kept get one from the saved details.
+  if (!chart && !spec.ayurveda) {
+    const profile = await new D1Profiles(db).get(userId);
+    if (profile) chart = kundaliOf(profile, Date.now());
+  }
+  const { kundali: _k, ...report } = content ?? {};
   return {
     spec: shown,
     credits: await reportCredits(db, userId),
-    report: row ? { ...(JSON.parse(row.content) as Report), lang: row.lang, createdAt: row.createdAt } : null,
+    report: row ? { periods: [], transits: [], doshas: [], ...(report as Partial<Report>), lang: row.lang, createdAt: row.createdAt } : null,
+    kundali: chart,
   };
 }
+
+const kundaliOf = (p: Profile, now: number) => kundali(calculateChart(toBirth(p)), p, new Date(now));
 
 const age = (birthDate: string, now: number) => Math.floor((now - Date.parse(`${birthDate}T00:00:00Z`)) / (365.25 * 86_400_000));
 
@@ -72,6 +84,7 @@ export async function unlockReport(
 
   const profile = await deps.profiles.get(userId);
   let facts: string;
+  let chartKundali: Kundali | null = null;
   if (spec.ayurveda) {
     const prakriti = await deps.ayurveda.prakriti(userId);
     if (!prakriti) throw new ReportError('Take the dosha quiz first: this report is written from your prakriti.', 409, 'needs-prakriti');
@@ -87,7 +100,8 @@ export async function unlockReport(
     if (!profile) throw new ReportError('Add your birth details first: reports are written from your chart.', 409, 'needs-details');
     const chart = calculateChart(toBirth(profile));
     const vargas = (spec.vargas ?? []).map((n) => describeVarga(chart, n)).join('\n');
-    facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\nDIVISIONAL CHARTS for this topic (read them with the birth chart; name them in the report):\n${vargas || 'none'}\n\nWESTERN (tropical, only if useful):\n${describeTropical(chart, new Date(now))}`;
+    chartKundali = kundaliOf(profile, now);
+    facts = `CHART (calculated, sidereal, Lahiri, whole-sign houses, Vimshottari dasha):\n${deepChart(chart, new Date(now), profile.name)}\n\n${kundaliFacts(chartKundali)}\n\nDIVISIONAL CHARTS for this topic (read them with the birth chart; name them in the report):\n${vargas || 'none'}\n\nWESTERN (tropical, only if useful):\n${describeTropical(chart, new Date(now))}`;
   }
 
   const report = await deps.ai.report({ title: spec.title, focus: spec.focus, ayurveda: spec.ayurveda }, lang, facts);
@@ -98,7 +112,7 @@ export async function unlockReport(
       .bind(userId, userId, key),
     deps.db
       .prepare('INSERT INTO reports (user_id, report_key, lang, content, created_at) SELECT ?, ?, ?, ?, ? WHERE changes() = 1 ON CONFLICT (user_id, report_key) DO NOTHING')
-      .bind(userId, key, lang, JSON.stringify(report), now),
+      .bind(userId, key, lang, JSON.stringify(chartKundali ? { ...report, kundali: chartKundali } : report), now),
   ]);
   if (!spend.meta.changes) {
     // Already written meanwhile (another tab): show it, nothing spent.
@@ -106,4 +120,21 @@ export async function unlockReport(
     throw new ReportError('You have no report credits left. Buy a pack to unlock this report.', 402, 'no-credits');
   }
   return getReport(deps.db, userId, key);
+}
+
+/** One of the person's own reports as plain text, for a chat started from it (null if it isn't theirs). */
+export async function reportContext(db: D1Database, userId: string, key: string): Promise<string | null> {
+  const spec = reportSpec(key);
+  if (!spec) return null;
+  const row = await db.prepare('SELECT content FROM reports WHERE user_id = ? AND report_key = ?').bind(userId, key).first<{ content: string }>();
+  if (!row) return null;
+  const r = JSON.parse(row.content) as Partial<Report>;
+  const lines = [`REPORT: ${spec.title}`, r.headline ?? '', r.summary ?? ''];
+  for (const s of r.sections ?? []) lines.push(`${s.heading}: ${s.body.replace(/\s+/g, ' ')}`);
+  if (r.periods?.length) lines.push('Dasha periods:', ...r.periods.map((p) => `${p.dasha} (${p.when}): ${p.reading}`));
+  if (r.transits?.length) lines.push('Transits now:', ...r.transits.map((t) => `${t.planet}: ${t.reading}`));
+  if (r.doshas?.length) lines.push(...r.doshas.map((d) => `${d.name}: ${d.reading}`));
+  if (r.timing?.length) lines.push('Timing:', ...r.timing.map((t) => `${t.when}: ${t.what}`));
+  if (r.remedies?.length) lines.push('Remedies:', ...r.remedies.map((x) => `${x.title}: ${x.how}`));
+  return lines.filter(Boolean).join('\n').slice(0, 12_000);
 }
