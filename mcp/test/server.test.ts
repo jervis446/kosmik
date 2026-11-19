@@ -53,12 +53,13 @@ test('a bad input comes back as a readable tool error, not a crash', async () =>
   assert.match(text(r), /couldn’t find that place/);
 });
 
-test('after 100 calls in a day the tools say so', async () => {
+test('after a free account’s 11 lookups in a day the tools say so, and point to Premium', async () => {
   const { client, raw } = await connect();
-  raw.prepare("INSERT INTO usage (subject, period, count) VALUES ('mcp:u1', 'd:2026-11-19', 100)").run();
+  raw.prepare("INSERT INTO usage (subject, period, count) VALUES ('mcp:u1', 'd:2026-11-19', 11)").run();
   const r = await client.callTool({ name: 'draw_tarot', arguments: { count: 1 } });
   assert.equal(r.isError, true);
-  assert.match(text(r), /used today’s 100 Kosmik lookups/);
+  assert.match(text(r), /used today’s 11 free Kosmik lookups/);
+  assert.match(text(r), /Premium gives 51 a day: https:\/\/kosmik\.asanoha\.co\.in\/premium/);
 });
 
 test('the server introduces itself with Kosmik’s icon, so Claude and ChatGPT can show the logo', async () => {

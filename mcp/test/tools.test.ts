@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { d1 } from '../../api/test/d1.ts';
-import { CALLS_PER_DAY, drawTarot, findVerse, herbInfo, matchKundali, myDashas, myKundali, myPrakriti, myReports, RULES, takeCall, transitsNow, type ToolEnv } from '../src/tools.ts';
+import { FREE_CALLS_PER_DAY, PREMIUM_CALLS_PER_DAY, drawTarot, findVerse, herbInfo, matchKundali, myDashas, myKundali, myPrakriti, myReports, RULES, takeCall, transitsNow, type ToolEnv } from '../src/tools.ts';
 
 const NOW = new Date('2026-11-19T06:00:00Z');
 const U = 'user-1';
@@ -133,10 +133,17 @@ test('my_reports: Premium only, and gives the reports already bought', async () 
   assert.match(out, /Work\nLead from the front\./);
 });
 
-test('limits: up to 100 tool calls a day per account, refilled the next day (India time)', async () => {
+test('limits: 11 lookups a day on a free account, refilled the next day (India time)', async () => {
   const { env } = setup();
-  assert.equal(CALLS_PER_DAY, 100);
-  for (let i = 0; i < 100; i++) assert.equal(await takeCall(env), true);
-  assert.equal(await takeCall(env), false);
-  assert.equal(await takeCall({ ...env, now: new Date(NOW.getTime() + 86_400_000) }), true);
+  assert.equal(FREE_CALLS_PER_DAY, 11);
+  for (let i = 0; i < 11; i++) assert.deepEqual(await takeCall(env), { ok: true, limit: 11, premium: false });
+  assert.deepEqual(await takeCall(env), { ok: false, limit: 11, premium: false });
+  assert.equal((await takeCall({ ...env, now: new Date(NOW.getTime() + 86_400_000) })).ok, true);
+});
+
+test('limits: 51 lookups a day on Premium', async () => {
+  const { env } = setup({ premium: true });
+  assert.equal(PREMIUM_CALLS_PER_DAY, 51);
+  for (let i = 0; i < 51; i++) assert.equal((await takeCall(env)).ok, true);
+  assert.deepEqual(await takeCall(env), { ok: false, limit: 51, premium: true });
 });

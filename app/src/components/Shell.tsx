@@ -15,10 +15,29 @@ import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
 import { api, onPhoneRequired } from "../lib/api";
 import { Onboarding } from "./Onboarding";
+import { Tour, TOURED } from "./Tour";
 import { Sidebar } from "./Sidebar";
 import { Sky } from "./Sky";
 
 const ONBOARDED = "kosmik-onboarded";
+
+/** Marks onboarding done on this device. */
+function rememberOnboarded() {
+  try {
+    globalThis.localStorage?.setItem(ONBOARDED, "1");
+  } catch {
+    // not remembered; harmless
+  }
+}
+
+/** True until someone has seen the walkthrough on this device. */
+function tourUnseen(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(TOURED) !== "1";
+  } catch {
+    return false;
+  }
+}
 const SIDE_MIN = 220;
 const SIDE_MAX = 440;
 const SIDE_DEFAULT = 280;
@@ -252,24 +271,33 @@ export function Shell({
           onPhoneVerified={() => setNeedPhone(false)}
           onClose={() => {
             setJourney(false);
-            try {
-              globalThis.localStorage?.setItem(ONBOARDED, "1");
-            } catch {
-              // not remembered; harmless
-            }
+            rememberOnboarded();
+            // New here: show what else Kosmik can do, once.
+            if (tourUnseen()) shell.setTourOpen(true);
           }}
           onAsk={(q) => {
             setJourney(false);
-            try {
-              globalThis.localStorage?.setItem(ONBOARDED, "1");
-            } catch {
-              // not remembered; harmless
-            }
+            rememberOnboarded();
             shell.askNew(q);
+            // The first answer is on its way; the walkthrough fills the wait.
+            if (tourUnseen()) shell.setTourOpen(true);
           }}
           onSignOut={() =>
             signOut().then(() => globalThis.location?.assign("/"))
           }
+        />
+      ) : null}
+
+      {shell.tourOpen && !journey ? (
+        <Tour
+          onClose={() => {
+            shell.setTourOpen(false);
+            try {
+              globalThis.localStorage?.setItem(TOURED, "1");
+            } catch {
+              // not remembered; harmless
+            }
+          }}
         />
       ) : null}
 

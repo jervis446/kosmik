@@ -38,7 +38,7 @@ their own AI writes the answer from Kosmik's exact calculations.
 - **Rules travel with every answer:** no fear, no gemstones or paid pujas, dates only from the chart,
   and for health, a doctor first. These go in each tool's description and at the end of each result.
 - **Limits:** the tools use no AI, so they don't count toward the 11-a-week or 10-a-day questions.
-  Each account gets up to 100 tool calls a day, to stop scraping.
+  Each account gets 11 lookups a day on a free account and 51 on Premium (owner, 2026-11-19), refilled at midnight India time.
 
 ## Left out of the first version
 - `ask_kosmik` (Kosmik's own AI answer): it costs Gemini on every call and needs the chat pipeline.
