@@ -80,7 +80,7 @@ header { border-bottom: 1px solid var(--line); }
 .byline { font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
 .byline b { color: var(--accent); font-weight: 800; }
 .nav { display: none; gap: 2px; }
-.nav a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 14px; padding: 8px 12px; border-radius: 999px; }
+.nav a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 14px; padding: 8px 12px; border-radius: 999px; white-space: nowrap; }
 .nav a:hover { color: var(--text); background: var(--primary-soft); }
 .iconbtn { min-width: 44px; height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 @media (min-width: 960px) { .nav { display: flex; } }
@@ -306,7 +306,7 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
       <span class="logo-text">Kosmik<span class="byline">by <b>asanoha</b></span></span>
     </a>
     <nav class="nav" aria-label="Sections">
-      <a href="#ask">Ask</a><a href="#features">Kundli · Tarot · Palm</a><a href="#ayurveda">Ayurveda</a><a href="#mcp">Claude · ChatGPT</a><a href="#play">Play</a><a href="#pricing">Pricing</a><a href="#shop">Shop</a><a href="#languages">Languages</a>
+      <a href="#ask">Ask</a><a href="#features">Readings</a><a href="#ayurveda">Ayurveda</a><a href="#mcp">Claude &amp; ChatGPT</a><a href="#pricing">Pricing</a><a href="#shop">Shop</a>
     </nav>
     <button class="iconbtn" id="langBtn" type="button" aria-label="Switch language to Hindi">हिं</button>
     <button class="iconbtn" id="themeBtn" type="button" aria-label="Switch to light mode">☀︎</button>
@@ -671,8 +671,9 @@ footer { border-top: 1px solid var(--line); padding-block: 32px calc(32px + env(
   const HI = {
 "Ask": "पूछें",
 "Kundli · Tarot · Palm": "कुंडली · टैरो · हस्तरेखा",
+"Readings": "रीडिंग",
+"Claude & ChatGPT": "Claude और ChatGPT",
 "Ayurveda": "आयुर्वेद",
-"Claude · ChatGPT": "Claude · ChatGPT",
 "Play": "खेलें",
 "Pricing": "कीमतें",
 "Shop": "दुकान",
