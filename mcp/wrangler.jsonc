@@ -11,7 +11,7 @@
   "d1_databases": [{ "binding": "DB", "database_name": "kosmik", "database_id": "073d7c72-530a-4e07-a2f2-e8dd5b8ce4f4" }],
 
   // OAuth clients, grants and tokens, and one-time connect codes.
-  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "REPLACE_WITH_KV_ID" }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "1eb4fecce0b94629a644899eea6b92c4" }],
 
   // SUPABASE_URL and SUPABASE_ANON_KEY (Asanoha sign-in) are secrets, as in the API:
   // npx wrangler secret put SUPABASE_URL, and the same for SUPABASE_ANON_KEY. Local: .dev.vars.
