@@ -6,11 +6,11 @@
  *   numbers, names or birth details. GoatCounter skips localhost by itself.
  * - Errors (crashes, failed requests) go to Kosmik's own error log (POST /api/log), readable by the
  *   owner at /admin. Technical details only; the server scrubs anything that looks personal.
- * - PostHog (product analytics for the beta), only when EXPO_PUBLIC_POSTHOG_KEY is set at build time
+ * - PostHog (product analytics for the alpha), only when EXPO_PUBLIC_POSTHOG_KEY is set at build time
  *   and never on localhost: the same page views and events, linked to the signed-in account (user ID
- *   and email) so the owner can follow each person's path, plus session recordings. All text and
- *   every input are masked in recordings, and element text isn't collected, so questions, answers,
- *   names and birth details never reach PostHog.
+ *   and email) so the owner can follow each person's path, plus full session recordings (what's on
+ *   screen and what's typed, owner's call for the alpha, 2026-11-19). Sign-in and WhatsApp codes
+ *   (autocomplete="one-time-code") and passwords are always hidden.
  */
 import { posthog } from "posthog-js";
 import { Platform } from "react-native";
@@ -36,7 +36,12 @@ let ph = false;
 
 const localHost = () => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
-/** PostHog, with everything personal masked. Shared settings with the landing page (public/ph.js). */
+/** Recordings show what people type, except one-time sign-in and WhatsApp codes. */
+function hideCodes(text: string, element?: HTMLElement): string {
+  return element?.getAttribute("autocomplete") === "one-time-code" ? "*".repeat(text.length) : text;
+}
+
+/** PostHog for the alpha: full recordings, codes hidden. Shared settings with the landing page (public/ph.js). */
 function startPostHog() {
   if (!POSTHOG_KEY || localHost()) return;
   posthog.init(POSTHOG_KEY, {
@@ -45,9 +50,11 @@ function startPostHog() {
     capture_pageview: false, // pageView() sends them, with chat ids removed
     capture_pageleave: true,
     autocapture: true,
-    mask_all_text: true,
-    mask_all_element_attributes: true,
-    session_recording: { maskAllInputs: true, maskTextSelector: "*" },
+    session_recording: {
+      maskAllInputs: false,
+      maskInputOptions: { password: true },
+      maskInputFn: hideCodes,
+    },
   });
   posthog.register({ app: "kosmik-web", release: RELEASE });
   ph = true;
