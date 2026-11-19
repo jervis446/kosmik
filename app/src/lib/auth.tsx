@@ -8,7 +8,7 @@ import React, {
 } from "react";
 
 import { supabase } from "./supabase";
-import { track } from "./analytics";
+import { identifyUser, track } from "./analytics";
 
 type AuthCtx = {
   session: Session | null;
@@ -43,11 +43,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(data.session);
       setReady(true);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, s) =>
-      setSession(s),
-    );
+    const { data } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s);
+      // A new person may use this browser next: start them fresh in analytics.
+      if (event === "SIGNED_OUT") identifyUser(null);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
+
+  // Analytics follow the signed-in account (PostHog only; off unless configured).
+  const userId = session?.user.id;
+  const userEmail = session?.user.email;
+  useEffect(() => {
+    if (userId) identifyUser({ id: userId, email: userEmail });
+  }, [userId, userEmail]);
 
   const value = useMemo<AuthCtx>(
     () => ({
