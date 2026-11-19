@@ -134,6 +134,8 @@ export interface Env {
   /** The Asanoha account (Supabase Auth) that signs people in. Public values. */
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
+  /** The IIM Indore coupon code (secret: wrangler secret put COUPON_IIMIDR). Unset = no coupon running. */
+  COUPON_IIMIDR?: string;
   /** Secret used to hash guest IP addresses for the daily guest allowance. */
   GUEST_SALT?: string;
   /** Google Gemini API key (secret). */

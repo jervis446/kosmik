@@ -611,6 +611,14 @@ export const api = {
     }),
   me: () => call<Me>("/api/me"),
   reports: () => call<ReportsList>("/api/reports"),
+  /** Whether to show the coupon box (IIM Indore sign-ins while a coupon runs), and whether it's used. */
+  couponStatus: () => call<{ eligible: boolean; used: boolean }>("/api/coupon"),
+  /** Redeems a coupon code for one report credit; returns the credits the account now has. */
+  redeemCoupon: (code: string) =>
+    call<{ credits: number }>("/api/coupon", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
   report: (key: string) => call<ReportPage>(`/api/reports/${key}`),
   unlockReport: (key: string, lang: Lang) =>
     call<ReportPage>(`/api/reports/${key}`, {

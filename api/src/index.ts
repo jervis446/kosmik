@@ -22,11 +22,12 @@
  * / is the landing page; everything else is the web app (static files, single-page fallback).
  */
 import { GeminiAi } from './ai.ts';
-import { isPremium, Unauthorized, userFromRequest } from './auth.ts';
+import { isPremium, signedInUser, Unauthorized, userFromRequest } from './auth.ts';
 import { planFor } from './lib/limits.ts';
 import { approvePayment, declinePayment, handleWebhook, PaymentError, paymentsEnabled, paymentStatus, paymentsForReview, PLANS, premiumUntil, startPayment, unblockPayer } from './payments.ts';
 import { ask, BadQuestion, verseOfTheDay } from './pipeline.ts';
 import { D1Profiles, MAX_PHOTO_BASE64, ProfileError, searchPlaces } from './profiles.ts';
+import { couponStatus, CouponError, redeemCoupon } from './coupons.ts';
 import { getReport, listReports, reportContext, reportCredits, ReportError, unlockReport } from './reports.ts';
 import { aggravated, AGNI_LABEL, D1Ayurveda, PrakritiError, prakritiLabel } from './ayurveda.ts';
 import { purgeExpired } from './retention.ts';
@@ -348,6 +349,20 @@ async function handleApi(req: Request, env: Env, url: URL, ctx?: ExecutionContex
       }
     } catch (err) {
       if (err instanceof ReportError) return json(req, env, { error: err.message, code: err.code }, err.status);
+      throw err;
+    }
+  }
+
+  // Coupons (IIM Indore today): whether to show the coupon box, and redeeming a code for a report credit.
+  if (path === '/api/coupon' && (req.method === 'GET' || req.method === 'POST')) {
+    const user = await signedInUser(req, env);
+    if (!user) throw new Unauthorized('Please sign in.');
+    if (req.method === 'GET') return json(req, env, await couponStatus(env.DB, env, user));
+    try {
+      const body = await readJson(req);
+      return json(req, env, await redeemCoupon(env.DB, env, user, body.code, now));
+    } catch (err) {
+      if (err instanceof CouponError) return json(req, env, { error: err.message }, err.status);
       throw err;
     }
   }

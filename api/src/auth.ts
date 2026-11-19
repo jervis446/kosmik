@@ -7,30 +7,39 @@ import { istDate } from './lib/limits.ts';
 import { sha256 } from './lib/text.ts';
 import type { Env } from './types.ts';
 
-const verified = new Map<string, { userId: string; until: number }>();
+const verified = new Map<string, { user: SignedInUser; until: number }>();
 const VERIFY_TTL_MS = 5 * 60 * 1000;
 
 export class Unauthorized extends Error {}
 
-/** The user ID for a bearer token, or null when there is no token. Throws if the token is bad. */
-export async function userFromRequest(req: Request, env: Env): Promise<string | null> {
+/** Who is signed in. email is lower-case, and null unless Supabase has confirmed it. */
+export type SignedInUser = { id: string; email: string | null };
+
+/** The signed-in person for a bearer token, or null when there is no token. Throws if the token is bad. */
+export async function signedInUser(req: Request, env: Env): Promise<SignedInUser | null> {
   const header = req.headers.get('authorization') ?? '';
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   if (!token) return null;
   const key = await sha256(token);
   const hit = verified.get(key);
-  if (hit && hit.until > Date.now()) return hit.userId;
+  if (hit && hit.until > Date.now()) return hit.user;
 
   const res = await fetch(`${env.SUPABASE_URL.replace(/\/+$/, '')}/auth/v1/user`, {
     headers: { apikey: env.SUPABASE_ANON_KEY, authorization: `Bearer ${token}` },
   });
   if (res.status === 401 || res.status === 403) throw new Unauthorized('Your session has ended. Please sign in again.');
   if (!res.ok) throw new Error(`Sign-in check failed (${res.status})`);
-  const user = (await res.json()) as { id?: string };
-  if (!user.id) throw new Unauthorized('Your session has ended. Please sign in again.');
+  const u = (await res.json()) as { id?: string; email?: string | null; email_confirmed_at?: string | null };
+  if (!u.id) throw new Unauthorized('Your session has ended. Please sign in again.');
+  const user: SignedInUser = { id: u.id, email: u.email && u.email_confirmed_at ? u.email.trim().toLowerCase() : null };
   if (verified.size > 5000) verified.clear();
-  verified.set(key, { userId: user.id, until: Date.now() + VERIFY_TTL_MS });
-  return user.id;
+  verified.set(key, { user, until: Date.now() + VERIFY_TTL_MS });
+  return user;
+}
+
+/** The user ID for a bearer token, or null when there is no token. Throws if the token is bad. */
+export async function userFromRequest(req: Request, env: Env): Promise<string | null> {
+  return (await signedInUser(req, env))?.id ?? null;
 }
 
 export async function guestSubject(req: Request, env: Env, now: number): Promise<string> {
