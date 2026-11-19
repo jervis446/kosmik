@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Kosmik in Claude and ChatGPT</title>
+<title>Use Kosmik with Claude or ChatGPT</title>
 <meta name="description" content="Add Kosmik to Claude or ChatGPT: your AI reads your exact Vedic chart, dashas and transits from Kosmik. Setup guide, tools, limits and privacy.">
 <link rel="icon" type="image/svg+xml" href="/logo.svg">
 <link rel="icon" type="image/png" href="/favicon.png">
@@ -109,8 +109,9 @@ footer { border-top: 1px solid var(--line); padding: 24px 0 40px; font-size: 14p
 <main class="wrap">
   <div class="hero">
     <span class="eyebrow">Setup guide</span>
-    <h1>Kosmik in Claude and ChatGPT</h1>
+    <h1>Use Kosmik with Claude or ChatGPT</h1>
     <p>Add Kosmik to Claude or ChatGPT and ask about your chart there. Your AI reads your exact kundli, dashas and transits from Kosmik instead of guessing, then explains them in its own words.</p>
+    <p style="font-size:15px">Kosmik works as a custom connector that you add yourself. It isn’t made by or affiliated with Anthropic or OpenAI.</p>
     <nav class="toc" aria-label="On this page">
       <a href="#claude">Claude</a><a href="#chatgpt">ChatGPT</a><a href="#try">What to ask</a><a href="#tools">Tools</a><a href="#limits">Limits and privacy</a><a href="#help">Problems</a>
     </nav>
@@ -225,8 +226,9 @@ footer { border-top: 1px solid var(--line); padding: 24px 0 40px; font-size: 14p
 (() => {
   const HI = {
     "Kosmik home": "Kosmik होम", "Open Kosmik": "Kosmik खोलें", "Switch to light mode": "लाइट मोड पर जाएँ", "Switch to dark mode": "डार्क मोड पर जाएँ",
-    "Setup guide": "सेटअप गाइड", "Kosmik in Claude and ChatGPT": "Claude और ChatGPT में Kosmik",
+    "Setup guide": "सेटअप गाइड", "Use Kosmik with Claude or ChatGPT": "Claude या ChatGPT के साथ Kosmik इस्तेमाल करें",
     "Add Kosmik to Claude or ChatGPT and ask about your chart there. Your AI reads your exact kundli, dashas and transits from Kosmik instead of guessing, then explains them in its own words.": "Kosmik को Claude या ChatGPT में जोड़ें और वहीं अपनी कुंडली के बारे में पूछें। आपका AI अंदाज़ा लगाने के बजाय Kosmik से आपकी सटीक कुंडली, दशा और गोचर पढ़ता है, फिर अपने शब्दों में समझाता है।",
+    "Kosmik works as a custom connector that you add yourself. It isn’t made by or affiliated with Anthropic or OpenAI.": "Kosmik एक कस्टम कनेक्टर है जिसे आप ख़ुद जोड़ते हैं। इसे Anthropic या OpenAI ने नहीं बनाया है और इसका उनसे कोई संबंध नहीं है।",
     "On this page": "इस पेज पर", "What to ask": "क्या पूछें", "Tools": "टूल", "Limits and privacy": "सीमा और प्राइवेसी", "Problems": "दिक़्क़तें",
     "Before you start": "शुरू करने से पहले",
     "Have a Kosmik account, and add your birth date, time and place in Kosmik (Account → My birth details). The chart tools read them from there.": "Kosmik अकाउंट बनाएँ और Kosmik में अपनी जन्म तारीख़, समय और जगह डालें (अकाउंट → मेरी जन्म की जानकारी)। कुंडली वाले टूल इन्हें वहीं से पढ़ते हैं।",
@@ -289,7 +291,7 @@ footer { border-top: 1px solid var(--line); padding: 24px 0 40px; font-size: 14p
     onChange: (lang) => {
       langBtn.textContent = lang === 'en' ? 'हिं' : 'EN';
       langBtn.setAttribute('aria-label', lang === 'en' ? 'Switch language to Hindi' : 'Switch language to English');
-      document.title = lang === 'en' ? 'Kosmik in Claude and ChatGPT' : 'Claude और ChatGPT में Kosmik';
+      document.title = lang === 'en' ? 'Use Kosmik with Claude or ChatGPT' : 'Claude या ChatGPT के साथ Kosmik';
     },
   });
   langBtn.addEventListener('click', () => i18n.toggle());
