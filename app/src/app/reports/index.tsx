@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { CouponBox } from "../../components/CouponBox";
 import { Shell } from "../../components/Shell";
 import { track } from "../../lib/analytics";
 import { api, ApiError, type PackId, type ReportsList, type ReportSummary } from "../../lib/api";
@@ -170,6 +171,8 @@ export default function Reports() {
                 ) : null}
               </View>
             </View>
+
+            <CouponBox onRedeemed={load} />
 
             {data.groups.map((g) => {
               const items = data.reports.filter((r) => r.group === g.key);

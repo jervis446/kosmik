@@ -877,4 +877,10 @@ export const HI: Record<string, string> = {
   "A free account gets 11 questions a week. Premium gives 10 questions a day and unlocks reports, from ₹51 for 7 days. It never renews on its own.": "फ़्री अकाउंट में हफ़्ते में 11 सवाल मिलते हैं। प्रीमियम में रोज़ 10 सवाल और रिपोर्ट, 7 दिन के ₹51 से। यह अपने-आप रिन्यू नहीं होता।",
   "Kosmik in Claude and ChatGPT": "Claude और ChatGPT में Kosmik",
   "Add Kosmik to Claude or ChatGPT and ask there too: they read your exact chart, dashas and transits from Kosmik. It doesn’t use your Kosmik questions: 11 lookups a day free, 51 on Premium.": "Kosmik को Claude या ChatGPT में जोड़ें और वहाँ भी पूछें: वे Kosmik से आपकी सटीक कुंडली, दशा और गोचर पढ़ते हैं। इसमें आपके Kosmik सवाल खर्च नहीं होते: फ़्री में रोज़ 11 लुकअप, प्रीमियम में 51।",
+  "Coupon applied: 1 free report credit added.": "कूपन लग गया: 1 मुफ़्त रिपोर्ट क्रेडिट जुड़ गया।",
+  "Have a coupon? Get the ₹99 report free →": "कूपन है? ₹99 वाली रिपोर्ट मुफ़्त पाएँ →",
+  "Do you have a coupon?": "क्या आपके पास कूपन है?",
+  "Enter it to unlock one report for free.": "एक रिपोर्ट मुफ़्त खोलने के लिए इसे डालें।",
+  "Coupon code": "कूपन कोड",
+  "Apply": "लगाएँ",
 };
