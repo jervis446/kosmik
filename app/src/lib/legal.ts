@@ -3,10 +3,10 @@ export const OPERATOR = {
   name: "Asanoha LLP",
   llpin: "ADE-0939",
   /** Support: account deletion and general questions. */
-  email: "pankaj@asanoha.co.in",
+  email: "orders@asanoha.co.in",
   /** Support on WhatsApp (help menu, Help, Premium). Not part of the legal or grievance details. */
-  phone: "+91 94118 66742",
-  grievanceEmail: "joseph@asanoha.co.in",
+  phone: "+91 98934 53114",
+  grievanceEmail: "orders@asanoha.co.in",
   address: "Unit 101, Oxford Towers, 139/88 HAL Old Airport Road, HAL II Stage, Bengaluru 560008, Karnataka, India",
 } as const;
 
