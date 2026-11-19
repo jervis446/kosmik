@@ -2,7 +2,7 @@
  * PostHog for the landing page and the Claude/ChatGPT guide (the app loads it from npm instead).
  * The key stays empty here: scripts/build-pages.mjs writes EXPO_PUBLIC_POSTHOG_KEY and
  * EXPO_PUBLIC_POSTHOG_HOST into the published copy. No key, or localhost: nothing loads.
- * Same settings as the app: all text and inputs masked in recordings, no element text collected.
+ * Same settings as the app: full recordings for the alpha, with sign-in codes and passwords hidden.
  */
 (function () {
   var KEY = 'phc_sW6a7H7drxKs8ovqi5Dq2Lbnt7JmkQvnyU7cvZcCGba9';
@@ -16,9 +16,11 @@
     capture_pageview: true,
     capture_pageleave: true,
     autocapture: true,
-    mask_all_text: true,
-    mask_all_element_attributes: true,
-    session_recording: { maskAllInputs: true, maskTextSelector: '*' },
+    session_recording: {
+      maskAllInputs: false,
+      maskInputOptions: { password: true },
+      maskInputFn: function (text, el) { return el && el.getAttribute('autocomplete') === 'one-time-code' ? text.replace(/./g, '*') : text; },
+    },
   });
   window.posthog.register({ app: 'kosmik-site' });
 })();
