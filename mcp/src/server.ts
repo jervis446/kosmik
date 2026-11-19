@@ -8,12 +8,18 @@ export const TOOL_NAMES = ['my_kundali', 'my_dashas', 'transits_now', 'match_kun
 
 const INSTRUCTIONS = `Kosmik (by Asanoha) gives exact Vedic astrology, tarot, Bhagavad Gita and Ayurveda facts for the signed-in person, calculated from their saved birth details (sidereal, Lahiri ayanamsa, whole-sign houses, Vimshottari dasha). Call the tools for facts instead of guessing placements or dates, then explain them warmly in plain words. Never invent dates. No fear or doom, no gemstones, no paid pujas; remedies are practical. For health, a doctor comes first.`;
 
-type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
+/** Kosmik's logo, from the website, for Claude and ChatGPT to show beside the connector. */
+const ICONS = [
+  { src: 'https://kosmik.asanoha.co.in/logo.svg', mimeType: 'image/svg+xml', sizes: ['any'] },
+  { src: 'https://kosmik.asanoha.co.in/icon-192.png', mimeType: 'image/png', sizes: ['192x192'] },
+];
+
+type Result ={ content: { type: 'text'; text: string }[]; isError?: boolean };
 const ok = (text: string): Result => ({ content: [{ type: 'text', text }] });
 const fail = (text: string): Result => ({ content: [{ type: 'text', text }], isError: true });
 
 export function kosmikServer(env: ToolEnv): McpServer {
-  const server = new McpServer({ name: 'kosmik', title: 'Kosmik', version: '1.0.0' }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: 'kosmik', title: 'Kosmik', version: '1.0.0', icons: ICONS }, { instructions: INSTRUCTIONS });
 
   /** Every call counts toward the daily allowance; input problems come back as readable errors. */
   const run = async (fn: () => Promise<string>): Promise<Result> => {

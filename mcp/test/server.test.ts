@@ -60,3 +60,12 @@ test('after 100 calls in a day the tools say so', async () => {
   assert.equal(r.isError, true);
   assert.match(text(r), /used today’s 100 Kosmik lookups/);
 });
+
+test('the server introduces itself with Kosmik’s icon, so Claude and ChatGPT can show the logo', async () => {
+  const { client } = await connect();
+  const info = client.getServerVersion()!;
+  assert.equal(info.title, 'Kosmik');
+  const icons = info.icons ?? [];
+  assert.ok(icons.some((i) => i.src === 'https://kosmik.asanoha.co.in/logo.svg' && i.mimeType === 'image/svg+xml'), 'the SVG logo');
+  assert.ok(icons.some((i) => i.src === 'https://kosmik.asanoha.co.in/icon-192.png' && i.mimeType === 'image/png'), 'a PNG for apps that skip SVG');
+});
