@@ -7,6 +7,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
 
+  // Kosmik's logo at the paths Claude and ChatGPT look for (copies of app/public). Served before the Worker runs.
+  "assets": { "directory": "./public" },
+
   // The same database as the API (read-only use, plus a daily call count in "usage").
   "d1_databases": [{ "binding": "DB", "database_name": "kosmik", "database_id": "073d7c72-530a-4e07-a2f2-e8dd5b8ce4f4" }],
 
