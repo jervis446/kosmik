@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Kosmik in Claude and ChatGPT (MCP). Separate from the API Worker so it can't affect the app.
+  "name": "kosmik-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // The same database as the API (read-only use, plus a daily call count in "usage").
+  "d1_databases": [{ "binding": "DB", "database_name": "kosmik", "database_id": "073d7c72-530a-4e07-a2f2-e8dd5b8ce4f4" }],
+
+  // OAuth clients, grants and tokens, and one-time connect codes.
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "1eb4fecce0b94629a644899eea6b92c4" }],
+
+  // SUPABASE_URL and SUPABASE_ANON_KEY (Asanoha sign-in) are secrets, as in the API:
+  // npx wrangler secret put SUPABASE_URL, and the same for SUPABASE_ANON_KEY. Local: .dev.vars.
+  "vars": {
+    "MCP_URL": "https://kosmik-mcp.prime-adarsh108.workers.dev/mcp",
+    "SITE_URL": "https://kosmik.asanoha.co.in",
+    "ALLOWED_ORIGINS": "https://kosmik.asanoha.co.in"
+  }
+}

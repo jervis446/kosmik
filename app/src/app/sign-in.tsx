@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Header } from "../components/Header";
 import { useAuth } from "../lib/auth";
+import { takeNext } from "../lib/next";
 import { authConfigured } from "../lib/supabase";
 import { font, useTheme } from "../lib/theme";
 import { Sky } from "../components/Sky";
@@ -30,7 +31,7 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session) router.replace("/chat");
+    if (session) router.replace((takeNext() ?? "/chat") as "/chat");
   }, [session]);
 
   const s = StyleSheet.create({
