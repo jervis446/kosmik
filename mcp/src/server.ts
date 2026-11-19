@@ -2,7 +2,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
-import { CALLS_PER_DAY, drawTarot, findVerse, herbInfo, matchKundali, myDashas, myKundali, myPrakriti, myReports, takeCall, ToolInputError, transitsNow, type ToolEnv } from './tools.ts';
+import { PREMIUM_CALLS_PER_DAY, drawTarot, findVerse, herbInfo, matchKundali, myDashas, myKundali, myPrakriti, myReports, takeCall, ToolInputError, transitsNow, type ToolEnv } from './tools.ts';
 
 export const TOOL_NAMES = ['my_kundali', 'my_dashas', 'transits_now', 'match_kundali', 'draw_tarot', 'find_verse', 'herb_info', 'my_prakriti', 'my_reports'] as const;
 
@@ -23,7 +23,14 @@ export function kosmikServer(env: ToolEnv): McpServer {
 
   /** Every call counts toward the daily allowance; input problems come back as readable errors. */
   const run = async (fn: () => Promise<string>): Promise<Result> => {
-    if (!(await takeCall(env))) return fail(`You’ve used today’s ${CALLS_PER_DAY} Kosmik lookups. They refill at midnight India time.`);
+    const call = await takeCall(env);
+    if (!call.ok) {
+      return fail(
+        call.premium
+          ? `You’ve used today’s ${call.limit} Kosmik lookups. They refill at midnight India time.`
+          : `You’ve used today’s ${call.limit} free Kosmik lookups. They refill at midnight India time, or Premium gives ${PREMIUM_CALLS_PER_DAY} a day: https://kosmik.asanoha.co.in/premium`,
+      );
+    }
     try {
       return ok(await fn());
     } catch (e) {

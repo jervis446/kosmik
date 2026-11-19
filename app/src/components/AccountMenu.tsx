@@ -110,6 +110,17 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
           {help ? (
             <View style={shell.wide ? [s.pop, s.flyout] : s.help} testID="help-menu">
               {shell.wide ? <Text style={[s.mono, { paddingHorizontal: 6, paddingBottom: 4 }]}>{tr("HELP")}</Text> : null}
+              <Item
+                label={tr("Take the tour")}
+                glyph="✧"
+                onPress={() => {
+                  onClose();
+                  shell.closeDrawer();
+                  shell.setTourOpen(true);
+                }}
+                s={s}
+                small
+              />
               <Item label={tr("FAQs")} glyph="◌" onPress={() => go("/help")} s={s} small />
               <Item
                 label={tr("WhatsApp us")}

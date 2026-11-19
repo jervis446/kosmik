@@ -38,6 +38,9 @@ type Shell = {
   /** A question waiting for the chat screen to send it. */
   pending: string | null;
   clearPending: () => void;
+  /** The walkthrough of every feature: shown once after onboarding, and again from Help. */
+  tourOpen: boolean;
+  setTourOpen: (open: boolean) => void;
 };
 
 const ShellCtx = createContext<Shell | null>(null);
@@ -54,6 +57,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [pending, setPending] = useState<string | null>(null);
   const [newKind, setNewKind] = useState<ChatKind | null>(null);
   const [newReport, setNewReport] = useState<string | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
 
   const userId = session?.user.id ?? null;
   useEffect(() => {
@@ -104,6 +108,8 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
       clearPending: () => setPending(null),
       newKind,
       newReport,
+      tourOpen,
+      setTourOpen,
       askNew: (question, kind = null, reportKey = null) => {
         setNewKind(kind);
         setNewReport(reportKey);
@@ -134,7 +140,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
         router.navigate({ pathname: "/chat/[id]", params: { id } });
       },
     };
-  }, [wide, drawerOpen, chats, userId, activeId, chatKey, pending, newKind, newReport]);
+  }, [wide, drawerOpen, chats, userId, activeId, chatKey, pending, newKind, newReport, tourOpen]);
 
   return <ShellCtx.Provider value={value}>{children}</ShellCtx.Provider>;
 }

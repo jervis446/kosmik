@@ -201,16 +201,20 @@ export async function myReports(env: ToolEnv): Promise<string> {
   return texts.join('\n\n=====\n\n') + RULES;
 }
 
-export const CALLS_PER_DAY = 100;
+/** Daily lookups in Claude and ChatGPT: 11 on a free account, 51 on Premium. */
+export const FREE_CALLS_PER_DAY = 11;
+export const PREMIUM_CALLS_PER_DAY = 51;
 
-/** Counts one tool call; false once today's allowance is used (India time). */
-export async function takeCall(env: ToolEnv): Promise<boolean> {
+/** Counts one tool call; ok is false once today's allowance is used (India time). */
+export async function takeCall(env: ToolEnv): Promise<{ ok: boolean; limit: number; premium: boolean }> {
+  const premium = await isPremium(env.db, env.userId, env.now.getTime());
+  const limit = premium ? PREMIUM_CALLS_PER_DAY : FREE_CALLS_PER_DAY;
   const usage = new D1Usage(env.db);
   const subject = `mcp:${env.userId}`;
   const period = `d:${istDate(env.now.getTime())}`;
-  if ((await usage.count(subject, period)) >= CALLS_PER_DAY) return false;
+  if ((await usage.count(subject, period)) >= limit) return { ok: false, limit, premium };
   await usage.increment(subject, period);
-  return true;
+  return { ok: true, limit, premium };
 }
 
 /** A tool input the person (or their AI) can fix, shown to them as is. */
