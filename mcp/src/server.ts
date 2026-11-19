@@ -21,10 +21,12 @@ const fail = (text: string): Result => ({ content: [{ type: 'text', text }], isE
 export function kosmikServer(env: ToolEnv): McpServer {
   const server = new McpServer({ name: 'kosmik', title: 'Kosmik', version: '1.0.0', icons: ICONS }, { instructions: INSTRUCTIONS });
 
-  /** Every call counts toward the daily allowance; input problems come back as readable errors. */
-  const run = async (fn: () => Promise<string>): Promise<Result> => {
+  /** Every call counts toward the daily allowance and is tracked; input problems come back as readable errors. */
+  const run = async (tool: (typeof TOOL_NAMES)[number], fn: () => Promise<string>): Promise<Result> => {
     const call = await takeCall(env);
+    const track = (outcome: 'ok' | 'error' | 'limit') => env.track?.({ tool, outcome, premium: call.premium });
     if (!call.ok) {
+      track('limit');
       return fail(
         call.premium
           ? `You’ve used today’s ${call.limit} Kosmik lookups. They refill at midnight India time.`
@@ -32,8 +34,11 @@ export function kosmikServer(env: ToolEnv): McpServer {
       );
     }
     try {
-      return ok(await fn());
+      const result = ok(await fn());
+      track('ok');
+      return result;
     } catch (e) {
+      track('error');
       if (e instanceof ToolInputError) return fail(e.message);
       throw e;
     }
@@ -47,7 +52,7 @@ export function kosmikServer(env: ToolEnv): McpServer {
       description: "The person's Vedic birth chart (kundali) from their saved birth details: lagna, every planet's sign, degree, nakshatra, house and dignity, house lords, aspects, yogas, panchang at birth and the avkahada chakra. Use this before answering anything about their chart.",
       annotations: { title: 'My kundali', ...readOnly },
     },
-    () => run(() => myKundali(env)),
+    () => run('my_kundali', () => myKundali(env)),
   );
 
   server.registerTool(
@@ -57,7 +62,7 @@ export function kosmikServer(env: ToolEnv): McpServer {
       description: "The person's Vimshottari dasha: the running mahadasha, antardasha and pratyantardasha with exact dates, and the full table of mahadashas with antardashas. Use it for any 'when' question (career, marriage, money, moves) and give dates only from it.",
       annotations: { title: 'My dasha periods', ...readOnly },
     },
-    () => run(() => myDashas(env)),
+    () => run('my_dashas', () => myDashas(env)),
   );
 
   server.registerTool(
@@ -67,7 +72,7 @@ export function kosmikServer(env: ToolEnv): McpServer {
       description: "Where Saturn, Jupiter, Rahu and Ketu are now against the person's chart (from the Moon and from the lagna), when they next change sign, and the person's Sade Sati and dhaiya periods across their life.",
       annotations: { title: 'Transits now', ...readOnly },
     },
-    () => run(() => transitsNow(env)),
+    () => run('transits_now', () => transitsNow(env)),
   );
 
   server.registerTool(
@@ -83,7 +88,7 @@ export function kosmikServer(env: ToolEnv): McpServer {
       },
       annotations: { title: 'Match kundali', ...readOnly },
     },
-    (args) => run(() => matchKundali(env, args)),
+    (args) => run('match_kundali', () => matchKundali(env, args)),
   );
 
   server.registerTool(
@@ -94,7 +99,7 @@ export function kosmikServer(env: ToolEnv): McpServer {
       inputSchema: { count: z.union([z.literal(1), z.literal(3)]).default(1).describe('1 card, or 3 for past, present, future') },
       annotations: { title: 'Draw tarot cards', readOnlyHint: true, openWorldHint: false },
     },
-    ({ count }) => run(() => drawTarot(env, count)),
+    ({ count }) => run('draw_tarot', () => drawTarot(env, count)),
   );
 
   server.registerTool(
@@ -108,7 +113,7 @@ export function kosmikServer(env: ToolEnv): McpServer {
       },
       annotations: { title: 'Bhagavad Gita verse', ...readOnly },
     },
-    ({ chapter, verse }) => run(() => findVerse(env, chapter, verse)),
+    ({ chapter, verse }) => run('find_verse', () => findVerse(env, chapter, verse)),
   );
 
   server.registerTool(
@@ -119,7 +124,7 @@ export function kosmikServer(env: ToolEnv): McpServer {
       inputSchema: { name: z.string().min(2).max(60).describe('Herb name, e.g. ashwagandha, tulsi, giloy') },
       annotations: { title: 'Ayurveda herb', ...readOnly },
     },
-    ({ name }) => run(() => herbInfo(env, name)),
+    ({ name }) => run('herb_info', () => herbInfo(env, name)),
   );
 
   server.registerTool(
@@ -129,7 +134,7 @@ export function kosmikServer(env: ToolEnv): McpServer {
       description: "The person's Ayurveda prakriti (Vata, Pitta, Kapha percentages) and current vikriti and agni, from the quizzes they took in Kosmik.",
       annotations: { title: 'My prakriti', ...readOnly },
     },
-    () => run(() => myPrakriti(env)),
+    () => run('my_prakriti', () => myPrakriti(env)),
   );
 
   server.registerTool(
@@ -139,7 +144,7 @@ export function kosmikServer(env: ToolEnv): McpServer {
       description: 'The in-depth Kosmik reports the person has bought (career, marriage and others), in full: verdict, sections, dated dasha periods, transits and remedies. Premium accounts only.',
       annotations: { title: 'My Kosmik reports', ...readOnly },
     },
-    () => run(() => myReports(env)),
+    () => run('my_reports', () => myReports(env)),
   );
 
   return server;
