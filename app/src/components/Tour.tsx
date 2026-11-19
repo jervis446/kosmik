@@ -6,7 +6,7 @@ import { tr } from "../lib/i18n";
 import { useShell } from "../lib/shell";
 import { type Colors, font, useTheme } from "../lib/theme";
 
-/** The guide to Kosmik in Claude and ChatGPT, on the website. */
+/** The guide to using Kosmik with Claude or ChatGPT, on the website. */
 export const MCP_GUIDE = "https://kosmik.asanoha.co.in/mcp.html";
 /** Remembered once someone has seen the walkthrough, so it opens on its own only once. */
 export const TOURED = "kosmik-toured";
@@ -67,7 +67,7 @@ const CARDS: Card[] = [
   },
   {
     glyph: "⌘",
-    title: "Kosmik in Claude and ChatGPT",
+    title: "Use Kosmik with Claude or ChatGPT",
     body: "Add Kosmik to Claude or ChatGPT and ask there too: they read your exact chart, dashas and transits from Kosmik. It doesn’t use your Kosmik questions: 11 lookups a day free, 51 on Premium.",
     tryIt: { label: "How to add it", go: () => Linking.openURL(MCP_GUIDE) },
   },
