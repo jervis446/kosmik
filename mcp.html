@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kosmik in Claude and ChatGPT</title>
+<meta name="description" content="Add Kosmik to Claude or ChatGPT: your AI reads your exact Vedic chart, dashas and transits from Kosmik. Setup guide, tools, limits and privacy.">
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;700&display=swap">
+<script>try { var t = localStorage.getItem('kosmik/theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<style>
+:root {
+  --bg: #0C0810; --surface: #1B101D; --surface-2: #201324; --line: rgba(240,170,210,.13);
+  --text: #FBF1F6; --muted: #B09AAD; --primary: #C2407F; --primary-soft: rgba(194,64,127,.18);
+  --accent: #F2A640; --accent-soft: rgba(242,166,64,.14); --success: #3FB68B; --on-primary: #FFFFFF;
+  --glow: radial-gradient(60% 50% at 15% 0%, rgba(194,64,127,.32), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(242,166,64,.16), transparent 70%);
+  --font: "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r: 22px; --r-sm: 14px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #FFF8F3; --surface: #FFFFFF; --surface-2: #FBEFF4; --line: rgba(70,20,46,.12);
+    --text: #26101C; --muted: #6F5866; --primary: #A0285F; --primary-soft: rgba(160,40,95,.10);
+    --accent: #C46A12; --accent-soft: rgba(196,106,18,.10); --success: #15803D;
+    --glow: radial-gradient(60% 50% at 15% 0%, rgba(160,40,95,.12), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(196,106,18,.10), transparent 70%);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #FFF8F3; --surface: #FFFFFF; --surface-2: #FBEFF4; --line: rgba(70,20,46,.12);
+  --text: #26101C; --muted: #6F5866; --primary: #A0285F; --primary-soft: rgba(160,40,95,.10);
+  --accent: #C46A12; --accent-soft: rgba(196,106,18,.10); --success: #15803D;
+  --glow: radial-gradient(60% 50% at 15% 0%, rgba(160,40,95,.12), transparent 70%), radial-gradient(45% 40% at 95% 10%, rgba(196,106,18,.10), transparent 70%);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--bg); background-image: var(--glow); background-repeat: no-repeat; color: var(--text); font: 400 16px/1.65 var(--font); }
+.wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+h1 { font-size: clamp(32px, 6vw, 52px); line-height: 1.06; font-weight: 800; }
+h2 { font-size: clamp(22px, 3.6vw, 30px); line-height: 1.15; font-weight: 800; }
+h3 { font-size: 18px; line-height: 1.3; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--primary); }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 10px; }
+.muted { color: var(--muted); }
+.eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+
+header { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 84%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+.bar { display: flex; align-items: center; gap: 10px; min-height: 60px; }
+.logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-weight: 800; font-size: 19px; margin-right: auto; }
+.iconbtn { min-width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; padding: 0 10px; }
+.open-btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 999px; background: var(--primary); color: var(--on-primary); text-decoration: none; font-weight: 700; font-size: 14px; white-space: nowrap; }
+@media (max-width: 400px) { .bar { gap: 6px; } .open-btn { padding: 0 12px; font-size: 13px; } }
+@media (max-width: 359px) { .logo span { display: none; } }
+
+main { display: grid; gap: 40px; padding: 40px 0 64px; }
+.hero { display: grid; gap: 14px; }
+.hero p { font-size: 18px; color: var(--muted); max-width: 62ch; }
+section { display: grid; gap: 14px; scroll-margin-top: 76px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: grid; gap: 12px; min-width: 0; }
+.addr { display: flex; gap: 8px; align-items: center; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px 8px 8px 14px; min-width: 0; }
+.addr code { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 600 14px/1.4 var(--mono); }
+.addr button { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; }
+.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 12px; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; }
+.steps li::before { content: counter(s); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary); font-weight: 800; font-size: 14px; }
+.steps b { font-weight: 700; }
+.note { background: var(--accent-soft); border-radius: var(--r-sm); padding: 12px 14px; font-size: 14px; }
+.grid2 { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.tools { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.tool { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 14px; display: grid; gap: 4px; min-width: 0; }
+.tool code { font: 700 13px var(--mono); color: var(--primary); overflow-wrap: anywhere; }
+.tool span { font-size: 14px; color: var(--muted); }
+.asks { display: grid; gap: 8px; }
+.ask { background: var(--surface); border: 1px solid var(--line); border-radius: 16px 16px 16px 4px; padding: 10px 14px; font-size: 15px; justify-self: start; max-width: 100%; }
+.limits { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.limits div { background: var(--primary-soft); border-radius: var(--r-sm); padding: 14px; display: grid; gap: 2px; }
+.limits b { font-size: 30px; line-height: 1.1; }
+.limits span { font-size: 14px; color: var(--muted); font-weight: 600; }
+.faq { display: grid; gap: 10px; }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 12px 16px; }
+summary { cursor: pointer; font-weight: 700; }
+details p { margin-top: 8px; color: var(--muted); }
+.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+.toc a { text-decoration: none; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 600; }
+footer { border-top: 1px solid var(--line); padding: 24px 0 40px; font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap bar">
+    <a class="logo" href="/" aria-label="Kosmik home"><img src="/logo.svg" alt="" width="30" height="30"><span>Kosmik</span></a>
+    <button class="iconbtn" id="langBtn" type="button" aria-label="Switch language to Hindi">हिं</button>
+    <button class="iconbtn" id="themeBtn" type="button" aria-label="Switch to light mode">☀︎</button>
+    <a class="open-btn" href="/chat">Open Kosmik</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <span class="eyebrow">Setup guide</span>
+    <h1>Kosmik in Claude and ChatGPT</h1>
+    <p>Add Kosmik to Claude or ChatGPT and ask about your chart there. Your AI reads your exact kundli, dashas and transits from Kosmik instead of guessing, then explains them in its own words.</p>
+    <nav class="toc" aria-label="On this page">
+      <a href="#claude">Claude</a><a href="#chatgpt">ChatGPT</a><a href="#try">What to ask</a><a href="#tools">Tools</a><a href="#limits">Limits and privacy</a><a href="#help">Problems</a>
+    </nav>
+  </div>
+
+  <section aria-labelledby="before">
+    <h2 id="before">Before you start</h2>
+    <div class="card">
+      <ol class="steps">
+        <li><span>Have a Kosmik account, and add your birth date, time and place in Kosmik (Account → My birth details). The chart tools read them from there.</span></li>
+        <li><span>Keep this connector address handy. You’ll paste it in the next step.</span></li>
+      </ol>
+      <div class="addr"><code data-noi18n>https://kosmik-mcp.prime-adarsh108.workers.dev/mcp</code><button type="button" data-copy="https://kosmik-mcp.prime-adarsh108.workers.dev/mcp">Copy</button></div>
+    </div>
+  </section>
+
+  <section id="claude" aria-labelledby="claude-h">
+    <h2 id="claude-h">Add it to Claude</h2>
+    <div class="card">
+      <ol class="steps">
+        <li><span data-i18n="c1">On claude.ai or the Claude desktop app, open <b>Settings → Connectors</b>.</span></li>
+        <li><span data-i18n="c2">Click <b>Add custom connector</b>. Name it <b>Kosmik</b> and paste the connector address. Click <b>Add</b>.</span></li>
+        <li><span data-i18n="c3">Kosmik now appears in your connectors list. Click it, then click <b>Connect</b>.</span></li>
+        <li><span data-i18n="c4">A Kosmik page opens. Sign in with your Asanoha account if asked, then tap <b>Allow</b>. You’re sent back to Claude.</span></li>
+        <li><span>In a chat, make sure Kosmik is turned on in the tools menu, and ask away. Once connected, it works in Claude’s phone app too.</span></li>
+      </ol>
+      <p class="note">Added but it isn’t working? It’s probably added but not connected yet: open Kosmik in the connectors list and click Connect. If no Kosmik page opens, allow pop-ups for claude.ai.</p>
+    </div>
+  </section>
+
+  <section id="chatgpt" aria-labelledby="chatgpt-h">
+    <h2 id="chatgpt-h">Add it to ChatGPT</h2>
+    <div class="card">
+      <ol class="steps">
+        <li><span data-i18n="g1">On chatgpt.com, open <b>Settings → Apps &amp; Connectors</b>. If you don’t see a way to add your own, turn on <b>Developer mode</b> under <b>Advanced settings</b>.</span></li>
+        <li><span data-i18n="g2">Click <b>Create</b>. Name it <b>Kosmik</b>, paste the connector address as the MCP server URL, and choose <b>OAuth</b> for authentication.</span></li>
+        <li><span data-i18n="g3">Click <b>Create</b>, then sign in with your Asanoha account on the Kosmik page and tap <b>Allow</b>.</span></li>
+        <li><span data-i18n="g4">In a new chat, pick Kosmik from the <b>+</b> menu and ask your question.</span></li>
+      </ol>
+      <p class="note">Adding your own connectors depends on your ChatGPT plan and region. If the option isn’t there, Claude is the easiest way to use Kosmik today.</p>
+    </div>
+  </section>
+
+  <section id="try" aria-labelledby="try-h">
+    <h2 id="try-h">What to ask</h2>
+    <div class="asks">
+      <div class="ask">Which dasha am I in right now, and when does it change?</div>
+      <div class="ask">Is Sade Sati running for me? When does it end?</div>
+      <div class="ask">Match my kundali with Priya, born 4 March 1996, 7:40 am, in Jaipur.</div>
+      <div class="ask">Draw 3 tarot cards for my career.</div>
+      <div class="ask">Quote Bhagavad Gita 2.47 and explain it simply.</div>
+      <div class="ask">Is ashwagandha right for my prakriti?</div>
+    </div>
+  </section>
+
+  <section id="tools" aria-labelledby="tools-h">
+    <h2 id="tools-h">What Kosmik gives your AI</h2>
+    <p class="muted">Nine tools. Each answers with exact facts from Kosmik’s own calculations and library, plus Kosmik’s rules: no fear, no invented dates, no gemstones or paid pujas, and a doctor first for health.</p>
+    <div class="tools">
+      <div class="tool"><code>my_kundali</code><span>Your birth chart: lagna, planets with sign, degree, nakshatra and house, yogas, and panchang at birth.</span></div>
+      <div class="tool"><code>my_dashas</code><span>Your Vimshottari dashas: the running periods and the full table, with exact dates.</span></div>
+      <div class="tool"><code>transits_now</code><span>Saturn, Jupiter, Rahu and Ketu against your chart today, and your Sade Sati periods.</span></div>
+      <div class="tool"><code>match_kundali</code><span>Guna Milan out of 36 and Manglik with a partner. The partner’s details are used once and not saved.</span></div>
+      <div class="tool"><code>draw_tarot</code><span>A fair draw of 1 or 3 cards from a full 78-card deck, with their meanings.</span></div>
+      <div class="tool"><code>find_verse</code><span>A Bhagavad Gita verse in Sanskrit and English, by chapter and verse.</span></div>
+      <div class="tool"><code>herb_info</code><span>An Ayurveda herb from Kosmik’s library: its properties, which doshas it suits, and cautions.</span></div>
+      <div class="tool"><code>my_prakriti</code><span>Your prakriti and vikriti from the quizzes you took in Kosmik.</span></div>
+      <div class="tool"><code>my_reports</code><span>The in-depth reports you’ve bought, in full. Premium only.</span></div>
+    </div>
+  </section>
+
+  <section id="limits" aria-labelledby="limits-h">
+    <h2 id="limits-h">Limits and privacy</h2>
+    <div class="grid2">
+      <div class="card">
+        <div class="limits">
+          <div><b>11</b><span>lookups a day, free</span></div>
+          <div><b>51</b><span>lookups a day on Premium</span></div>
+        </div>
+        <p class="muted">Each tool call is one lookup. Lookups don’t use your Kosmik questions, and they refill at midnight India time. <a href="/premium">See Premium</a></p>
+      </div>
+      <div class="card">
+        <h3>Your details stay yours</h3>
+        <p class="muted">Kosmik only reads: it never changes your account. Claude or ChatGPT sees your birth details and chart only when it calls a tool. You can disconnect any time in their settings, and delete your details in Kosmik whenever you like. <a href="/privacy">Privacy Policy</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="help" aria-labelledby="help-h">
+    <h2 id="help-h">Problems?</h2>
+    <div class="faq">
+      <details><summary>I added Kosmik but it doesn’t show as connected.</summary><p>Adding saves the connector; connecting signs you in. Open Kosmik in the connectors list and click Connect, then Allow on the Kosmik page.</p></details>
+      <details><summary>The Kosmik sign-in page didn’t open.</summary><p>Your browser probably blocked the pop-up. Allow pop-ups for claude.ai or chatgpt.com and click Connect again.</p></details>
+      <details><summary>It says to add my birth details first.</summary><p>Open Kosmik, go to Account → My birth details and save your date, time and place of birth. Then ask again.</p></details>
+      <details><summary>It says I’ve used today’s lookups.</summary><p>Free accounts get 11 lookups a day and Premium gets 51. They refill at midnight India time.</p></details>
+      <details><summary>How do I disconnect?</summary><p>In Claude or ChatGPT, open the connector settings, choose Kosmik and disconnect or remove it. Kosmik stops answering it right away.</p></details>
+      <details><summary>Something else?</summary><p>Email us at pankaj@asanoha.co.in, and tell us which app you used and what it said.</p></details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>© 2026 Asanoha LLP · <a href="/">Kosmik</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
+    <p style="margin-top:6px">Readings are spiritual guidance, not certainty, and not medical, legal or financial advice.</p>
+  </div>
+</footer>
+
+<script src="/page-i18n.js"></script>
+<script>
+(() => {
+  const HI = {
+    "Kosmik home": "Kosmik होम", "Open Kosmik": "Kosmik खोलें", "Switch to light mode": "लाइट मोड पर जाएँ", "Switch to dark mode": "डार्क मोड पर जाएँ",
+    "Setup guide": "सेटअप गाइड", "Kosmik in Claude and ChatGPT": "Claude और ChatGPT में Kosmik",
+    "Add Kosmik to Claude or ChatGPT and ask about your chart there. Your AI reads your exact kundli, dashas and transits from Kosmik instead of guessing, then explains them in its own words.": "Kosmik को Claude या ChatGPT में जोड़ें और वहीं अपनी कुंडली के बारे में पूछें। आपका AI अंदाज़ा लगाने के बजाय Kosmik से आपकी सटीक कुंडली, दशा और गोचर पढ़ता है, फिर अपने शब्दों में समझाता है।",
+    "On this page": "इस पेज पर", "What to ask": "क्या पूछें", "Tools": "टूल", "Limits and privacy": "सीमा और प्राइवेसी", "Problems": "दिक़्क़तें",
+    "Before you start": "शुरू करने से पहले",
+    "Have a Kosmik account, and add your birth date, time and place in Kosmik (Account → My birth details). The chart tools read them from there.": "Kosmik अकाउंट बनाएँ और Kosmik में अपनी जन्म तारीख़, समय और जगह डालें (अकाउंट → मेरी जन्म की जानकारी)। कुंडली वाले टूल इन्हें वहीं से पढ़ते हैं।",
+    "Keep this connector address handy. You’ll paste it in the next step.": "यह कनेक्टर पता पास रखें। अगले चरण में इसे पेस्ट करना होगा।",
+    "Copy": "कॉपी करें", "Copied": "कॉपी हो गया",
+    "Add it to Claude": "Claude में जोड़ें", "In a chat, make sure Kosmik is turned on in the tools menu, and ask away. Once connected, it works in Claude’s phone app too.": "चैट में देख लें कि टूल मेन्यू में Kosmik चालू है, और पूछिए। एक बार जुड़ने के बाद यह Claude के फ़ोन ऐप में भी चलता है।",
+    "Added but it isn’t working? It’s probably added but not connected yet: open Kosmik in the connectors list and click Connect. If no Kosmik page opens, allow pop-ups for claude.ai.": "जोड़ दिया पर चल नहीं रहा? शायद जुड़ा है पर कनेक्ट नहीं हुआ: कनेक्टर लिस्ट में Kosmik खोलें और Connect दबाएँ। अगर Kosmik का पेज न खुले, तो claude.ai के लिए पॉप-अप की अनुमति दें।",
+    "Add it to ChatGPT": "ChatGPT में जोड़ें", "Adding your own connectors depends on your ChatGPT plan and region. If the option isn’t there, Claude is the easiest way to use Kosmik today.": "अपना कनेक्टर जोड़ना आपके ChatGPT प्लान और देश पर निर्भर है। अगर विकल्प न दिखे, तो आज Kosmik इस्तेमाल करने का सबसे आसान तरीका Claude है।",
+    "Which dasha am I in right now, and when does it change?": "मैं अभी किस दशा में हूँ, और यह कब बदलेगी?",
+    "Is Sade Sati running for me? When does it end?": "क्या मेरी साढ़े साती चल रही है? यह कब ख़त्म होगी?",
+    "Match my kundali with Priya, born 4 March 1996, 7:40 am, in Jaipur.": "मेरी कुंडली प्रिया से मिलाएँ, जन्म 4 मार्च 1996, सुबह 7:40, जयपुर।",
+    "Draw 3 tarot cards for my career.": "मेरे करियर के लिए 3 टैरो कार्ड निकालें।",
+    "Quote Bhagavad Gita 2.47 and explain it simply.": "भगवद गीता 2.47 बताइए और आसान शब्दों में समझाइए।",
+    "Is ashwagandha right for my prakriti?": "क्या अश्वगंधा मेरी प्रकृति के लिए ठीक है?",
+    "What Kosmik gives your AI": "Kosmik आपके AI को क्या देता है",
+    "Nine tools. Each answers with exact facts from Kosmik’s own calculations and library, plus Kosmik’s rules: no fear, no invented dates, no gemstones or paid pujas, and a doctor first for health.": "नौ टूल। हर टूल Kosmik की अपनी गणना और लाइब्रेरी से सटीक तथ्य देता है, साथ में Kosmik के नियम: कोई डर नहीं, कोई गढ़ी हुई तारीख़ नहीं, कोई रत्न या पैसे वाली पूजा नहीं, और सेहत के लिए पहले डॉक्टर।",
+    "Your birth chart: lagna, planets with sign, degree, nakshatra and house, yogas, and panchang at birth.": "आपकी जन्म कुंडली: लग्न, ग्रहों की राशि, अंश, नक्षत्र और भाव, योग, और जन्म का पंचांग।",
+    "Your Vimshottari dashas: the running periods and the full table, with exact dates.": "आपकी विंशोत्तरी दशा: चल रही दशाएँ और पूरी तालिका, सटीक तारीख़ों के साथ।",
+    "Saturn, Jupiter, Rahu and Ketu against your chart today, and your Sade Sati periods.": "आज आपकी कुंडली पर शनि, गुरु, राहु और केतु, और आपकी साढ़े साती के समय।",
+    "Guna Milan out of 36 and Manglik with a partner. The partner’s details are used once and not saved.": "पार्टनर के साथ 36 में से गुण मिलान और मांगलिक। पार्टनर की जानकारी एक बार इस्तेमाल होती है, सेव नहीं होती।",
+    "A fair draw of 1 or 3 cards from a full 78-card deck, with their meanings.": "पूरी 78 कार्ड की गड्डी से 1 या 3 कार्ड का निष्पक्ष ड्रॉ, उनके अर्थ के साथ।",
+    "A Bhagavad Gita verse in Sanskrit and English, by chapter and verse.": "अध्याय और श्लोक संख्या से भगवद गीता का श्लोक, संस्कृत और अंग्रेज़ी में।",
+    "An Ayurveda herb from Kosmik’s library: its properties, which doshas it suits, and cautions.": "Kosmik की लाइब्रेरी से आयुर्वेद की जड़ी-बूटी: उसके गुण, किन दोषों में ठीक है, और सावधानियाँ।",
+    "Your prakriti and vikriti from the quizzes you took in Kosmik.": "Kosmik में दी गई क्विज़ से आपकी प्रकृति और विकृति।",
+    "The in-depth reports you’ve bought, in full. Premium only.": "आपकी ख़रीदी हुई विस्तृत रिपोर्ट, पूरी। सिर्फ़ प्रीमियम।",
+    "lookups a day, free": "लुकअप रोज़, फ़्री", "lookups a day on Premium": "लुकअप रोज़, प्रीमियम पर",
+    "Each tool call is one lookup. Lookups don’t use your Kosmik questions, and they refill at midnight India time.": "हर टूल कॉल एक लुकअप है। लुकअप में आपके Kosmik सवाल खर्च नहीं होते, और ये भारत के समय से आधी रात को फिर भर जाते हैं।",
+    "See Premium": "प्रीमियम देखें", "Your details stay yours": "आपकी जानकारी आपकी रहती है",
+    "Kosmik only reads: it never changes your account. Claude or ChatGPT sees your birth details and chart only when it calls a tool. You can disconnect any time in their settings, and delete your details in Kosmik whenever you like.": "Kosmik सिर्फ़ पढ़ता है: आपके अकाउंट में कभी कुछ नहीं बदलता। Claude या ChatGPT आपकी जन्म की जानकारी और कुंडली तभी देखते हैं जब वे कोई टूल चलाते हैं। आप उनकी सेटिंग में कभी भी डिसकनेक्ट कर सकते हैं, और Kosmik में अपनी जानकारी जब चाहें हटा सकते हैं।",
+    "Privacy Policy": "प्राइवेसी पॉलिसी", "Problems?": "कोई दिक़्क़त?",
+    "I added Kosmik but it doesn’t show as connected.": "मैंने Kosmik जोड़ा पर वह कनेक्टेड नहीं दिख रहा।",
+    "Adding saves the connector; connecting signs you in. Open Kosmik in the connectors list and click Connect, then Allow on the Kosmik page.": "जोड़ने से कनेक्टर सेव होता है; कनेक्ट करने से साइन इन होता है। कनेक्टर लिस्ट में Kosmik खोलें और Connect दबाएँ, फिर Kosmik के पेज पर Allow दबाएँ।",
+    "The Kosmik sign-in page didn’t open.": "Kosmik का साइन-इन पेज नहीं खुला।",
+    "Your browser probably blocked the pop-up. Allow pop-ups for claude.ai or chatgpt.com and click Connect again.": "शायद आपके ब्राउज़र ने पॉप-अप रोक दिया। claude.ai या chatgpt.com के लिए पॉप-अप की अनुमति दें और फिर से Connect दबाएँ।",
+    "It says to add my birth details first.": "यह कहता है कि पहले जन्म की जानकारी डालें।",
+    "Open Kosmik, go to Account → My birth details and save your date, time and place of birth. Then ask again.": "Kosmik खोलें, अकाउंट → मेरी जन्म की जानकारी में जाकर अपनी जन्म तारीख़, समय और जगह सेव करें। फिर दोबारा पूछें।",
+    "It says I’ve used today’s lookups.": "यह कहता है कि आज के लुकअप ख़त्म हो गए।",
+    "Free accounts get 11 lookups a day and Premium gets 51. They refill at midnight India time.": "फ़्री अकाउंट को रोज़ 11 लुकअप मिलते हैं और प्रीमियम को 51। ये भारत के समय से आधी रात को फिर भर जाते हैं।",
+    "How do I disconnect?": "डिसकनेक्ट कैसे करूँ?",
+    "In Claude or ChatGPT, open the connector settings, choose Kosmik and disconnect or remove it. Kosmik stops answering it right away.": "Claude या ChatGPT में कनेक्टर सेटिंग खोलें, Kosmik चुनें और डिसकनेक्ट करें या हटा दें। Kosmik तुरंत जवाब देना बंद कर देता है।",
+    "Something else?": "कुछ और?", "Email us at pankaj@asanoha.co.in, and tell us which app you used and what it said.": "हमें pankaj@asanoha.co.in पर ईमेल करें, और बताएँ कि कौन-सा ऐप इस्तेमाल किया और उसने क्या कहा।",
+    "Privacy": "प्राइवेसी", "Terms": "शर्तें",
+    "Readings are spiritual guidance, not certainty, and not medical, legal or financial advice.": "रीडिंग आध्यात्मिक मार्गदर्शन हैं, निश्चितता नहीं, और न ही मेडिकल, क़ानूनी या वित्तीय सलाह।",
+  };
+  // Steps with bold words are translated whole, so the Hindi word order reads right.
+  const STEPS_HI = {
+      "c1": "claude.ai या Claude डेस्कटॉप ऐप में <b>Settings → Connectors</b> खोलें।",
+      "c2": "<b>Add custom connector</b> पर क्लिक करें। नाम <b>Kosmik</b> रखें और कनेक्टर का पता पेस्ट करें। फिर <b>Add</b> दबाएँ।",
+      "c3": "अब Kosmik आपकी कनेक्टर लिस्ट में दिखेगा। उस पर क्लिक करें, फिर <b>Connect</b> दबाएँ।",
+      "c4": "Kosmik का एक पेज खुलेगा। पूछे तो अपने Asanoha अकाउंट से साइन इन करें, फिर <b>Allow</b> दबाएँ। आप वापस Claude पर पहुँच जाएँगे।",
+      "g1": "chatgpt.com पर <b>Settings → Apps &amp; Connectors</b> खोलें। अगर अपना कनेक्टर जोड़ने का विकल्प न दिखे, तो <b>Advanced settings</b> में <b>Developer mode</b> चालू करें।",
+      "g2": "<b>Create</b> पर क्लिक करें। नाम <b>Kosmik</b> रखें, MCP server URL में कनेक्टर का पता पेस्ट करें, और ऑथेंटिकेशन के लिए <b>OAuth</b> चुनें।",
+      "g3": "<b>Create</b> दबाएँ, फिर Kosmik के पेज पर अपने Asanoha अकाउंट से साइन इन करें और <b>Allow</b> दबाएँ।",
+      "g4": "नई चैट में <b>+</b> मेन्यू से Kosmik चुनें और अपना सवाल पूछें।"
+  };
+  const langBtn = document.getElementById('langBtn');
+  const i18n = kosmikI18n({
+    text: HI,
+    html: STEPS_HI,
+    onChange: (lang) => {
+      langBtn.textContent = lang === 'en' ? 'हिं' : 'EN';
+      langBtn.setAttribute('aria-label', lang === 'en' ? 'Switch language to Hindi' : 'Switch language to English');
+      document.title = lang === 'en' ? 'Kosmik in Claude and ChatGPT' : 'Claude और ChatGPT में Kosmik';
+    },
+  });
+  langBtn.addEventListener('click', () => i18n.toggle());
+
+  // Day / night: the same saved choice as the landing page and the app.
+  const root = document.documentElement;
+  const themeBtn = document.getElementById('themeBtn');
+  const isNight = () => root.dataset.theme ? root.dataset.theme === 'dark' : !matchMedia('(prefers-color-scheme: light)').matches;
+  const paint = () => { const n = isNight(); themeBtn.textContent = n ? '☀︎' : '☾'; themeBtn.setAttribute('aria-label', n ? 'Switch to light mode' : 'Switch to dark mode'); };
+  paint();
+  themeBtn.addEventListener('click', () => { root.dataset.theme = isNight() ? 'light' : 'dark'; try { localStorage.setItem('kosmik/theme', root.dataset.theme); } catch (e) {} paint(); });
+
+  document.querySelectorAll('[data-copy]').forEach((btn) => btn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(btn.dataset.copy); btn.textContent = 'Copied'; } catch { btn.textContent = btn.dataset.copy; }
+    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+  }));
+})();
+</script>
+</body>
+</html>
