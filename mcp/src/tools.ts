@@ -8,6 +8,7 @@ import { runCalculator } from '../../api/src/calculators.ts';
 import { D1Profiles, type Place, type Profile, searchPlaces, toBirth } from '../../api/src/profiles.ts';
 import { D1Library, D1Usage } from '../../api/src/store.ts';
 import type { Block } from '../../api/src/types.ts';
+import type { ToolCall } from './analytics.ts';
 import { TAROT } from '../../api/src/lib/catalog.ts';
 import { calculateChart } from '../../api/src/lib/chart.ts';
 import { HERB_INDEX } from '../../api/src/lib/herb-index.ts';
@@ -23,6 +24,8 @@ export type ToolEnv = {
   /** A random whole number below n (tests pass a fixed one). */
   random?: (n: number) => number;
   searchPlaces?: (q: string) => Promise<Place[]>;
+  /** Told about every tool call (for PostHog); never given the inputs. */
+  track?: (call: ToolCall) => void;
 };
 
 export const SITE = 'https://kosmik.asanoha.co.in';

@@ -7,12 +7,15 @@ import { OAuthProvider } from '@cloudflare/workers-oauth-provider';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 
 import { handleAuthorize, handleConnectCode, handleDeny, handleFinish, type AuthEnv } from './authorize.ts';
+import { sendToPostHog, toolCallEvent, type ToolCall } from './analytics.ts';
 import { kosmikServer } from './server.ts';
 
 export type Env = AuthEnv & {
   DB: D1Database;
   /** This Worker's MCP address, e.g. https://kosmik-mcp.prime-adarsh108.workers.dev/mcp */
   MCP_URL: string;
+  /** PostHog project key (secret: npx wrangler secret put POSTHOG_KEY). Without it nothing is sent. */
+  POSTHOG_KEY?: string;
 };
 
 /** One stateless MCP exchange for the signed-in account (ctx.props comes from the OAuth grant). */
@@ -20,7 +23,13 @@ const mcp = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext & { props?: { userId?: string } }): Promise<Response> {
     const userId = ctx.props?.userId;
     if (!userId) return new Response('Unauthorized', { status: 401 });
-    const server = kosmikServer({ db: env.DB, userId, now: new Date() });
+    const now = new Date();
+    const key = env.POSTHOG_KEY;
+    const userAgent = request.headers.get('user-agent');
+    const track = key
+      ? (call: ToolCall) => ctx.waitUntil(sendToPostHog(toolCallEvent({ ...call, key, userId, userAgent, now })))
+      : undefined;
+    const server = kosmikServer({ db: env.DB, userId, now, track });
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     await server.connect(transport);
     return transport.handleRequest(request);

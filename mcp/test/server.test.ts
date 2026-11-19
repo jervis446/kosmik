@@ -9,7 +9,10 @@ import { kosmikServer, TOOL_NAMES } from '../src/server.ts';
 
 const NOW = new Date('2026-11-19T06:00:00Z');
 
+type Tracked = { tool: string; outcome: string; premium: boolean };
+
 async function connect(opts: { profile?: boolean } = {}) {
+  const tracked: Tracked[] = [];
   const { db, raw } = d1();
   if (opts.profile !== false) {
     raw.prepare(
@@ -17,12 +20,12 @@ async function connect(opts: { profile?: boolean } = {}) {
        VALUES ('u1', 'Kiran', '1981-12-13', '01:20', 'Nashik', 20, 73.8667, 330, 0, 0, 'female')`,
     ).run();
   }
-  const server = kosmikServer({ db, userId: 'u1', now: NOW, searchPlaces: async () => [] });
+  const server = kosmikServer({ db, userId: 'u1', now: NOW, searchPlaces: async () => [], track: (t) => tracked.push(t) });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(a);
   const client = new Client({ name: 'test', version: '1.0.0' });
   await client.connect(b);
-  return { client, raw };
+  return { client, raw, tracked };
 }
 
 const text = (r: { content?: unknown }) => ((r.content as { type: string; text: string }[])[0]).text;
@@ -69,4 +72,17 @@ test('the server introduces itself with Kosmik’s icon, so Claude and ChatGPT c
   const icons = info.icons ?? [];
   assert.ok(icons.some((i) => i.src === 'https://kosmik.asanoha.co.in/logo.svg' && i.mimeType === 'image/svg+xml'), 'the SVG logo');
   assert.ok(icons.some((i) => i.src === 'https://kosmik.asanoha.co.in/icon-192.png' && i.mimeType === 'image/png'), 'a PNG for apps that skip SVG');
+});
+
+test('every tool call is tracked with its tool and outcome: ok, a readable error, or the daily limit', async () => {
+  const { client, raw, tracked } = await connect();
+  await client.callTool({ name: 'my_kundali', arguments: {} });
+  await client.callTool({ name: 'match_kundali', arguments: { birthDate: '1980-05-10', place: 'Nowhere' } });
+  raw.prepare("UPDATE usage SET count = 11 WHERE subject = 'mcp:u1'").run();
+  await client.callTool({ name: 'draw_tarot', arguments: { count: 1 } });
+  assert.deepEqual(tracked, [
+    { tool: 'my_kundali', outcome: 'ok', premium: false },
+    { tool: 'match_kundali', outcome: 'error', premium: false },
+    { tool: 'draw_tarot', outcome: 'limit', premium: false },
+  ]);
 });
