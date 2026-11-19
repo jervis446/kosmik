@@ -23,6 +23,17 @@ rmSync(out, { recursive: true, force: true });
 cpSync(dist, out, { recursive: true });
 renameSync(new URL('index.html', out), new URL('404.html', out));
 renameSync(new URL('landing.html', out), new URL('index.html', out));
+// PostHog for the static pages: the same public project key and host as the app build.
+const phKey = process.env.EXPO_PUBLIC_POSTHOG_KEY ?? '';
+if (phKey) {
+  if (!/^phc_[A-Za-z0-9]+$/.test(phKey)) throw new Error('EXPO_PUBLIC_POSTHOG_KEY should look like phc_…');
+  const phHost = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
+  if (!/^https:\/\/(us|eu)\.i\.posthog\.com$/.test(phHost)) throw new Error('EXPO_PUBLIC_POSTHOG_HOST should be https://us.i.posthog.com or https://eu.i.posthog.com');
+  const phFile = new URL('ph.js', out);
+  const src = readFileSync(phFile, 'utf8');
+  if (!src.includes("var KEY = '';")) throw new Error('public/ph.js changed: update build-pages.mjs');
+  writeFileSync(phFile, src.replace("var KEY = '';", `var KEY = '${phKey}';`).replace("var HOST = 'https://us.i.posthog.com';", `var HOST = '${phHost}';`));
+}
 writeFileSync(new URL('CNAME', out), `${DOMAIN}\n`);
 writeFileSync(new URL('.nojekyll', out), '');
 console.log(`GitHub Pages site ready in app/pages for ${DOMAIN}`);

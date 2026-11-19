@@ -6,7 +6,13 @@
  *   numbers, names or birth details. GoatCounter skips localhost by itself.
  * - Errors (crashes, failed requests) go to Kosmik's own error log (POST /api/log), readable by the
  *   owner at /admin. Technical details only; the server scrubs anything that looks personal.
+ * - PostHog (product analytics for the beta), only when EXPO_PUBLIC_POSTHOG_KEY is set at build time
+ *   and never on localhost: the same page views and events, linked to the signed-in account (user ID
+ *   and email) so the owner can follow each person's path, plus session recordings. All text and
+ *   every input are masked in recordings, and element text isn't collected, so questions, answers,
+ *   names and birth details never reach PostHog.
  */
+import { posthog } from "posthog-js";
 import { Platform } from "react-native";
 
 const BASE = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
@@ -14,6 +20,9 @@ const BASE = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
 export const GOATCOUNTER_CODE =
   process.env.EXPO_PUBLIC_GOATCOUNTER_CODE ?? "kosmikasanoha";
 const RELEASE = process.env.EXPO_PUBLIC_RELEASE ?? "web";
+/** PostHog project key (public, starts "phc_") and region host. No key: PostHog stays off. */
+const POSTHOG_KEY = process.env.EXPO_PUBLIC_POSTHOG_KEY ?? "";
+const POSTHOG_HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
 
 type GC = {
   count: (o: { path: string; title?: string; event?: boolean }) => void;
@@ -23,6 +32,36 @@ type Win = typeof globalThis & { goatcounter?: GC & { no_onload?: boolean } };
 const web = Platform.OS === "web" && typeof document !== "undefined";
 const queue: { path: string; title?: string; event?: boolean }[] = [];
 let started = false;
+let ph = false;
+
+const localHost = () => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+
+/** PostHog, with everything personal masked. Shared settings with the landing page (public/ph.js). */
+function startPostHog() {
+  if (!POSTHOG_KEY || localHost()) return;
+  posthog.init(POSTHOG_KEY, {
+    api_host: POSTHOG_HOST,
+    person_profiles: "identified_only",
+    capture_pageview: false, // pageView() sends them, with chat ids removed
+    capture_pageleave: true,
+    autocapture: true,
+    mask_all_text: true,
+    mask_all_element_attributes: true,
+    session_recording: { maskAllInputs: true, maskTextSelector: "*" },
+  });
+  posthog.register({ app: "kosmik-web", release: RELEASE });
+  ph = true;
+}
+
+/** Links what this browser does to the signed-in account; null on sign-out. */
+export function identifyUser(user: { id: string; email?: string | null } | null) {
+  if (!ph) return;
+  if (!user) {
+    posthog.reset();
+    return;
+  }
+  if (posthog.get_distinct_id() !== user.id) posthog.identify(user.id, user.email ? { email: user.email } : {});
+}
 
 function gc(): GC | null {
   const g = (globalThis as Win).goatcounter;
@@ -39,6 +78,11 @@ function flush() {
 export function startAnalytics() {
   if (!web || started) return;
   started = true;
+  try {
+    startPostHog();
+  } catch {
+    // analytics must never break the app
+  }
   (globalThis as Win).goatcounter = { no_onload: true } as Win["goatcounter"];
   const s = document.createElement("script");
   s.async = true;
@@ -64,12 +108,15 @@ const send = (o: { path: string; title?: string; event?: boolean }) => {
 
 /** A page view. Chat ids are removed, so every chat counts as /chat/:id. */
 export function pageView(path: string) {
-  send({ path: path.replace(/\/chat\/[^/]+/, "/chat/:id") });
+  const clean = path.replace(/\/chat\/[^/]+/, "/chat/:id");
+  send({ path: clean });
+  if (ph) posthog.capture("$pageview", { $current_url: location.origin + clean, path: clean });
 }
 
 /** An action, e.g. track("ask/ai") or track("phone/verified"). */
 export function track(name: string) {
   send({ path: name, title: name, event: true });
+  if (ph) posthog.capture(name);
 }
 
 const reported = new Map<string, number>();
