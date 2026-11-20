@@ -481,6 +481,26 @@ const strings = (x: unknown, max: number, len: number) =>
         .slice(0, max)
     : [];
 
+/** The chat request with Gemini's optional extras removed, or null when it has none to remove. */
+export function plainSettings(body: Record<string, unknown>): Record<string, unknown> | null {
+  const format = (body.response_format as { type?: string } | undefined)?.type;
+  if (body.reasoning_effort === undefined && format !== 'json_schema') return null;
+  const { reasoning_effort: _effort, ...rest } = body;
+  return format === 'json_schema' ? { ...rest, response_format: { type: 'json_object' } } : rest;
+}
+
+/** A short description of a chat request's settings for the error log (never its text). */
+function settingsOf(body: Record<string, unknown>): string {
+  const format = (body.response_format as { type?: string } | undefined)?.type ?? 'text';
+  return `model=${body.model} effort=${body.reasoning_effort ?? 'unset'} format=${format} max_tokens=${body.max_tokens ?? 'unset'}${body.stream ? ' stream' : ''}`;
+}
+
+function failed(path: string, status: number, detail: string, body: Record<string, unknown>): never {
+  // Gemini error bodies never echo the key, but keep the log short anyway.
+  const settings = path === '/chat/completions' ? ` [${settingsOf(body)}]` : '';
+  throw new Error(`Gemini ${path} failed (${status}): ${detail.slice(0, 200)}${settings}`);
+}
+
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
 const TIMEOUT_MS = 20_000;
 
@@ -531,17 +551,8 @@ export class GeminiAi implements AiClient {
       const out = (await this.post('/chat/completions', body)) as { choices?: { message?: { content?: string } }[] };
       return out.choices?.[0]?.message?.content;
     }
-    if (!this.apiKey) throw new Error('GEMINI_API_KEY is not set');
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` },
-      body: JSON.stringify({ ...body, stream: true }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    if (!res.ok || !res.body) {
-      const detail = (await res.text().catch(() => '')).slice(0, 200);
-      throw new Error(`Gemini /chat/completions failed (${res.status}): ${detail}`);
-    }
+    const res = await this.send('/chat/completions', { ...body, stream: true });
+    if (!res.body) throw new Error('Gemini /chat/completions sent no body');
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -574,20 +585,36 @@ export class GeminiAi implements AiClient {
     return content;
   }
 
-  private async post(path: string, body: unknown): Promise<unknown> {
+  private async post(path: string, body: Record<string, unknown>): Promise<unknown> {
+    return (await this.send(path, body)).json();
+  }
+
+  /**
+   * One request to Gemini, returning the response only when it worked. A chat request Gemini calls an
+   * "invalid argument" is tried once more with plain settings (no thinking level, plain JSON output),
+   * so the person gets an answer instead of "busy". The error names the settings sent, for the log.
+   */
+  private async send(path: string, body: Record<string, unknown>): Promise<Response> {
     if (!this.apiKey) throw new Error('GEMINI_API_KEY is not set');
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    if (!res.ok) {
-      // Gemini error bodies never echo the key, but keep the log short anyway.
-      const detail = (await res.text().catch(() => '')).slice(0, 200);
-      throw new Error(`Gemini ${path} failed (${res.status}): ${detail}`);
+    const once = (b: Record<string, unknown>) =>
+      fetch(`${this.baseUrl}${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` },
+        body: JSON.stringify(b),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    let sent = body;
+    let res = await once(sent);
+    if (res.status === 400 && path === '/chat/completions') {
+      const detail = await res.text().catch(() => '');
+      const simpler = plainSettings(body);
+      if (!/INVALID_ARGUMENT/.test(detail) || !simpler) return failed(path, res.status, detail, sent);
+      console.warn(`Gemini rejected ${settingsOf(body)}; trying plain settings`);
+      sent = simpler;
+      res = await once(sent);
     }
-    return res.json();
+    if (!res.ok) return failed(path, res.status, await res.text().catch(() => ''), sent);
+    return res;
   }
 
   async embed(text: string): Promise<number[]> {
