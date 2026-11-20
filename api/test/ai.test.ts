@@ -221,3 +221,52 @@ test('cost: answers are kept short (120 words, 180 with a chart) and capped in t
   await new GeminiAi({ apiKey: 'k' }).answer('q', 'en', sources, false, 'CHART: x');
   assert.ok((calls[0].body.max_tokens as number) <= 2000, 'a chart answer is capped at 2000 tokens');
 });
+
+const INVALID = [{ error: { code: 400, message: 'Request contains an invalid argument.', status: 'INVALID_ARGUMENT' } }];
+const GOOD = { choices: [{ message: { content: '{"answer": "Shani in the 7th asks for patience.", "cited": [], "personal": false, "off_topic": false, "follow_ups": [], "behind": []}' } }] };
+
+test('a request Gemini calls invalid is tried once more with plain settings', async () => {
+  const calls = fakeFetch((c) => (c.body.reasoning_effort !== undefined ? { status: 400, json: INVALID } : { json: GOOD }));
+  const ai = new GeminiAi({ apiKey: 'k' });
+  const g = await ai.answer('सातवें भाव में शनि का क्या अर्थ है?', 'hi', sources);
+  assert.equal(g.answer, 'Shani in the 7th asks for patience.');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].body.reasoning_effort, undefined);
+  assert.deepEqual(calls[1].body.response_format, { type: 'json_object' });
+  assert.deepEqual(calls[1].body.messages, calls[0].body.messages);
+});
+
+test('a streamed request Gemini calls invalid is also tried once more with plain settings', async () => {
+  const calls: Record<string, unknown>[] = [];
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    calls.push(body);
+    if (body.reasoning_effort !== undefined) return new Response(JSON.stringify(INVALID), { status: 400 });
+    return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: GOOD.choices[0].message.content } }] })}\n\ndata: [DONE]\n\n`, { status: 200 });
+  }) as typeof fetch;
+  const ai = new GeminiAi({ apiKey: 'k' });
+  ai.onText = () => {};
+  const g = await ai.answer('3 टैरो कार्ड निकालें', 'hi', sources);
+  assert.equal(g.answer, 'Shani in the 7th asks for patience.');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].reasoning_effort, undefined);
+});
+
+test('when plain settings fail too, the error names the model and settings sent', async () => {
+  const calls = fakeFetch(() => ({ status: 400, json: INVALID }));
+  const ai = new GeminiAi({ apiKey: 'k', model: 'gemini-x' });
+  await assert.rejects(ai.answer('q', 'en', sources), (e: Error) => {
+    assert.match(e.message, /\(400\)/);
+    assert.match(e.message, /model=gemini-x/);
+    assert.match(e.message, /format=json_object/);
+    return true;
+  });
+  assert.equal(calls.length, 2);
+});
+
+test('other errors are not retried', async () => {
+  const calls = fakeFetch(() => ({ status: 429, json: [{ error: { code: 429, status: 'RESOURCE_EXHAUSTED' } }] }));
+  const ai = new GeminiAi({ apiKey: 'k' });
+  await assert.rejects(ai.answer('q', 'en', sources), /\(429\)/);
+  assert.equal(calls.length, 1);
+});
